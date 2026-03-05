@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import { prisma } from '@/lib/prisma';
 import { ISSUE_LIBRARY } from '@/lib/issue-library';
 import { clamp, normalizeSpace, textContainsAny } from '@/lib/utils';
 import type {
@@ -120,6 +121,57 @@ const runPerformanceHeuristic = async (url: string): Promise<number> => {
 };
 
 const getCompetitors = async (city: string): Promise<Competitor[]> => {
+  const cityKey = city.trim().toLowerCase();
+  const cacheCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  // 24h cache from previous scans to reduce SERP API spend.
+  try {
+    const recent = await prisma.scan.findFirst({
+      where: {
+        city: { equals: city, mode: 'insensitive' },
+        createdAt: { gte: cacheCutoff }
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { competitorsJson: true }
+    });
+
+    if (recent?.competitorsJson) {
+      const parsed = JSON.parse(recent.competitorsJson) as unknown;
+      if (Array.isArray(parsed)) {
+        const normalized = parsed
+          .map((item, idx) => {
+            const row = item as Record<string, unknown>;
+            const name =
+              typeof row?.name === 'string' && row.name.trim()
+                ? row.name
+                : `Competitor ${idx + 1}`;
+            return {
+              name,
+              url: typeof row?.url === 'string' ? row.url : undefined,
+              note:
+                typeof row?.note === 'string'
+                  ? row.note
+                  : 'Live competitor signal from recent cached SERP data.',
+              differentiatorGuess:
+                typeof row?.differentiatorGuess === 'string'
+                  ? row.differentiatorGuess
+                  : 'Likely stronger local pack visibility and review recency.'
+            } as Competitor;
+          })
+          .slice(0, 3);
+
+        if (normalized.length > 0) {
+          return normalized.map((c) => ({
+            ...c,
+            note: `Cached within 24h for ${cityKey}.`
+          }));
+        }
+      }
+    }
+  } catch {
+    // Cache read should never block scan flow.
+  }
+
   const serpKey = process.env.SERP_API_KEY;
   if (serpKey) {
     try {
