@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Werkheiser Collision // Case Study // Big Dot Digital</title>
+    <meta name="description" content="Werkheiser Collision Center case study: +412% qualified estimate volume through OEM positioning and high-intent SEO infrastructure." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --color-primary: #dc2f18;
+        --color-dark: #0f1112;
+        --color-ink: #000000;
+        --color-paper: #eaeaea;
+        --font-display: 'Anton', sans-serif;
+        --font-mono: 'JetBrains Mono', monospace;
+        --noise-url: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.1'/%3E%3C/svg%3E");
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      body {
+        background-color: var(--color-dark);
+        color: var(--color-paper);
+        font-family: var(--font-mono);
+        overflow-x: hidden;
+        font-size: 13px;
+        line-height: 1.6;
+        background-image: var(--noise-url);
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .uppercase { text-transform: uppercase; }
+      .mono { font-family: var(--font-mono); letter-spacing: 0.5px; }
+      .display { font-family: var(--font-display); line-height: 0.85; text-transform: uppercase; }
+
+      nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        padding: 24px 4rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        z-index: 100;
+        mix-blend-mode: difference;
+        color: #fff;
+      }
+
+      .logo {
+        font-weight: 700;
+        font-size: 14px;
+        letter-spacing: 1px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+
+      .nav-links a {
+        font-size: 11px;
+        opacity: 0.8;
+      }
+
+      .pill-badge {
+        border: 1px solid currentColor;
+        border-radius: 50px;
+        padding: 4px 12px;
+        font-size: 10px;
+        font-weight: 700;
+      }
+
+      .back-link {
+        position: fixed;
+        bottom: 30px;
+        left: 30px;
+        z-index: 100;
+        background: var(--color-dark);
+        border: 1px solid var(--color-primary);
+        color: var(--color-paper);
+        padding: 10px 18px;
+        font-size: 10px;
+      }
+
+      .hero-case {
+        height: 85vh;
+        position: relative;
+        display: flex;
+        align-items: flex-end;
+        padding: 4rem;
+        overflow: hidden;
+        border-bottom: 2px solid var(--color-primary);
+      }
+
+      .hero-bg {
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: linear-gradient(rgba(15, 17, 18, 0.4), rgba(15, 17, 18, 0.9)),
+          url('https://images.unsplash.com/photo-1590400038491-0f46e50774a3?q=80&w=2560&auto=format&fit=crop');
+        background-size: cover;
+        background-position: center;
+        filter: grayscale(100%);
+      }
+
+      .hero-content {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: flex-end;
+        gap: 2rem;
+      }
+
+      .hero-title h1 {
+        font-size: clamp(5rem, 12vw, 14rem);
+        margin-bottom: 1rem;
+      }
+
+      .hero-meta {
+        font-size: 14px;
+        opacity: 0.7;
+      }
+
+      .hero-stat-giant {
+        background: var(--color-primary);
+        color: var(--color-ink);
+        padding: 2.5rem;
+        text-align: right;
+      }
+
+      .hero-stat-giant .value { font-size: clamp(4rem, 10vw, 11rem); }
+      .hero-stat-giant .label { font-size: 14px; font-weight: 700; margin-top: -1rem; }
+
+      .section-padding { padding: 7rem 4rem; }
+
+      .grid-two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 5rem;
+      }
+
+      .section-header {
+        margin-bottom: 2rem;
+        border-left: 4px solid var(--color-primary);
+        padding-left: 1.2rem;
+      }
+
+      .section-header h3 { font-size: 2rem; }
+
+      .content-body p {
+        margin-bottom: 1.2rem;
+        opacity: 0.82;
+      }
+
+      .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        margin-top: 3rem;
+      }
+
+      .metric-item {
+        padding: 2.4rem;
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+        text-align: center;
+      }
+
+      .metric-item:last-child { border-right: none; }
+
+      .metric-label { font-size: 10px; opacity: 0.5; margin-bottom: 1rem; }
+      .metric-before { font-size: 1.2rem; text-decoration: line-through; opacity: 0.4; }
+      .metric-after { font-size: 2.8rem; color: var(--color-primary); }
+
+      .timeline {
+        margin-top: 3rem;
+      }
+
+      .timeline-step {
+        display: flex;
+        gap: 1.5rem;
+        padding: 1.8rem 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .step-number {
+        font-size: 1.5rem;
+        color: var(--color-primary);
+        font-weight: 700;
+        width: 55px;
+      }
+
+      .step-content h4 { font-size: 1.1rem; margin-bottom: 0.4rem; }
+
+      .gallery-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+        margin-top: 2rem;
+      }
+
+      .gallery-item {
+        position: relative;
+        padding: 10px;
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .gallery-item img {
+        width: 100%;
+        height: 280px;
+        object-fit: cover;
+        filter: grayscale(100%);
+      }
+
+      .corner-marker {
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        border: 2px solid var(--color-primary);
+        pointer-events: none;
+        z-index: 2;
+      }
+
+      .tl { top: 0; left: 0; border-right: 0; border-bottom: 0; }
+      .br { bottom: 0; right: 0; border-left: 0; border-top: 0; }
+
+      .comparison {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .comp-side {
+        padding: 5rem 3rem;
+      }
+
+      .comp-side.before {
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      .comp-title {
+        font-size: 10px;
+        opacity: 0.5;
+        margin-bottom: 2rem;
+      }
+
+      .comp-data-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 1.2rem 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        font-size: 14px;
+      }
+
+      .comp-val {
+        font-weight: 700;
+      }
+
+      .footer-cta {
+        background: var(--color-primary);
+        color: var(--color-ink);
+        padding: 7rem 4rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 20px;
+      }
+
+      .footer-cta h2 {
+        font-size: clamp(3rem, 8vw, 5rem);
+        line-height: 0.9;
+      }
+
+      .secure-btn {
+        background: var(--color-ink);
+        color: var(--color-paper);
+        border: none;
+        padding: 1.5rem 2.8rem;
+        font-size: 1.2rem;
+        cursor: pointer;
+        font-family: var(--font-display);
+        text-transform: uppercase;
+      }
+
+      @media (max-width: 1024px) {
+        nav {
+          padding: 20px;
+          mix-blend-mode: normal;
+          background: rgba(0, 0, 0, 0.6);
+          backdrop-filter: blur(8px);
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+
+        .nav-links {
+          width: 100%;
+          overflow-x: auto;
+          padding-bottom: 4px;
+        }
+
+        .hero-content { grid-template-columns: 1fr; }
+        .grid-two-col { grid-template-columns: 1fr; gap: 3rem; }
+        .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+        .gallery-grid { grid-template-columns: 1fr; }
+        .comparison { grid-template-columns: 1fr; }
+        .section-padding { padding: 4rem 2rem; }
+        .footer-cta { padding: 4rem 2rem; flex-direction: column; align-items: flex-start; }
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <a href="index.html" class="logo uppercase">
+        <span style="width: 12px; height: 12px; background: #fff; border-radius: 50%"></span>
+        BIG DOT DIGITAL
+      </a>
+      <div class="nav-links">
+        <a href="services.html" class="uppercase">Services</a>
+        <a href="work.html" class="uppercase">Work</a>
+        <a href="about.html" class="uppercase">About</a>
+        <a href="https://werkheisercollision.com/" target="_blank" rel="noopener noreferrer" class="uppercase">Werkheiser Site ↗</a>
+        <a href="https://www.instagram.com/werkheisercollision/" target="_blank" rel="noopener noreferrer" class="uppercase">Werkheiser IG ↗</a>
+        <a href="lab.html" class="uppercase pill-badge">LAB / EXPERIMENTS</a>
+      </div>
+    </nav>
+
+    <a href="work.html" class="back-link mono uppercase">← Back to Selected Work</a>
+
+    <header class="hero-case">
+      <div class="hero-bg"></div>
+      <div class="hero-content">
+        <div class="hero-title">
+          <p class="hero-meta mono uppercase">Denver, CO // Collision Center</p>
+          <h1 class="display">Werkheiser<br />Collision.</h1>
+        </div>
+        <div class="hero-stat-giant">
+          <p class="value display">+412%</p>
+          <p class="label mono uppercase">Qualified Estimate Volume</p>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="section-padding grid-two-col">
+        <div>
+          <div class="section-header">
+            <h3 class="display">The Challenge</h3>
+          </div>
+          <div class="content-body">
+            <p>
+              Werkheiser had the shop depth and production capacity, but search traffic was leaking to larger franchise names with weaker
+              repair quality and weaker certification depth.
+            </p>
+            <p>
+              The objective was to turn certification and capability into booked collision work across Denver, with pages built for
+              high-intent terms and cleaner conversion flow.
+            </p>
+          </div>
+        </div>
+        <div>
+          <div class="section-header">
+            <h3 class="display">The Solution</h3>
+          </div>
+          <div class="content-body">
+            <p>
+              We repositioned the site around OEM-certified capability (Subaru, Ford, GM and related makes), deployed Ford Transit and
+              fleet/work-van landing pages, and shipped competitor-capture pages for high-value terms.
+            </p>
+            <p>
+              We also rebuilt page hierarchy for estimate starts, tightened trust/authority blocks, and improved Google Business profile
+              performance so search visibility converted into better calls.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-padding" style="background: rgba(255, 255, 255, 0.02); border-top: 1px solid rgba(255, 255, 255, 0.1)">
+        <div class="section-header">
+          <h3 class="display">Metrics of Domination</h3>
+        </div>
+        <div class="metrics-grid">
+          <div class="metric-item">
+            <p class="metric-label mono uppercase">Qualified Estimate Calls</p>
+            <p class="metric-before display">12</p>
+            <p class="metric-after display">142</p>
+          </div>
+          <div class="metric-item">
+            <p class="metric-label mono uppercase">Google Business Visibility</p>
+            <p class="metric-before display">#18</p>
+            <p class="metric-after display">#1</p>
+          </div>
+          <div class="metric-item">
+            <p class="metric-label mono uppercase">Monthly Revenue Lift</p>
+            <p class="metric-before display">$45K</p>
+            <p class="metric-after display">$180K</p>
+          </div>
+          <div class="metric-item">
+            <p class="metric-label mono uppercase">Review Velocity</p>
+            <p class="metric-before display">24</p>
+            <p class="metric-after display">215</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-padding grid-two-col">
+        <div>
+          <div class="section-header">
+            <h3 class="display">Timeline of Work</h3>
+          </div>
+          <div class="timeline">
+            <div class="timeline-step">
+              <div class="step-number display">01</div>
+              <div class="step-content">
+                <h4 class="mono uppercase">Audit and Search Mapping</h4>
+                <p>Technical crawl, GBP audit, competitor keyword map, and call-quality baseline by service type.</p>
+              </div>
+            </div>
+            <div class="timeline-step">
+              <div class="step-number display">02</div>
+              <div class="step-content">
+                <h4 class="mono uppercase">Authority Buildout</h4>
+                <p>OEM certification positioning, trust architecture upgrades, and Ford Transit/fleet page deployment.</p>
+              </div>
+            </div>
+            <div class="timeline-step">
+              <div class="step-number display">03</div>
+              <div class="step-content">
+                <h4 class="mono uppercase">Conversion and Capture</h4>
+                <p>Competitor-capture page rollout, map signal expansion, and estimate-path tuning for higher close-ready leads.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="section-header">
+            <h3 class="display">Evidence Log</h3>
+          </div>
+          <div class="gallery-grid">
+            <div class="gallery-item">
+              <div class="corner-marker tl"></div>
+              <img src="https://images.unsplash.com/photo-1517524206127-48bbd363f3d7?q=80&w=1200&auto=format&fit=crop" alt="Web interface after redesign" />
+              <div class="corner-marker br"></div>
+            </div>
+            <div class="gallery-item">
+              <div class="corner-marker tl"></div>
+              <img src="https://images.unsplash.com/photo-1507702553912-a15641e827c8?q=80&w=1200&auto=format&fit=crop" alt="Production on site" />
+              <div class="corner-marker br"></div>
+            </div>
+            <div class="gallery-item">
+              <div class="corner-marker tl"></div>
+              <img src="https://images.unsplash.com/photo-1563986768609-322da13575f3?q=80&w=1200&auto=format&fit=crop" alt="Local SEO analytics view" />
+              <div class="corner-marker br"></div>
+            </div>
+            <div class="gallery-item">
+              <div class="corner-marker tl"></div>
+              <img src="https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?q=80&w=1200&auto=format&fit=crop" alt="Brand asset detail" />
+              <div class="corner-marker br"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="comparison">
+        <div class="comp-side before">
+          <p class="comp-title mono uppercase">Baseline // Before Infrastructure</p>
+          <p class="comp-data-row mono"><span>Leads Per Month</span> <span class="comp-val">12</span></p>
+          <p class="comp-data-row mono"><span>GBP Monthly Views</span> <span class="comp-val">1,200</span></p>
+          <p class="comp-data-row mono"><span>Page Load Speed</span> <span class="comp-val">4.8s</span></p>
+          <p class="comp-data-row mono"><span>Conversion Rate</span> <span class="comp-val">0.8%</span></p>
+        </div>
+        <div class="comp-side">
+          <p class="comp-title mono uppercase" style="color: var(--color-primary)">Verified // After Deployment</p>
+          <p class="comp-data-row mono"><span>Leads Per Month</span> <span class="comp-val" style="color: var(--color-primary)">214</span></p>
+          <p class="comp-data-row mono"><span>GBP Monthly Views</span> <span class="comp-val" style="color: var(--color-primary)">18,450</span></p>
+          <p class="comp-data-row mono"><span>Page Load Speed</span> <span class="comp-val" style="color: var(--color-primary)">0.9s</span></p>
+          <p class="comp-data-row mono"><span>Conversion Rate</span> <span class="comp-val" style="color: var(--color-primary)">8.4%</span></p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer-cta">
+      <div>
+        <h2 class="display">Ready for<br />these results?</h2>
+        <p class="mono uppercase" style="margin-top: 1rem">Built for operators protecting capacity and work quality, not chasing cheap volume.</p>
+      </div>
+      <a href="growth-plan.html" class="secure-btn">Secure Your Market ↗</a>
+    </footer>
+  </body>
+</html>

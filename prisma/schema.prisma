@@ -1,0 +1,209 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+
+model Scan {
+  id                String      @id @default(cuid())
+  createdAt         DateTime    @default(now())
+  shopName          String
+  city              String
+  websiteUrl        String
+  email             String?
+  phone             String?
+  scoreTotal        Int
+  scoreWebsite      Int
+  scoreLocal        Int
+  scoreIntent       Int
+  issuesJson        String
+  moneyKeywordsJson String
+  competitorsJson   String
+  rawChecksJson     String
+  aiSummary         String?
+  thirtyDayPlanJson String?
+  status            String      @default("lead")
+  organizationId    String?
+  scoringModelVersion String    @default("v0.1")
+  componentScoresJson String?
+  latestSnapshotId  String?
+  clientId          String?
+  bookedClicked     Boolean     @default(false)
+  followupSent      Boolean     @default(false)
+  organization      Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  client            Client?     @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  primaryForClient  Client?     @relation("PrimaryScan")
+  queueJobs         QueueJob[]
+  snapshots         ScanSnapshot[]
+  rawResponses      RawProviderResponse[]
+  leads             Lead[]
+
+  @@index([organizationId])
+  @@index([createdAt])
+}
+
+model Client {
+  id               String           @id @default(cuid())
+  createdAt        DateTime         @default(now())
+  shopName         String
+  city             String
+  websiteUrl       String
+  ownerEmail       String
+  ownerPhone       String?
+  plan             String           @default("leadgen")
+  isActive         Boolean          @default(true)
+  notes            String?
+  stripeCustomerId String?
+  primaryScanId    String?          @unique
+  portalPasswordHash String?
+  scans            Scan[]
+  metricSnapshots  MetricSnapshot[]
+  keywords         Keyword[]
+  queueJobs        QueueJob[]
+  primaryScan      Scan?            @relation("PrimaryScan", fields: [primaryScanId], references: [id], onDelete: SetNull)
+}
+
+model MetricSnapshot {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  clientId     String
+  keywordsJson String
+  gscJson      String?
+  gbpJson      String?
+  reviewsJson  String?
+  summaryJson  String
+  scoreTotal   Int?
+  client       Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model Keyword {
+  id         String     @id @default(cuid())
+  clientId   String
+  keyword    String
+  city       String
+  intentType String
+  targetUrl  String?
+  client     Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model QueueJob {
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+  runAt       DateTime
+  type        String
+  status      String    @default("pending")
+  scanId      String?
+  clientId    String?
+  payloadJson String?
+  attempts    Int       @default(0)
+  processedAt DateTime?
+  error       String?
+  scan        Scan?     @relation(fields: [scanId], references: [id], onDelete: SetNull)
+  client      Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
+}
+
+model Organization {
+  id               String   @id @default(cuid())
+  name             String
+  websiteUrl       String?
+  phone            String?
+  address          String?
+  city             String?
+  state            String?
+  zip              String?
+  lat              Float?
+  lng              Float?
+  googlePlaceId    String?  @unique
+  primaryCategory  String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  scans            Scan[]
+  snapshots        ScanSnapshot[]
+  providerCache    ProviderCache[]
+  rawResponses     RawProviderResponse[]
+  leads            Lead[]
+
+  @@index([city, state])
+  @@index([name])
+}
+
+model ScanSnapshot {
+  id                     String   @id @default(cuid())
+  createdAt              DateTime @default(now())
+  scanId                 String
+  organizationId         String
+  scoringModelVersion    String   @default("v0.1")
+  visibilityScore        Int
+  reviewRating           Float?
+  reviewCount            Int?
+  reviewVelocity30d      Int?
+  keywordsCheckedJson    String?
+  rankPositionsJson      String?
+  topCompetitorsJson     String?
+  lostDemandEstimateJson String?
+  recommendationsJson    String?
+  scan                   Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([scanId])
+}
+
+model RawProviderResponse {
+  id             String   @id @default(cuid())
+  fetchedAt      DateTime @default(now())
+  scanId         String
+  organizationId String?
+  provider       String
+  endpoint       String?
+  requestHash    String?
+  cacheKey       String?
+  responseJson   String
+  scan           Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([provider])
+  @@index([organizationId])
+  @@index([scanId])
+}
+
+model ProviderCache {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  organizationId String
+  provider       String
+  cacheKey       String
+  lastFetchedAt  DateTime
+  expiresAt      DateTime
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, provider, cacheKey])
+  @@index([expiresAt])
+}
+
+model Lead {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  organizationId String
+  scanId         String?
+  email          String?
+  phone          String?
+  name           String?
+  intent         String?
+  budgetRange    String?
+  timeline       String?
+  consentedAt    DateTime?
+  source         String?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  scan           Scan?     @relation(fields: [scanId], references: [id], onDelete: SetNull)
+
+  @@index([email])
+  @@index([organizationId, createdAt])
+}

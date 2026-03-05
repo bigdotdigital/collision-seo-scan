@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Big Dot Digital | Retrieving Results</title>
+    <meta name="description" content="Next case study is being retrieved." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <style>
+      :root { --color-primary:#dc2f18; --color-dark:#0f1112; --color-paper:#eaeaea; --font-display:'Anton',sans-serif; --font-mono:'JetBrains Mono',monospace; --noise-url:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.1'/%3E%3C/svg%3E"); }
+      *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;} body{background:var(--color-dark);color:var(--color-paper);font-family:var(--font-mono);overflow:hidden;height:100vh;width:100vw;background-image:var(--noise-url);} a{color:inherit;text-decoration:none}
+      .loader-container{height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;position:relative;padding:40px}
+      .corner-bracket{position:absolute;width:40px;height:40px;border:2px solid var(--color-primary);pointer-events:none}.cb-tl{top:40px;left:40px;border-right:0;border-bottom:0}.cb-tr{top:40px;right:40px;border-left:0;border-bottom:0}.cb-bl{bottom:40px;left:40px;border-right:0;border-top:0}.cb-br{bottom:40px;right:40px;border-left:0;border-top:0}
+      .scanner-viewport{width:min(600px,85vw);height:min(340px,45vh);border:1px solid rgba(220,47,24,.3);position:relative;overflow:hidden;display:flex;justify-content:center;align-items:center;background:rgba(220,47,24,.02)}
+      .scan-line{position:absolute;top:0;left:0;width:100%;height:4px;background:var(--color-primary);box-shadow:0 0 20px var(--color-primary);z-index:10;animation:scan 2.5s ease-in-out infinite}@keyframes scan{0%{top:0}50%{top:100%}100%{top:0}}
+      .grid-bg{position:absolute;inset:0;background-image:linear-gradient(rgba(220,47,24,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(220,47,24,.05) 1px,transparent 1px);background-size:30px 30px}
+      .status-header{text-align:center;margin-top:2.4rem}.glitch-text{font-family:var(--font-display);font-size:clamp(2rem,7vw,4rem);color:var(--color-primary);letter-spacing:2px;text-transform:uppercase;margin-bottom:1rem;line-height:1}
+      .mono-sub{font-size:12px;letter-spacing:2px;opacity:.6;display:flex;align-items:center;justify-content:center;gap:15px}.dot-pulse{width:8px;height:8px;background:var(--color-primary);border-radius:50%;animation:pulse 1s infinite alternate}@keyframes pulse{from{opacity:.2;transform:scale(.8)}to{opacity:1;transform:scale(1.2)}}
+      .data-stream{position:absolute;left:60px;top:50%;transform:translateY(-50%);font-size:9px;color:var(--color-primary);opacity:.3;line-height:2;pointer-events:none}
+      .nav-fixed{position:fixed;top:0;left:0;width:100%;padding:34px 30px;display:flex;justify-content:space-between;align-items:center;z-index:100}.logo{font-weight:700;font-size:14px;letter-spacing:1px}
+      .nav-links{display:flex;align-items:center;gap:14px;font-size:10px;opacity:.8}.nav-links a{border:1px solid rgba(255,255,255,.2);padding:5px 10px;text-transform:uppercase}
+      .system-specs{position:absolute;right:60px;bottom:60px;text-align:right;font-size:10px;opacity:.4}
+      @media (max-width:900px){.data-stream,.system-specs{display:none}.nav-fixed{flex-direction:column;align-items:flex-start;gap:10px}.nav-links{flex-wrap:wrap}.corner-bracket{width:26px;height:26px}}
+    </style>
+  </head>
+  <body>
+    <nav class="nav-fixed">
+      <a href="index.html" class="logo">BIG DOT DIGITAL</a>
+      <div class="nav-links">
+        <a href="work.html">Back to Work</a>
+        <a href="growth-plan.html">Growth Plan</a>
+      </div>
+    </nav>
+
+    <div class="loader-container">
+      <div class="corner-bracket cb-tl"></div><div class="corner-bracket cb-tr"></div><div class="corner-bracket cb-bl"></div><div class="corner-bracket cb-br"></div>
+      <div class="data-stream mono">0x442 // QUERY_INIT<br />FETCHING_NODES...<br />LOAD_ASSETS: OK<br />ENCRYPT: AES-256<br />SCANNING_HEX: #DC2F18<br />LATENCY: 14MS<br />PACKET_LOSS: 0%<br />BUFF_STATE: NOMINAL</div>
+      <div class="scanner-viewport"><div class="grid-bg"></div><div class="scan-line"></div><div style="font-size:clamp(4rem,20vw,120px);color:var(--color-primary);opacity:.1;font-family:var(--font-display)">WORK</div><div style="position:absolute;width:100%;height:1px;background:rgba(220,47,24,.1)"></div><div style="position:absolute;height:100%;width:1px;background:rgba(220,47,24,.1)"></div></div>
+      <div class="status-header"><h1 class="glitch-text">RETRIEVING RESULTS</h1><div class="mono-sub mono"><div class="dot-pulse"></div> CONNECTING TO ARTIFACT SERVER v.4.0 <div class="dot-pulse"></div></div></div>
+      <div class="system-specs mono">LOC: 39.7392° N, 104.9903° W<br />STATUS: AUTHORIZING_HANDSHAKE<br />PROTOCOL: RED_LINE_DOMINANCE</div>
+    </div>
+  </body>
+</html>

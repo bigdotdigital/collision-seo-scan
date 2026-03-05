@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Services — Big Dot Digital</title>
+    <meta name="description" content="Core service architecture for Big Dot Digital growth systems." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --color-primary: #dc2f18;
+        --color-dark: #0f1112;
+        --color-ink: #000000;
+        --color-paper: #eaeaea;
+        --font-display: 'Anton', sans-serif;
+        --font-mono: 'JetBrains Mono', monospace;
+        --noise-url: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.1'/%3E%3C/svg%3E");
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      body {
+        background-color: var(--color-dark);
+        color: var(--color-paper);
+        font-family: var(--font-mono);
+        overflow-x: hidden;
+        font-size: 12px;
+        line-height: 1.4;
+        background-image: var(--noise-url);
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .scanline {
+        width: 100%;
+        height: 100%;
+        z-index: 5;
+        background: linear-gradient(0deg, rgba(0, 0, 0, 0) 50%, rgba(255, 255, 255, 0.02) 50%),
+          linear-gradient(90deg, rgba(255, 0, 0, 0.01), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.01));
+        background-size: 100% 2px, 3px 100%;
+        pointer-events: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+      }
+
+      .uppercase { text-transform: uppercase; }
+      .mono { font-family: var(--font-mono); letter-spacing: 0.5px; }
+      .display { font-family: var(--font-display); line-height: 0.85; text-transform: uppercase; }
+
+      nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        padding: 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        z-index: 100;
+        background: linear-gradient(to bottom, var(--color-dark) 0%, transparent 100%);
+      }
+
+      .logo {
+        font-weight: 700;
+        font-size: 14px;
+        letter-spacing: 1px;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+
+      .nav-links a {
+        font-size: 11px;
+        opacity: 0.8;
+      }
+
+      .nav-links a.active {
+        opacity: 1;
+        border-bottom: 1px solid currentColor;
+      }
+
+      .pill-badge {
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 50px;
+        padding: 4px 12px;
+        font-size: 10px;
+        font-weight: 700;
+      }
+
+      .pill-badge.active {
+        background: var(--color-primary);
+        color: var(--color-ink);
+        border-color: var(--color-primary);
+      }
+
+      .main-layout {
+        display: flex;
+        min-height: 100vh;
+        padding-top: 80px;
+      }
+
+      .services-content {
+        flex: 1;
+        padding: 4rem;
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .sidebar {
+        width: 350px;
+        padding: 4rem 2rem;
+        background: rgba(0, 0, 0, 0.2);
+        position: sticky;
+        top: 80px;
+        height: calc(100vh - 80px);
+        overflow-y: auto;
+      }
+
+      .page-header {
+        margin-bottom: 4rem;
+      }
+
+      .page-header h1 {
+        font-family: var(--font-display);
+        font-size: clamp(4rem, 10vw, 8rem);
+        line-height: 0.8;
+        color: var(--color-primary);
+      }
+
+      .service-list {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .service-item {
+        border-top: 2px solid var(--color-primary);
+        padding: 0;
+      }
+
+      .service-summary {
+        width: 100%;
+        background: transparent;
+        color: inherit;
+        border: none;
+        display: grid;
+        grid-template-columns: 80px 1fr auto;
+        align-items: center;
+        padding: 2.4rem 0;
+        cursor: pointer;
+        text-align: left;
+      }
+
+      .service-item:hover {
+        background: rgba(220, 47, 24, 0.05);
+      }
+
+      .service-num {
+        font-size: 14px;
+        opacity: 0.45;
+      }
+
+      .service-name {
+        font-family: var(--font-display);
+        font-size: clamp(2.6rem, 7vw, 5rem);
+        letter-spacing: -2px;
+      }
+
+      .red-accent {
+        color: var(--color-primary);
+      }
+
+      .service-arrow {
+        font-size: 2rem;
+        color: var(--color-primary);
+        transition: transform 0.2s;
+      }
+
+      .service-item.active .service-arrow {
+        transform: rotate(45deg);
+      }
+
+      .service-detail {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.45s ease, padding 0.35s ease;
+        display: grid;
+        grid-template-columns: 80px 1fr 1fr;
+        gap: 2rem;
+        padding: 0;
+      }
+
+      .service-item.active .service-detail {
+        max-height: 560px;
+        padding: 0 0 2.4rem;
+      }
+
+      .detail-label {
+        color: var(--color-primary);
+        font-size: 10px;
+        margin-bottom: 1.2rem;
+        display: block;
+        text-transform: uppercase;
+      }
+
+      .detail-text {
+        font-size: 13px;
+        line-height: 1.8;
+        opacity: 0.9;
+        max-width: 640px;
+      }
+
+      .feature-list {
+        list-style: none;
+      }
+
+      .feature-list li {
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        font-size: 11px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        text-transform: uppercase;
+      }
+
+      .feature-list li::before {
+        content: '→';
+        color: var(--color-primary);
+      }
+
+      .sidebar-section {
+        margin-bottom: 2.2rem;
+      }
+
+      .sidebar-label {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1.8px;
+        margin-bottom: 1rem;
+        display: block;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding-bottom: 0.5rem;
+      }
+
+      .stat-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        padding: 1.2rem;
+        margin-bottom: 0.8rem;
+      }
+
+      .stat-value {
+        font-family: var(--font-display);
+        font-size: 2.2rem;
+        line-height: 1;
+        margin-bottom: 0.5rem;
+      }
+
+      .stat-desc {
+        font-size: 10px;
+        opacity: 0.5;
+        text-transform: uppercase;
+      }
+
+      .ping-list {
+        font-size: 10px;
+        line-height: 1.8;
+        opacity: 0.7;
+      }
+
+      .ping-item {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+
+      .ping-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #00ff41;
+        margin-top: 5px;
+        box-shadow: 0 0 8px #00ff41;
+        animation: pulse 1.5s infinite;
+      }
+
+      @keyframes pulse {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.5); opacity: 0.5; }
+        100% { transform: scale(1); opacity: 1; }
+      }
+
+      footer {
+        padding: 3.5rem 4rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        background: var(--color-ink);
+      }
+
+      .footer-wrap {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 20px;
+      }
+
+      @media (max-width: 1100px) {
+        .sidebar { display: none; }
+        .services-content { border-right: none; }
+        .main-layout { display: block; }
+      }
+
+      @media (max-width: 768px) {
+        nav {
+          flex-wrap: wrap;
+          gap: 10px;
+          background: rgba(0, 0, 0, 0.7);
+          backdrop-filter: blur(8px);
+        }
+
+        .nav-links {
+          width: 100%;
+          overflow-x: auto;
+          padding-bottom: 4px;
+        }
+
+        .services-content {
+          padding: 2.5rem 1.2rem;
+        }
+
+        .service-summary,
+        .service-detail {
+          grid-template-columns: 1fr;
+          gap: 0.9rem;
+        }
+
+        .service-num { opacity: 0.7; }
+
+        footer {
+          padding: 2rem 1.2rem;
+        }
+
+        .footer-wrap {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="scanline"></div>
+
+    <nav>
+      <a href="index.html" class="logo">
+        <span style="width: 12px; height: 12px; background: white; border-radius: 50%"></span>
+        BIG DOT DIGITAL
+      </a>
+      <div class="nav-links">
+        <a href="services.html" class="uppercase pill-badge active">SERVICES</a>
+        <a href="work.html" class="uppercase">Work</a>
+        <a href="about.html" class="uppercase">About</a>
+        <a href="contact.html" class="uppercase">Contact</a>
+        <a href="lab.html" class="uppercase">Lab / Experiments</a>
+      </div>
+    </nav>
+
+    <main class="main-layout">
+      <section class="services-content">
+        <header class="page-header">
+          <p class="mono" style="font-size: 11px; margin-bottom: 1rem; opacity: 0.5">SYSTEMS_ARCHITECTURE // CORE_OFFERINGS</p>
+          <h1 class="display">SERVICES</h1>
+        </header>
+
+        <div class="service-list">
+          <section class="service-item active">
+            <button class="service-summary" type="button" aria-expanded="true">
+              <span class="service-num mono">01</span>
+              <span class="service-name">SEARCH<span class="red-accent">_</span>ENGINE<span class="red-accent">_</span>OPS</span>
+              <span class="service-arrow">→</span>
+            </button>
+            <div class="service-detail">
+              <div></div>
+              <div>
+                <span class="detail-label mono">The Strategy</span>
+                <p class="detail-text mono">
+                  We build high-intent SEO assets that match how owners actually search: collision estimate pages, hail repair pages,
+                  and fleet/work-van pages by service and location. This is the core engine behind booked jobs.
+                </p>
+                <p class="mono" style="margin-top: 1rem; opacity: 0.75">
+                  Deep dive: <a href="local-seo.html" style="color: var(--color-primary)">LOCAL SEO DOMINANCE ↗</a>
+                </p>
+              </div>
+              <div>
+                <span class="detail-label mono">Deliverables</span>
+                <ul class="feature-list mono">
+                  <li>GBP Hardening and Spam Defense</li>
+                  <li>Service-Area SEO Page Architecture</li>
+                  <li>Competitor Search Capture Pages</li>
+                  <li>Booked-Call Ranking Reporting</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <section class="service-item">
+            <button class="service-summary" type="button" aria-expanded="false">
+              <span class="service-num mono">02</span>
+              <span class="service-name">WEB<span class="red-accent">_</span>INFRASTRUCTURE</span>
+              <span class="service-arrow">→</span>
+            </button>
+            <div class="service-detail">
+              <div></div>
+              <div>
+                <span class="detail-label mono">The Strategy</span>
+                <p class="detail-text mono">
+                  Flagship websites engineered for owners who care about car count. We structure pages around estimate starts, trust
+                  proof, and faster handoff to advisors.
+                </p>
+              </div>
+              <div>
+                <span class="detail-label mono">Deliverables</span>
+                <ul class="feature-list mono">
+                  <li>Conversion-Led Service Templates</li>
+                  <li>Sub-2s Mobile Performance Tuning</li>
+                  <li>Call and Form Routing by Service Type</li>
+                  <li>CRM + Shop Workflow Integration</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <section class="service-item">
+            <button class="service-summary" type="button" aria-expanded="false">
+              <span class="service-num mono">03</span>
+              <span class="service-name">PAID<span class="red-accent">_</span>ACQUISITION</span>
+              <span class="service-arrow">→</span>
+            </button>
+            <div class="service-detail">
+              <div></div>
+              <div>
+                <span class="detail-label mono">The Strategy</span>
+                <p class="detail-text mono">
+                  Paid search is used as a capacity lever: push harder when production can absorb more work, tighten spend when queue is
+                  full, and keep lead quality high.
+                </p>
+              </div>
+              <div>
+                <span class="detail-label mono">Deliverables</span>
+                <ul class="feature-list mono">
+                  <li>High-Intent Campaign Architecture</li>
+                  <li>Negative Query and Budget Waste Cleanup</li>
+                  <li>Storm-Window Landing Page Sprints</li>
+                  <li>Call Quality Attribution by Campaign</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <section class="service-item">
+            <button class="service-summary" type="button" aria-expanded="false">
+              <span class="service-num mono">04</span>
+              <span class="service-name">REPUTATION<span class="red-accent">_</span>SHIELD</span>
+              <span class="service-arrow">→</span>
+            </button>
+            <div class="service-detail">
+              <div></div>
+              <div>
+                <span class="detail-label mono">The Strategy</span>
+                <p class="detail-text mono">
+                  Trust wins local decisions. We operationalize review capture and recovery workflows so your best repair outcomes become
+                  public proof at scale.
+                </p>
+              </div>
+              <div>
+                <span class="detail-label mono">Deliverables</span>
+                <ul class="feature-list mono">
+                  <li>Delivery-Triggered Review Requests</li>
+                  <li>Weekly Reputation Health Audits</li>
+                  <li>Negative Sentiment Escalation Rules</li>
+                  <li>On-Site Trust and Certification Blocks</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <section class="service-item" style="border-bottom: 2px solid var(--color-primary)">
+            <button class="service-summary" type="button" aria-expanded="false">
+              <span class="service-num mono">05</span>
+              <span class="service-name">CONTENT<span class="red-accent">_</span>PRODUCTION</span>
+              <span class="service-arrow">→</span>
+            </button>
+            <div class="service-detail">
+              <div></div>
+              <div>
+                <span class="detail-label mono">The Strategy</span>
+                <p class="detail-text mono">
+                  We produce trust-building assets that directly support booked work: shop-floor proof, before/after process coverage,
+                  and creative that improves click-through and on-page conversion.
+                </p>
+              </div>
+              <div>
+                <span class="detail-label mono">Deliverables</span>
+                <ul class="feature-list mono">
+                  <li>Video Production</li>
+                  <li>Short-Form Video Content</li>
+                  <li>Graphic Design Systems</li>
+                  <li>Photography and Asset Library</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div style="margin-top: 4rem; max-width: 700px; opacity: 0.62" class="mono uppercase">
+          We build revenue infrastructure for high-ticket local service operators. The target is simple: better calls, better jobs, and
+          predictable production load.
+        </div>
+      </section>
+
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <span class="sidebar-label">Network Performance</span>
+          <div class="stat-card">
+            <div class="stat-value">+412%</div>
+            <div class="stat-desc">Average Organic Yield</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">1.2s</div>
+            <div class="stat-desc">Avg. Site Response Time</div>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <span class="sidebar-label">Live System Pings</span>
+          <div class="ping-list mono">
+            <div class="ping-item"><div class="ping-dot"></div><div>[14:22:01] WERKHEISER_DENVER: FORD_TRANSIT_PAGE_LIVE</div></div>
+            <div class="ping-item"><div class="ping-dot"></div><div>[14:21:44] 5280_HAIL: STORM_SURGE_LANDING_DEPLOYED</div></div>
+            <div class="ping-item"><div class="ping-dot"></div><div>[14:20:12] ACE_DENVER: SERVICE_AREA_CLUSTER_UPDATED</div></div>
+            <div class="ping-item"><div class="ping-dot" style="background:#ffd700; box-shadow:0 0 8px #ffd700"></div><div>[14:18:55] GBP_SIGNAL: COMPETITOR_CAPTURE_PAGE_INDEXING</div></div>
+            <div class="ping-item"><div class="ping-dot"></div><div>[14:15:30] CALL_TRACKING: QUALIFIED_RATE_STABLE</div></div>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <span class="sidebar-label">Client Grid Status</span>
+          <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px">
+            <div style="height: 15px; background: var(--color-primary)"></div>
+            <div style="height: 15px; background: var(--color-primary)"></div>
+            <div style="height: 15px; background: rgba(255,255,255,0.1)"></div>
+            <div style="height: 15px; background: var(--color-primary)"></div>
+            <div style="height: 15px; background: var(--color-primary)"></div>
+            <div style="height: 15px; background: var(--color-primary)"></div>
+            <div style="height: 15px; background: var(--color-primary)"></div>
+            <div style="height: 15px; background: var(--color-primary)"></div>
+            <div style="height: 15px; background: rgba(255,255,255,0.1)"></div>
+            <div style="height: 15px; background: var(--color-primary)"></div>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <footer>
+      <div class="footer-wrap">
+        <div class="mono" style="opacity: 0.4">© <span id="year"></span> BIG DOT DIGITAL // EST. 2018</div>
+        <div style="display: flex; gap: 30px; flex-wrap: wrap">
+          <a href="contact.html" class="mono" style="opacity: 0.6">CONTACT_SECURE</a>
+          <a href="growth-plan.html" class="mono" style="opacity: 0.6">START_GROWTH_PROTOCOL</a>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      document.getElementById('year').textContent = new Date().getFullYear();
+
+      document.querySelectorAll('.service-item').forEach((item) => {
+        const trigger = item.querySelector('.service-summary');
+        trigger.addEventListener('click', () => {
+          const next = !item.classList.contains('active');
+          item.classList.toggle('active');
+          trigger.setAttribute('aria-expanded', String(next));
+        });
+      });
+    </script>
+  </body>
+</html>

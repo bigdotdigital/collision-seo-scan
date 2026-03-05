@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Work // Big Dot Digital</title>
+    <meta name="description" content="Selected client work and case studies from Big Dot Digital." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --color-primary: #dc2f18;
+        --color-dark: #0f1112;
+        --color-ink: #000000;
+        --color-paper: #eaeaea;
+        --font-display: 'Anton', sans-serif;
+        --font-mono: 'JetBrains Mono', monospace;
+        --noise-url: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.1'/%3E%3C/svg%3E");
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      body {
+        background-color: var(--color-dark);
+        color: var(--color-paper);
+        font-family: var(--font-mono);
+        overflow-x: hidden;
+        font-size: 12px;
+        line-height: 1.4;
+        background-image: var(--noise-url);
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .uppercase { text-transform: uppercase; }
+      .mono { font-family: var(--font-mono); letter-spacing: 0.5px; }
+      .display { font-family: var(--font-display); line-height: 0.85; text-transform: uppercase; }
+      .flex { display: flex; }
+
+      nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        padding: 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        z-index: 100;
+        mix-blend-mode: difference;
+        color: #fff;
+      }
+
+      .logo { font-weight: 700; font-size: 14px; letter-spacing: 1px; }
+
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+
+      .nav-links a {
+        font-size: 11px;
+        opacity: 0.8;
+      }
+
+      .nav-links a.active {
+        opacity: 1;
+        border-bottom: 1px solid currentColor;
+      }
+
+      .pill-badge {
+        border: 1px solid currentColor;
+        border-radius: 50px;
+        padding: 4px 12px;
+        font-size: 10px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .work-hero {
+        height: 60vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 0 4rem;
+        position: relative;
+        border-bottom: 2px solid var(--color-primary);
+      }
+
+      .work-hero h1 {
+        font-size: clamp(8rem, 15vw, 20rem);
+        margin: 0;
+        color: var(--color-paper);
+      }
+
+      .work-hero .accent-text {
+        color: var(--color-primary);
+        position: absolute;
+        bottom: 40px;
+        right: 4rem;
+        max-width: 400px;
+        text-align: right;
+      }
+
+      .case-studies-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .case-card {
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        position: relative;
+        overflow: hidden;
+        background: var(--color-dark);
+        transition: transform 0.3s ease;
+      }
+
+      .case-image {
+        width: 100%;
+        aspect-ratio: 16/9;
+        object-fit: cover;
+        filter: grayscale(100%) brightness(0.7) contrast(1.2);
+        transition: all 0.5s ease;
+      }
+
+      .case-card:hover .case-image {
+        filter: grayscale(0%) brightness(0.9);
+        transform: scale(1.02);
+      }
+
+      .case-content {
+        padding: 3rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+      }
+
+      .case-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 18px;
+      }
+
+      .case-title-group {
+        flex: 1;
+      }
+
+      .case-shop-name {
+        font-family: var(--font-display);
+        font-size: 3.5rem;
+        line-height: 0.9;
+        margin-bottom: 0.5rem;
+      }
+
+      .case-location {
+        font-size: 12px;
+        opacity: 0.6;
+      }
+
+      .case-stat-box {
+        background: var(--color-primary);
+        color: var(--color-ink);
+        padding: 1.5rem;
+        text-align: right;
+        min-width: 180px;
+      }
+
+      .case-stat-value {
+        font-family: var(--font-display);
+        font-size: 3rem;
+        line-height: 1;
+      }
+
+      .case-stat-label {
+        font-size: 10px;
+        font-weight: 700;
+      }
+
+      .case-footer {
+        margin-top: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .view-case-btn {
+        background: transparent;
+        border: 1px solid var(--color-paper);
+        color: var(--color-paper);
+        padding: 8px 20px;
+        font-size: 10px;
+        font-family: var(--font-mono);
+        cursor: pointer;
+        text-transform: uppercase;
+      }
+
+      .view-case-btn:hover {
+        background: var(--color-paper);
+        color: var(--color-dark);
+      }
+
+      .corner-marker {
+        position: absolute;
+        width: 15px;
+        height: 15px;
+        border: 2px solid var(--color-primary);
+        pointer-events: none;
+      }
+
+      .tl { top: 20px; left: 20px; border-right: 0; border-bottom: 0; }
+      .br { bottom: 20px; right: 20px; border-left: 0; border-top: 0; }
+
+      .footer-cta {
+        background: var(--color-primary);
+        color: var(--color-ink);
+        padding: 8rem 2rem;
+        text-align: center;
+      }
+
+      @media (max-width: 1024px) {
+        .case-studies-grid { grid-template-columns: 1fr; }
+        .work-hero { height: 40vh; padding: 0 2rem; }
+        .work-hero h1 { font-size: 12vw; }
+        .work-hero .accent-text { right: 2rem; }
+        .case-content { padding: 2rem; }
+        .case-shop-name { font-size: 2.5rem; }
+      }
+
+      @media (max-width: 768px) {
+        nav {
+          mix-blend-mode: normal;
+          background: rgba(0, 0, 0, 0.65);
+          backdrop-filter: blur(8px);
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+
+        .nav-links {
+          width: 100%;
+          overflow-x: auto;
+          padding-bottom: 4px;
+        }
+
+        .case-meta {
+          flex-direction: column;
+        }
+
+        .case-footer {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <a href="index.html" class="logo flex" style="align-items: center; gap: 10px">
+        <span style="width: 12px; height: 12px; background: currentColor; border-radius: 50%"></span>
+        BIG DOT DIGITAL
+      </a>
+      <div class="nav-links">
+        <a href="services.html" class="uppercase">Services</a>
+        <a href="work.html" class="uppercase active">Work</a>
+        <a href="about.html" class="uppercase">About</a>
+        <a href="contact.html" class="uppercase">Contact</a>
+        <a href="lab.html" class="uppercase pill-badge">LAB / EXPERIMENTS</a>
+      </div>
+    </nav>
+
+    <header class="work-hero">
+      <div class="corner-marker tl"></div>
+      <h1 class="display">Selected<br />Work.</h1>
+      <div class="accent-text mono uppercase">
+        [Production-Level Field Work]<br />
+        Live systems built with Denver operators, from collision certification pages to hail-surge capture stacks.
+      </div>
+    </header>
+
+    <main>
+      <section class="case-studies-grid">
+        <article class="case-card">
+          <img src="https://images.unsplash.com/photo-1590400038491-0f46e50774a3?q=80&w=2000&auto=format&fit=crop" alt="Collision center bay" class="case-image" />
+          <div class="case-content">
+            <div class="case-meta">
+              <div class="case-title-group">
+                <h2 class="case-shop-name display">WERKHEISER</h2>
+                <p class="case-location mono uppercase">DENVER, CO // OEM COLLISION CENTER</p>
+              </div>
+              <div class="case-stat-box">
+                <div class="case-stat-value display">+412%</div>
+                <div class="case-stat-label mono uppercase">Qualified Estimate Volume</div>
+              </div>
+            </div>
+            <div class="case-footer">
+              <span class="mono" style="opacity: 0.5">// OEM POSITIONING + FLEET LANDING STACK</span>
+              <a class="view-case-btn" href="case-study-werkheiser.html">View Case ↗</a>
+            </div>
+          </div>
+          <div class="corner-marker br"></div>
+        </article>
+
+        <article class="case-card">
+          <img src="https://images.unsplash.com/photo-1621905235858-a8bf34932087?q=80&w=2000&auto=format&fit=crop" alt="City auto repair shop" class="case-image" />
+          <div class="case-content">
+            <div class="case-meta">
+              <div class="case-title-group">
+                <h2 class="case-shop-name display">5280 AUTO HAIL</h2>
+                <p class="case-location mono uppercase">DENVER, CO // HAIL + COLLISION</p>
+              </div>
+              <div class="case-stat-box">
+                <div class="case-stat-value display">+285%</div>
+                <div class="case-stat-label mono uppercase">Seasonal Inbound Lift</div>
+              </div>
+            </div>
+            <div class="case-footer">
+              <span class="mono" style="opacity: 0.5">// STORM-DRIVEN LANDING DEPLOYMENT</span>
+              <a class="view-case-btn" href="case-study-5280.html">View Case ↗</a>
+            </div>
+          </div>
+          <div class="corner-marker br"></div>
+        </article>
+
+        <article class="case-card">
+          <img src="https://images.unsplash.com/photo-1552650272-b8a34e21bc4b?q=80&w=2000&auto=format&fit=crop" alt="Luxury car paint" class="case-image" />
+          <div class="case-content">
+            <div class="case-meta">
+              <div class="case-title-group">
+                <h2 class="case-shop-name display">ACE AUTO HAIL</h2>
+                <p class="case-location mono uppercase">DENVER, CO // HAIL + COLLISION</p>
+              </div>
+              <div class="case-stat-box">
+                <div class="case-stat-value display">#1-3</div>
+                <div class="case-stat-label mono uppercase">Local Pack Coverage</div>
+              </div>
+            </div>
+            <div class="case-footer">
+              <span class="mono" style="opacity: 0.5">// SERVICE-AREA SEO + ORGANIC INBOUND FLOW</span>
+              <a class="view-case-btn" href="case-study-ace-auto.html">View Case ↗</a>
+            </div>
+          </div>
+          <div class="corner-marker br"></div>
+        </article>
+
+        <article class="case-card">
+          <img src="https://images.unsplash.com/photo-1597766353939-99696328638b?q=80&w=2000&auto=format&fit=crop" alt="Detailed engine" class="case-image" />
+          <div class="case-content">
+            <div class="case-meta">
+              <div class="case-title-group">
+                <h2 class="case-shop-name display">FLEET + VAN OPS</h2>
+                <p class="case-location mono uppercase">NEXT DEPLOYMENT // CASE FILE INTAKE</p>
+              </div>
+              <div class="case-stat-box">
+                <div class="case-stat-value display">3.1X</div>
+                <div class="case-stat-label mono uppercase">Qualified Call Efficiency</div>
+              </div>
+            </div>
+            <div class="case-footer">
+              <span class="mono" style="opacity: 0.5">// PLACEHOLDER NODE // RETRIEVING RESULTS</span>
+              <a class="view-case-btn" href="case-study-placeholder.html">View Case ↗</a>
+            </div>
+          </div>
+          <div class="corner-marker br"></div>
+        </article>
+      </section>
+    </main>
+
+    <footer class="footer-cta">
+      <h2 class="display" style="font-size: clamp(3rem, 10vw, 6rem); line-height: 0.9">Ready to dominate?</h2>
+      <p class="mono uppercase" style="margin-top: 1rem">Book more of the work your production floor is built for.</p>
+      <a class="view-case-btn" href="growth-plan.html" style="border-color: var(--color-ink); color: var(--color-ink); margin-top: 3rem; padding: 15px 40px; font-weight: 700; display: inline-block">Start Your Growth Plan</a>
+    </footer>
+  </body>
+</html>

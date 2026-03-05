@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Contact | Big Dot Digital</title>
+    <meta name="description" content="Request a growth plan from Big Dot Digital." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="nav-shell">
+        <a href="index.html" class="logo"><span class="logo-dot"></span>BIG DOT DIGITAL</a>
+        <button class="nav-toggle" data-nav-toggle aria-expanded="false">Menu</button>
+        <nav class="nav-links" data-nav-links>
+          <a href="services.html" class="uppercase">Services</a>
+          <a href="work.html" class="uppercase">Work</a>
+          <a href="about.html" class="uppercase">About</a>
+          <a href="contact.html" class="uppercase">Contact</a>
+          <a href="lab.html" class="uppercase pill-badge">Lab / Experiments</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="page-hero">
+        <div class="page-hero-inner">
+          <p class="section-tag uppercase mono">Start Here</p>
+          <h1 class="display">Request Your Growth Plan</h1>
+          <p class="mono">Tell us your market, current volume, and target. We return a focused roadmap with next actions.</p>
+        </div>
+      </section>
+
+      <section class="dark-zone">
+        <div class="section-inner">
+          <div class="contact-grid">
+            <div class="form-shell">
+              <form>
+                <label class="mono" for="name">Name</label>
+                <input id="name" name="name" type="text" required />
+
+                <label class="mono" for="business">Shop Name</label>
+                <input id="business" name="business" type="text" required />
+
+                <label class="mono" for="email">Email</label>
+                <input id="email" name="email" type="email" required />
+
+                <label class="mono" for="service">Primary Need</label>
+                <select id="service" name="service">
+                  <option>Local SEO and Maps</option>
+                  <option>Website and Conversion</option>
+                  <option>Paid Lead Generation</option>
+                  <option>Full Growth System</option>
+                </select>
+
+                <label class="mono" for="message">Context</label>
+                <textarea id="message" name="message" placeholder="Current monthly jobs, goals, and key blockers."></textarea>
+
+                <button class="btn primary" type="submit">Send Request</button>
+              </form>
+            </div>
+
+            <div class="page-grid" style="grid-template-columns: 1fr;">
+              <article class="panel">
+                <h3>What Happens Next</h3>
+                <p>1) Discovery review. 2) Market snapshot. 3) System recommendation and launch timeline.</p>
+              </article>
+              <article class="panel">
+                <h3>Typical Response Window</h3>
+                <p>We reply within one business day with clarifying questions and a first-pass strategy summary.</p>
+              </article>
+              <article class="panel">
+                <h3>Best Fit</h3>
+                <p>Shops ready to improve lead quality, improve close rates, and outpace nearby competitors.</p>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="site-footer-inner">
+        <h2 class="display">Send The Brief. We Bring The Plan.</h2>
+        <p class="footer-meta mono">BIG DOT DIGITAL © <span data-year></span></p>
+      </div>
+    </footer>
+
+    <script src="assets/js/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lab / Experiments | Big Dot Digital</title>
+    <meta name="description" content="Internal R&D tools, alpha prototypes, and experimental growth utilities from Big Dot Digital." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --color-primary: #dc2f18;
+        --color-dark: #0f1112;
+        --color-ink: #000000;
+        --color-paper: #eaeaea;
+        --font-display: 'Anton', sans-serif;
+        --font-mono: 'JetBrains Mono', monospace;
+        --noise-url: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.1'/%3E%3C/svg%3E");
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      body {
+        background-color: var(--color-dark);
+        color: var(--color-paper);
+        font-family: var(--font-mono);
+        overflow-x: hidden;
+        font-size: 12px;
+        line-height: 1.4;
+        background-image: var(--noise-url);
+      }
+
+      a { color: inherit; text-decoration: none; }
+      .uppercase { text-transform: uppercase; }
+      .mono { font-family: var(--font-mono); letter-spacing: 0.5px; }
+      .display { font-family: var(--font-display); line-height: 0.85; text-transform: uppercase; }
+      .flex { display: flex; }
+
+      nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        padding: 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        z-index: 100;
+        mix-blend-mode: difference;
+        color: #fff;
+        pointer-events: none;
+      }
+
+      nav * { pointer-events: auto; }
+
+      .logo {
+        font-weight: 700;
+        font-size: 14px;
+        letter-spacing: 1px;
+      }
+
+      .nav-links { display: flex; align-items: center; gap: 20px; }
+
+      .nav-links a {
+        font-size: 11px;
+        opacity: 0.8;
+      }
+
+      .pill-badge {
+        border: 1px solid var(--color-primary);
+        background: var(--color-primary);
+        color: var(--color-ink) !important;
+        border-radius: 999px;
+        padding: 4px 12px;
+        font-size: 10px;
+        font-weight: 700;
+        opacity: 1 !important;
+      }
+
+      .lab-hero {
+        padding: 150px 24px 60px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .lab-header-grid {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        gap: 24px;
+        align-items: end;
+      }
+
+      .lab-title {
+        font-size: clamp(3.8rem, 11vw, 11rem);
+        color: var(--color-primary);
+      }
+
+      .lab-status-box {
+        border: 1px solid var(--color-primary);
+        padding: 20px;
+        max-width: 430px;
+        justify-self: end;
+      }
+
+      .terminal-header {
+        margin-top: 30px;
+        max-width: 950px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(0, 0, 0, 0.42);
+        padding: 2rem;
+        position: relative;
+      }
+
+      .terminal-top {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 24px;
+        background: rgba(255, 255, 255, 0.06);
+        display: flex;
+        align-items: center;
+        padding: 0 10px;
+        gap: 6px;
+      }
+
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+      }
+
+      .terminal-content {
+        margin-top: 1rem;
+        color: var(--color-primary);
+        font-size: 13px;
+        line-height: 1.65;
+      }
+
+      .cursor {
+        display: inline-block;
+        width: 8px;
+        height: 15px;
+        background: var(--color-primary);
+        animation: blink 1s infinite;
+        vertical-align: middle;
+      }
+
+      @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
+      }
+
+      .tools-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .tool-card {
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 3.2rem 2rem;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .tool-card:nth-child(3n) { border-right: none; }
+      .tool-card:hover { background: rgba(220, 47, 24, 0.05); }
+      .tool-card:hover .glitch-layer { display: block; animation: glitch-anim 0.2s infinite; }
+
+      .glitch-layer {
+        display: none;
+        position: absolute;
+        inset: 0;
+        background: repeating-linear-gradient(0deg, rgba(220, 47, 24, 0.1) 0px, transparent 1px, transparent 2px);
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      @keyframes glitch-anim {
+        0% { transform: translate(0); }
+        20% { transform: translate(-2px, 2px); }
+        40% { transform: translate(-2px, -2px); }
+        60% { transform: translate(2px, 2px); }
+        80% { transform: translate(2px, -2px); }
+        100% { transform: translate(0); }
+      }
+
+      .experimental-tag {
+        position: absolute;
+        top: 18px;
+        right: 18px;
+        font-size: 9px;
+        border: 1px solid currentColor;
+        padding: 2px 7px;
+      }
+
+      .status-active { color: #00ff41; }
+      .status-beta { color: #ffd700; }
+      .status-dev { color: #7ec8ff; }
+      .status-deprecated { color: rgba(255, 255, 255, 0.35); }
+
+      .tool-num {
+        font-size: 11px;
+        color: var(--color-primary);
+        margin-bottom: 24px;
+        display: block;
+      }
+
+      .tool-name {
+        font-size: 2.6rem;
+        margin-bottom: 14px;
+      }
+
+      .tool-desc {
+        font-size: 11px;
+        opacity: 0.65;
+        max-width: 280px;
+        line-height: 1.55;
+        margin-bottom: 1.5rem;
+      }
+
+      .tool-visual {
+        height: 110px;
+        width: 100%;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px dashed rgba(255, 255, 255, 0.1);
+        margin-bottom: 1.4rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+      }
+
+      .scan-line {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background: var(--color-primary);
+        opacity: 0.5;
+        animation: scan 3s linear infinite;
+      }
+
+      @keyframes scan {
+        0% { top: 0; }
+        100% { top: 100%; }
+      }
+
+      .btn-tool {
+        background: none;
+        border: 1px solid var(--color-paper);
+        color: var(--color-paper);
+        padding: 10px 16px;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .btn-tool:hover {
+        background: var(--color-paper);
+        color: var(--color-ink);
+      }
+
+      .terminal-footer {
+        padding: 70px 24px;
+        background: #000;
+        color: #00ff41;
+        font-size: 11px;
+      }
+
+      .footer-cta {
+        margin-top: 26px;
+      }
+
+      @media (max-width: 1024px) {
+        .lab-header-grid { grid-template-columns: 1fr; }
+        .lab-status-box { justify-self: start; }
+        .tools-grid { grid-template-columns: repeat(2, 1fr); }
+        .tool-card:nth-child(2n) { border-right: none; }
+        .tool-card:nth-child(3n) { border-right: 1px solid rgba(255, 255, 255, 0.1); }
+      }
+
+      @media (max-width: 768px) {
+        nav {
+          mix-blend-mode: normal;
+          background: rgba(0, 0, 0, 0.65);
+          backdrop-filter: blur(8px);
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+
+        .nav-links {
+          width: 100%;
+          overflow-x: auto;
+          padding-bottom: 4px;
+        }
+
+        .tools-grid { grid-template-columns: 1fr; }
+        .tool-card { border-right: none !important; }
+        .lab-hero { padding-top: 125px; }
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <a href="index.html" class="logo flex" style="align-items: center; gap: 10px">
+        <span style="width: 12px; height: 12px; background: var(--color-primary); border-radius: 50%"></span>
+        BIG DOT DIGITAL
+      </a>
+      <div class="nav-links">
+        <a href="services.html" class="uppercase">Services</a>
+        <a href="work.html" class="uppercase">Work</a>
+        <a href="about.html" class="uppercase">About</a>
+        <a href="contact.html" class="uppercase">Contact</a>
+        <a href="lab.html" class="uppercase pill-badge">Lab / Experiments</a>
+      </div>
+    </nav>
+
+    <header class="lab-hero">
+      <div class="lab-header-grid">
+        <div>
+          <p class="mono uppercase" style="color: var(--color-primary); margin-bottom: 16px">// Research & Development</p>
+          <h1 class="display lab-title">THE LAB</h1>
+        </div>
+        <div class="lab-status-box mono">
+          <p style="margin-bottom: 10px">SYSTEM_STATUS: <span style="color: #00ff41">ACTIVE</span></p>
+          <p style="margin-bottom: 10px; opacity: 0.6">VERSION: 4.0.8-BETA</p>
+          <p style="font-size: 10px; line-height: 1.6">
+            Proprietary tools used by internal growth teams. Raw data. No training wheels. Use at your own risk.
+          </p>
+        </div>
+      </div>
+
+      <div class="terminal-header">
+        <div class="terminal-top">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <p class="mono" style="font-size: 8px; opacity: 0.4; margin-left: 10px">ROOT@BDD-LAB:~/EXPERIMENTS/PROTOTYPES</p>
+        </div>
+        <div class="terminal-content mono">
+          <span style="opacity: 0.5">&gt; INITIALIZING LAB_ENV_V.4.0...</span><br />
+          <span style="opacity: 0.5">&gt; LOADING EXPERIMENTAL_REVENUE_ENGINES...</span><br />
+          <span style="opacity: 0.5">&gt; </span>WELCOME TO THE LAB. THESE ARE ALPHA PROTOTYPES, INTERNAL UTILITIES, AND DATA EXPERIMENTS.<br />
+          <span style="opacity: 0.5">&gt; </span>STATUS: <span style="color: #00ff41">OPERATIONAL</span><span class="cursor"></span>
+        </div>
+      </div>
+    </header>
+
+    <section class="tools-grid">
+      <article class="tool-card">
+        <div class="glitch-layer"></div>
+        <span class="experimental-tag mono uppercase status-beta">Beta</span>
+        <span class="tool-num mono">[01]</span>
+        <h2 class="display tool-name">DOMINATION<br />CALCULATOR</h2>
+        <p class="tool-desc mono">Input zip code and shop capacity to produce your local market domination score.</p>
+        <div class="tool-visual"><div class="scan-line"></div><div style="font-size: 38px; font-weight: 700; color: var(--color-primary)">84.2%</div></div>
+        <button class="btn-tool" type="button">Launch Calculator ↘</button>
+      </article>
+
+      <article class="tool-card">
+        <div class="glitch-layer"></div>
+        <span class="experimental-tag mono uppercase status-active">Active</span>
+        <span class="tool-num mono">[02]</span>
+        <h2 class="display tool-name">COMPETITOR<br />GAP ANALYZER</h2>
+        <p class="tool-desc mono">Scrapes 24 local points to show where nearby shops are stealing your calls.</p>
+        <div class="tool-visual"><div style="display: flex; gap: 4px; align-items: flex-end; height: 60px"><div style="width: 12px; height: 30%; background: var(--color-paper); opacity: 0.2"></div><div style="width: 12px; height: 80%; background: var(--color-primary)"></div><div style="width: 12px; height: 50%; background: var(--color-paper); opacity: 0.2"></div><div style="width: 12px; height: 95%; background: var(--color-primary)"></div></div></div>
+        <button class="btn-tool" type="button">Run Analysis ↘</button>
+      </article>
+
+      <article class="tool-card">
+        <div class="glitch-layer"></div>
+        <span class="experimental-tag mono uppercase status-dev">In-Dev</span>
+        <span class="tool-num mono">[03]</span>
+        <h2 class="display tool-name">STORM DEMAND<br />HEATMAP</h2>
+        <p class="tool-desc mono">Predictive hail modeling to identify demand spikes before storm impact.</p>
+        <div class="tool-visual"><div style="display: grid; grid-template-columns: repeat(8, 1fr)"><div style="width: 14px; height: 14px; background: var(--color-primary); margin: 2px; opacity: 0.1"></div><div style="width: 14px; height: 14px; background: var(--color-primary); margin: 2px; opacity: 0.3"></div><div style="width: 14px; height: 14px; background: var(--color-primary); margin: 2px; opacity: 0.6"></div><div style="width: 14px; height: 14px; background: var(--color-primary); margin: 2px; opacity: 0.9"></div><div style="width: 14px; height: 14px; background: var(--color-primary); margin: 2px; opacity: 0.2"></div><div style="width: 14px; height: 14px; background: var(--color-primary); margin: 2px; opacity: 0.5"></div><div style="width: 14px; height: 14px; background: var(--color-primary); margin: 2px; opacity: 0.8"></div><div style="width: 14px; height: 14px; background: var(--color-primary); margin: 2px; opacity: 1"></div></div></div>
+        <button class="btn-tool" type="button" style="opacity: 0.5; cursor: not-allowed" disabled>Awaiting Data Feed ↘</button>
+      </article>
+
+      <article class="tool-card">
+        <div class="glitch-layer"></div>
+        <span class="experimental-tag mono uppercase status-active">Active / Alpha</span>
+        <span class="tool-num mono">[04]</span>
+        <h2 class="display tool-name">HAIL<br />SCANNER</h2>
+        <p class="tool-desc mono">Real-time radar integration triggering automatic outbound messages in impact zones.</p>
+        <div class="tool-visual"><div class="mono" style="font-size: 9px; opacity: 0.5; text-align: left; width: 100%; padding: 10px">&gt; RADAR FEED LOCKED<br />&gt; IMPACT SCORE: HIGH<br />&gt; ALERT QUEUE: READY</div></div>
+        <a class="btn-tool" href="exp-001-hail-scanner.html">Launch Terminal ↘</a>
+      </article>
+
+      <article class="tool-card">
+        <div class="glitch-layer"></div>
+        <span class="experimental-tag mono uppercase status-beta">Beta</span>
+        <span class="tool-num mono">[05]</span>
+        <h2 class="display tool-name">VIN-CAPT<br />SYSTEM</h2>
+        <p class="tool-desc mono">Webcam VIN scanner for landing pages to reduce friction and improve lead quality.</p>
+        <div class="tool-visual"><div style="border: 1px solid var(--color-primary); width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--color-primary)">VIN</div></div>
+        <button class="btn-tool" type="button">Try Demo ↘</button>
+      </article>
+
+      <article class="tool-card" style="display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center">
+        <div class="glitch-layer"></div>
+        <span class="experimental-tag mono uppercase status-deprecated">Concept</span>
+        <h2 class="display" style="font-size: 2rem; opacity: 0.35">HAVE AN IDEA?</h2>
+        <p class="mono" style="font-size: 10px; margin: 20px 0; max-width: 220px; opacity: 0.55">We build custom dashboards and automations for shops doing $10M+ GCI.</p>
+        <a class="btn-tool" href="contact.html" style="border-style: dashed">Contact Engineering ↘</a>
+      </article>
+    </section>
+
+    <footer class="terminal-footer mono">
+      <div>&gt; INITIALIZING LAB_SECURE_PROTOCOL...</div>
+      <div>&gt; AUTHENTICATING ACCESS...</div>
+      <div style="margin: 20px 0; color: var(--color-primary)">
+        [WARNING] ALL DATA GENERATED HERE IS EXPERIMENTAL AND SHOULD BE VERIFIED AGAINST REAL-WORLD PERFORMANCE LOGS.
+      </div>
+      <div style="opacity: 0.4">EOF // SESSION_END // (c) <span id="year"></span> BIG DOT DIGITAL</div>
+      <div class="footer-cta"><a href="index.html" class="btn-tool">Return to Command Center</a></div>
+    </footer>
+
+    <script>
+      document.getElementById('year').textContent = new Date().getFullYear();
+    </script>
+  </body>
+</html>
