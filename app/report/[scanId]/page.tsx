@@ -33,6 +33,49 @@ function impactClass(impact: 'high' | 'med' | 'low') {
   return 'bg-slate-200 text-slate-700';
 }
 
+function normalizeImpact(value: unknown): 'high' | 'med' | 'low' {
+  if (value === 'high' || value === 'med' || value === 'low') return value;
+  return 'low';
+}
+
+function normalizePageSpeed(input: unknown, fallbackWebsiteScore: number): PageSpeedResult {
+  const raw = (input || {}) as Partial<PageSpeedResult> & { diagnostics?: unknown };
+  const diagnostics = Array.isArray(raw.diagnostics)
+    ? raw.diagnostics
+        .map((item, idx) => {
+          const row = item as Record<string, unknown>;
+          const title = typeof row?.title === 'string' ? row.title : 'Website issue detected';
+          const recommendation =
+            typeof row?.recommendation === 'string'
+              ? row.recommendation
+              : 'Apply technical cleanup to improve performance.';
+          return {
+            id: typeof row?.id === 'string' ? row.id : `diag-${idx}`,
+            title,
+            description:
+              typeof row?.description === 'string'
+                ? row.description
+                : 'This website element is reducing page performance.',
+            impact: normalizeImpact(row?.impact),
+            recommendation
+          };
+        })
+        .slice(0, 5)
+    : [];
+
+  return {
+    status: raw.status === 'ok' ? 'ok' : 'error',
+    message: typeof raw.message === 'string' ? raw.message : undefined,
+    performanceScore:
+      typeof raw.performanceScore === 'number' ? raw.performanceScore : fallbackWebsiteScore,
+    lcpMs: typeof raw.lcpMs === 'number' ? raw.lcpMs : null,
+    cls: typeof raw.cls === 'number' ? raw.cls : null,
+    tbtMs: typeof raw.tbtMs === 'number' ? raw.tbtMs : null,
+    speedIndexMs: typeof raw.speedIndexMs === 'number' ? raw.speedIndexMs : null,
+    diagnostics
+  };
+}
+
 export default async function ReportPage({ params }: { params: { scanId: string } }) {
   logEnvWarningsOnce();
   const scanId = params.scanId;
@@ -77,7 +120,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
   const scoreLocal = scanRecord.scoreLocal;
   const scoreIntent = scanRecord.scoreIntent;
 
-  const pagespeed = scanRecord.pagespeed as PageSpeedResult;
+    const pagespeed = normalizePageSpeed(scanRecord.pagespeed, scoreWebsite);
   const websiteCardScore = pagespeed.performanceScore ?? scoreWebsite;
 
   const calendly = process.env.CALENDLY_LINK || 'https://calendly.com/your-team/15min';
