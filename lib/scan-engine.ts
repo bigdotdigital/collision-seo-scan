@@ -513,7 +513,7 @@ const generateAiSummary = async (
   city: string,
   total: number,
   issues: Array<{ title: string; why: string; fix: string }>
-): Promise<string> => {
+): Promise<{ text: string; provider: 'mistral' | 'openai' | 'fallback' }> => {
   const prompt = `You are a blunt local SEO strategist. Write 6-10 sentences for a collision shop scan.
 Shop: ${shopName || 'Unknown'}
 City: ${city}
@@ -555,7 +555,7 @@ Required format:
 
       const data = await resp.json().catch(() => null);
       const text = data?.choices?.[0]?.message?.content?.trim();
-      if (resp.ok && text) return text;
+      if (resp.ok && text) return { text, provider: 'mistral' };
     } catch {
       // continue to fallback providers
     }
@@ -580,13 +580,16 @@ Required format:
 
       const data = await resp.json().catch(() => null);
       const text = data?.output_text?.trim();
-      if (resp.ok && text) return text;
+      if (resp.ok && text) return { text, provider: 'openai' };
     } catch {
       // fall through to deterministic template
     }
   }
 
-  return generateSummaryFallback(shopName, city, total, issues);
+  return {
+    text: generateSummaryFallback(shopName, city, total, issues),
+    provider: 'fallback'
+  };
 };
 
 export const runScan = async (
@@ -629,7 +632,11 @@ export const runScan = async (
   const scores = buildScores(checks);
   const moneyKeywords = buildMoneyKeywords(city, checks.oemSignals);
   const competitors = await getCompetitors(city);
-  const aiSummary = await generateAiSummary(shopName, city, scores.total, scores.issues);
+  const aiSummaryResult = await generateAiSummary(shopName, city, scores.total, scores.issues);
+  const aiSummary = aiSummaryResult.text;
+  console.info(
+    `AI_PROVIDER=${aiSummaryResult.provider} city=${city.toLowerCase().trim()} shop=${(shopName || 'unknown').toLowerCase().replace(/\\s+/g, '-')}`
+  );
   const thirtyDayPlan = buildThirtyDayPlan(
     city,
     scores.issues.map((issue) => issue.title)
