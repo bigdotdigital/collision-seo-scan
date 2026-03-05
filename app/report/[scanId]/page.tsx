@@ -76,6 +76,86 @@ function normalizePageSpeed(input: unknown, fallbackWebsiteScore: number): PageS
   };
 }
 
+function normalizeIssues(input: unknown): Issue[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((item, idx) => {
+      const row = item as Record<string, unknown>;
+      const severity =
+        row?.severity === 'High' || row?.severity === 'Med' || row?.severity === 'Low'
+          ? row.severity
+          : 'Low';
+      return {
+        id: typeof row?.id === 'string' ? row.id : `issue-${idx}`,
+        severity,
+        title: typeof row?.title === 'string' ? row.title : 'Action item',
+        why: typeof row?.why === 'string' ? row.why : 'This issue reduces local SEO performance.',
+        fix: typeof row?.fix === 'string' ? row.fix : 'Apply recommended technical/content updates.'
+      } as Issue;
+    })
+    .slice(0, 10);
+}
+
+function normalizeKeywords(input: unknown): MoneyKeyword[] {
+  if (!Array.isArray(input)) return [];
+  const rows = input
+    .map<MoneyKeyword | null>((item) => {
+      if (typeof item === 'string') {
+        return { keyword: item, source: 'modeled' };
+      }
+      const row = item as Record<string, unknown>;
+      if (typeof row?.keyword !== 'string') return null;
+      return {
+        keyword: row.keyword,
+        volume: typeof row.volume === 'number' ? row.volume : null,
+        cpc: typeof row.cpc === 'number' ? row.cpc : null,
+        source: row.source === 'api' ? 'api' : 'modeled'
+      };
+    })
+    .filter((x): x is MoneyKeyword => Boolean(x));
+
+  return rows.slice(0, 20);
+}
+
+function normalizeCompetitors(input: unknown, city: string): Competitor[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((item, idx) => {
+      const row = item as Record<string, unknown>;
+      const name =
+        typeof row?.name === 'string' && row.name.trim()
+          ? row.name
+          : `Leading ${city} collision shop #${idx + 1}`;
+      return {
+        name,
+        url: typeof row?.url === 'string' ? row.url : undefined,
+        note: typeof row?.note === 'string' ? row.note : 'Benchmark profile',
+        differentiatorGuess:
+          typeof row?.differentiatorGuess === 'string'
+            ? row.differentiatorGuess
+            : 'Stronger local trust and conversion signals.'
+      } as Competitor;
+    })
+    .slice(0, 5);
+}
+
+function normalizePlan(input: unknown): ThirtyDayPlanItem[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((item, idx) => {
+      const row = item as Record<string, unknown>;
+      return {
+        week: typeof row?.week === 'string' ? row.week : `Week ${idx + 1}`,
+        focus: typeof row?.focus === 'string' ? row.focus : 'Execution sprint',
+        outcome:
+          typeof row?.outcome === 'string'
+            ? row.outcome
+            : 'Implement prioritized SEO and conversion improvements.'
+      } as ThirtyDayPlanItem;
+    })
+    .slice(0, 4);
+}
+
 export default async function ReportPage({ params }: { params: { scanId: string } }) {
   logEnvWarningsOnce();
   const scanId = params.scanId;
@@ -98,21 +178,32 @@ export default async function ReportPage({ params }: { params: { scanId: string 
           .catch(() => null)
       : null;
 
-  const issues = dbScan ? parseJson<Issue[]>(dbScan.issuesJson, scanRecord.issues) : scanRecord.issues;
-  const keywords = dbScan
-    ? parseJson<MoneyKeyword[]>(dbScan.moneyKeywordsJson, scanRecord.moneyKeywords)
-    : scanRecord.moneyKeywords;
-  const competitors = snapshot
-    ? parseJson<Competitor[]>(
-        snapshot.topCompetitorsJson,
-        dbScan ? parseJson<Competitor[]>(dbScan.competitorsJson, scanRecord.competitors) : scanRecord.competitors
-      )
-    : dbScan
-      ? parseJson<Competitor[]>(dbScan.competitorsJson, scanRecord.competitors)
-      : scanRecord.competitors;
-  const plan = dbScan
-    ? parseJson<ThirtyDayPlanItem[]>(dbScan.thirtyDayPlanJson, scanRecord.thirtyDayPlan)
-    : scanRecord.thirtyDayPlan;
+  const issues = normalizeIssues(
+    dbScan ? parseJson<unknown>(dbScan.issuesJson, scanRecord.issues) : scanRecord.issues
+  );
+  const keywords = normalizeKeywords(
+    dbScan
+      ? parseJson<unknown>(dbScan.moneyKeywordsJson, scanRecord.moneyKeywords)
+      : scanRecord.moneyKeywords
+  );
+  const competitors = normalizeCompetitors(
+    snapshot
+      ? parseJson<unknown>(
+          snapshot.topCompetitorsJson,
+          dbScan
+            ? parseJson<unknown>(dbScan.competitorsJson, scanRecord.competitors)
+            : scanRecord.competitors
+        )
+      : dbScan
+        ? parseJson<unknown>(dbScan.competitorsJson, scanRecord.competitors)
+        : scanRecord.competitors,
+    scanRecord.city
+  );
+  const plan = normalizePlan(
+    dbScan
+      ? parseJson<unknown>(dbScan.thirtyDayPlanJson, scanRecord.thirtyDayPlan)
+      : scanRecord.thirtyDayPlan
+  );
   const raw = dbScan ? parseJson<Record<string, unknown>>(dbScan.rawChecksJson, {}) : {};
 
   const scoreTotal = snapshot?.visibilityScore ?? scanRecord.scoreTotal;
