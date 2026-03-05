@@ -1,0 +1,37 @@
+{
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "freecollisionseo.com"
+        }
+      ],
+      "destination": "https://shopseoscan.com/scan",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.freecollisionseo.com"
+        }
+      ],
+      "destination": "https://shopseoscan.com/scan",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.shopseoscan.com"
+        }
+      ],
+      "destination": "https://shopseoscan.com/:path*",
+      "permanent": true
+    }
+  ]
+}
