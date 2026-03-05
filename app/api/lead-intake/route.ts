@@ -8,6 +8,7 @@ const schema = z.object({
   intent: z.string().optional(),
   budgetRange: z.string().optional(),
   timeline: z.string().optional(),
+  vertical: z.string().optional(),
   email: z.string().email().optional().or(z.literal('')),
   phone: z.string().optional(),
   name: z.string().optional()
@@ -27,6 +28,7 @@ export async function POST(req: Request) {
       email: input.email || null,
       phone: input.phone || null,
       name: input.name || null,
+      vertical: input.vertical || null,
       source: 'cta_form',
       consented: true
     });

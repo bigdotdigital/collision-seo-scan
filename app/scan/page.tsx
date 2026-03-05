@@ -1,3 +1,5 @@
-import HomePage from '@/app/page';
+import { redirect } from 'next/navigation';
 
-export default HomePage;
+export default function ScanAliasPage() {
+  redirect('/collision');
+}

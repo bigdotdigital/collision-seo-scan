@@ -69,3 +69,14 @@ export type ScanResult = {
   aiSummary?: string;
   thirtyDayPlan: ThirtyDayPlanItem[];
 };
+
+export type ScanRecord = {
+  id: string;
+  createdAt: string;
+  url: string;
+  shopName: string;
+  city: string;
+  email: string | null;
+  phone: string | null;
+  pagespeed: import('@/lib/pagespeed').PageSpeedResult;
+};

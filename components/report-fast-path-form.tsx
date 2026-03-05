@@ -5,6 +5,7 @@ import { useState } from 'react';
 type Props = {
   orgId?: string | null;
   scanId: string;
+  vertical?: string | null;
   email?: string | null;
   phone?: string | null;
 };
@@ -15,7 +16,7 @@ const INTENTS = [
   { value: 'monitoring', label: 'Monitor weekly ($49/mo)' }
 ];
 
-export function ReportFastPathForm({ orgId, scanId, email, phone }: Props) {
+export function ReportFastPathForm({ orgId, scanId, vertical, email, phone }: Props) {
   const [intent, setIntent] = useState<string>('fix_seo');
   const [budgetRange, setBudgetRange] = useState<string>('');
   const [timeline, setTimeline] = useState<string>('');
@@ -47,6 +48,7 @@ export function ReportFastPathForm({ orgId, scanId, email, phone }: Props) {
           intent,
           budgetRange,
           timeline,
+          vertical: vertical || 'collision',
           email: email || '',
           phone: phone || ''
         })

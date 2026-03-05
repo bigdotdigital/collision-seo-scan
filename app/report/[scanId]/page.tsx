@@ -8,6 +8,18 @@ import { ReportEmailCapture } from '@/components/report-email-capture';
 import { ReportCtaActions, ReportShareActions } from '@/components/report-cta-actions';
 import { buildReportViewModel, type ReportData } from '@/lib/report-view-model';
 import { ReportFastPathForm } from '@/components/report-fast-path-form';
+import type { PageSpeedResult } from '@/lib/pagespeed';
+import { formatCls, formatMilliseconds, formatScore } from '@/lib/metric-format';
+import { getScanRecord } from '@/lib/scan-store';
+import { logEnvWarningsOnce } from '@/lib/env-check';
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const CUID_RE = /^c[a-z0-9]{24,}$/i;
+
+function isValidScanId(id: string): boolean {
+  return UUID_RE.test(id) || CUID_RE.test(id);
+}
 
 function severityClass(severity: string) {
   if (severity === 'High') return 'bg-red-100 text-red-700';
@@ -15,38 +27,67 @@ function severityClass(severity: string) {
   return 'bg-slate-200 text-slate-700';
 }
 
+function impactClass(impact: 'high' | 'med' | 'low') {
+  if (impact === 'high') return 'bg-red-100 text-red-700';
+  if (impact === 'med') return 'bg-amber-100 text-amber-700';
+  return 'bg-slate-200 text-slate-700';
+}
+
 export default async function ReportPage({ params }: { params: { scanId: string } }) {
-  const scan = await prisma.scan.findUnique({ where: { id: params.scanId } });
-  if (!scan) return notFound();
+  logEnvWarningsOnce();
+  const scanId = params.scanId;
+  if (!isValidScanId(scanId)) return notFound();
 
-  const snapshot = scan.latestSnapshotId
-    ? await prisma.scanSnapshot.findUnique({ where: { id: scan.latestSnapshotId } })
-    : await prisma.scanSnapshot.findFirst({
-        where: { scanId: scan.id },
-        orderBy: { createdAt: 'desc' }
-      });
+  try {
+    const scanRecord = await getScanRecord(scanId);
+    if (!scanRecord) return notFound();
 
-  const issues = parseJson<Issue[]>(scan.issuesJson, []);
-  const keywords = parseJson<MoneyKeyword[]>(scan.moneyKeywordsJson, []);
+    const dbScan = await prisma.scan.findUnique({ where: { id: scanId } }).catch(() => null);
+
+  const snapshot = dbScan?.latestSnapshotId
+    ? await prisma.scanSnapshot.findUnique({ where: { id: dbScan.latestSnapshotId } }).catch(() => null)
+    : dbScan
+      ? await prisma.scanSnapshot
+          .findFirst({
+            where: { scanId: dbScan.id },
+            orderBy: { createdAt: 'desc' }
+          })
+          .catch(() => null)
+      : null;
+
+  const issues = dbScan ? parseJson<Issue[]>(dbScan.issuesJson, scanRecord.issues) : scanRecord.issues;
+  const keywords = dbScan
+    ? parseJson<MoneyKeyword[]>(dbScan.moneyKeywordsJson, scanRecord.moneyKeywords)
+    : scanRecord.moneyKeywords;
   const competitors = snapshot
-    ? parseJson<Competitor[]>(snapshot.topCompetitorsJson, parseJson<Competitor[]>(scan.competitorsJson, []))
-    : parseJson<Competitor[]>(scan.competitorsJson, []);
-  const plan = parseJson<ThirtyDayPlanItem[]>(scan.thirtyDayPlanJson, []);
-  const raw = parseJson<Record<string, unknown>>(scan.rawChecksJson, {});
+    ? parseJson<Competitor[]>(
+        snapshot.topCompetitorsJson,
+        dbScan ? parseJson<Competitor[]>(dbScan.competitorsJson, scanRecord.competitors) : scanRecord.competitors
+      )
+    : dbScan
+      ? parseJson<Competitor[]>(dbScan.competitorsJson, scanRecord.competitors)
+      : scanRecord.competitors;
+  const plan = dbScan
+    ? parseJson<ThirtyDayPlanItem[]>(dbScan.thirtyDayPlanJson, scanRecord.thirtyDayPlan)
+    : scanRecord.thirtyDayPlan;
+  const raw = dbScan ? parseJson<Record<string, unknown>>(dbScan.rawChecksJson, {}) : {};
 
-  const scoreTotal = snapshot?.visibilityScore ?? scan.scoreTotal;
-  const scoreWebsite = scan.scoreWebsite;
-  const scoreLocal = scan.scoreLocal;
-  const scoreIntent = scan.scoreIntent;
+  const scoreTotal = snapshot?.visibilityScore ?? scanRecord.scoreTotal;
+  const scoreWebsite = scanRecord.scoreWebsite;
+  const scoreLocal = scanRecord.scoreLocal;
+  const scoreIntent = scanRecord.scoreIntent;
+
+  const pagespeed = scanRecord.pagespeed as PageSpeedResult;
+  const websiteCardScore = pagespeed.performanceScore ?? scoreWebsite;
 
   const calendly = process.env.CALENDLY_LINK || 'https://calendly.com/your-team/15min';
   const salesPhone = process.env.SALES_PHONE || '+13035551234';
 
   const reportData: ReportData = {
-    scanId: scan.id,
-    shopName: scan.shopName,
-    city: scan.city,
-    websiteUrl: scan.websiteUrl,
+    scanId: scanRecord.id,
+    shopName: scanRecord.shopName,
+    city: scanRecord.city,
+    websiteUrl: scanRecord.url,
     scoreTotal,
     scoreWebsite,
     scoreLocal,
@@ -55,7 +96,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
     moneyKeywords: keywords,
     competitors,
     thirtyDayPlan: plan,
-    aiSummary: scan.aiSummary,
+    aiSummary: scanRecord.aiSummary,
     calendlyBase: calendly,
     salesPhone,
     rawChecks: {
@@ -66,17 +107,17 @@ export default async function ReportPage({ params }: { params: { scanId: string 
   };
 
   const vm = buildReportViewModel(reportData);
-  const reportUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/report/${scan.id}`;
-  const printedAt = new Intl.DateTimeFormat('en-US', {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  }).format(new Date());
+    const reportUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/report/${scanRecord.id}`;
+    const printedAt = new Intl.DateTimeFormat('en-US', {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    }).format(new Date());
 
-  return (
-    <main className="container-shell report-print pb-24 pt-10 md:pb-10">
-      {!scan.email ? <ReportEmailCapture scanId={scan.id} /> : null}
+    return (
+      <main className="container-shell report-print pb-24 pt-10 md:pb-10">
+      {!scanRecord.email ? <ReportEmailCapture scanId={scanRecord.id} /> : null}
       <ReportCtaActions
-        scanId={scan.id}
+        scanId={scanRecord.id}
         calendlyUrl={vm.calendlyTrackedUrl}
         salesPhone={salesPhone}
         mobileSticky
@@ -84,9 +125,9 @@ export default async function ReportPage({ params }: { params: { scanId: string 
 
       <section className="print-only mb-4 border-b border-slate-300 pb-3">
         <p className="text-[11px] uppercase tracking-wide text-slate-600">Collision SEO Scan</p>
-        <h1 className="mt-1 text-xl font-bold text-slate-900">{scan.shopName}</h1>
+        <h1 className="mt-1 text-xl font-bold text-slate-900">{scanRecord.shopName}</h1>
         <p className="text-xs text-slate-700">
-          {scan.city} • {scan.websiteUrl} • Generated {printedAt}
+          {scanRecord.city} • {scanRecord.url} • Generated {printedAt}
         </p>
       </section>
 
@@ -95,9 +136,9 @@ export default async function ReportPage({ params }: { params: { scanId: string 
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">
             Collision SEO Scan Report
           </p>
-          <h1 className="mt-2 text-3xl font-extrabold text-slate-900">{scan.shopName}</h1>
+          <h1 className="mt-2 text-3xl font-extrabold text-slate-900">{scanRecord.shopName}</h1>
           <p className="mt-1 text-sm text-slate-600">
-            {scan.city} • {scan.websiteUrl}
+            {scanRecord.city} • {scanRecord.url}
           </p>
         </div>
         <ScoreRing score={scoreTotal} />
@@ -112,7 +153,8 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       <section className="grid gap-4 md:grid-cols-3">
         <div className="card print-break-avoid p-5">
           <p className="text-xs uppercase tracking-wide text-slate-500">Website</p>
-          <p className="mt-1 text-3xl font-bold">{scoreWebsite}</p>
+          <p className="mt-1 text-3xl font-bold">{formatScore(websiteCardScore)}</p>
+          <p className="mt-1 text-xs text-slate-500">Performance score (PageSpeed mobile)</p>
         </div>
         <div className="card print-break-avoid p-5">
           <p className="text-xs uppercase tracking-wide text-slate-500">Local</p>
@@ -122,6 +164,58 @@ export default async function ReportPage({ params }: { params: { scanId: string 
           <p className="text-xs uppercase tracking-wide text-slate-500">Intent</p>
           <p className="mt-1 text-3xl font-bold">{scoreIntent}</p>
         </div>
+      </section>
+
+      <section className="mt-6 card print-break-avoid p-6">
+        <h2 className="text-xl font-bold">Website Performance Diagnostics</h2>
+        {pagespeed.status === 'error' ? (
+          <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            Could not load PageSpeed data right now. {pagespeed.message || 'Please try again later.'}
+          </p>
+        ) : (
+          <>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-500">LCP</p>
+                <p className="mt-1 text-lg font-semibold">{formatMilliseconds(pagespeed.lcpMs)}</p>
+              </article>
+              <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-500">CLS</p>
+                <p className="mt-1 text-lg font-semibold">{formatCls(pagespeed.cls)}</p>
+              </article>
+              <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-500">TBT</p>
+                <p className="mt-1 text-lg font-semibold">{formatMilliseconds(pagespeed.tbtMs)}</p>
+              </article>
+              <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Speed Index</p>
+                <p className="mt-1 text-lg font-semibold">{formatMilliseconds(pagespeed.speedIndexMs)}</p>
+              </article>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <h3 className="font-semibold text-slate-900">Top Website Issues</h3>
+              {pagespeed.diagnostics.length === 0 ? (
+                <p className="text-sm text-slate-600">No high-priority website issues detected from Lighthouse.</p>
+              ) : (
+                pagespeed.diagnostics.map((diag) => (
+                  <article key={diag.id} className="rounded-lg border border-slate-200 p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-semibold text-slate-900">{diag.title}</p>
+                      <span className={`rounded-full px-2 py-1 text-xs font-semibold ${impactClass(diag.impact)}`}>
+                        {diag.impact.toUpperCase()}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-slate-600">{diag.description}</p>
+                    <p className="mt-1 text-sm text-slate-800">
+                      <strong>Fix:</strong> {diag.recommendation}
+                    </p>
+                  </article>
+                ))
+              )}
+            </div>
+          </>
+        )}
       </section>
 
       <section className="mt-6 card print-break-avoid p-6">
@@ -289,10 +383,10 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         </div>
       </section>
 
-      {scan.aiSummary ? (
+      {scanRecord.aiSummary ? (
         <section className="mt-8 card print-break-avoid p-6">
           <h2 className="text-xl font-bold">Executive Summary</h2>
-          <p className="mt-3 whitespace-pre-wrap text-sm text-slate-700">{scan.aiSummary}</p>
+          <p className="mt-3 whitespace-pre-wrap text-sm text-slate-700">{scanRecord.aiSummary}</p>
         </section>
       ) : null}
 
@@ -304,12 +398,13 @@ export default async function ReportPage({ params }: { params: { scanId: string 
           ))}
         </ul>
 
-        <ReportCtaActions scanId={scan.id} calendlyUrl={vm.calendlyTrackedUrl} salesPhone={salesPhone} />
+        <ReportCtaActions scanId={scanRecord.id} calendlyUrl={vm.calendlyTrackedUrl} salesPhone={salesPhone} />
         <ReportFastPathForm
-          orgId={scan.organizationId}
-          scanId={scan.id}
-          email={scan.email}
-          phone={scan.phone}
+          orgId={dbScan?.organizationId}
+          scanId={scanRecord.id}
+          vertical={dbScan?.vertical || 'collision'}
+          email={scanRecord.email}
+          phone={scanRecord.phone}
         />
 
         <ReportShareActions reportUrl={reportUrl} />
@@ -318,7 +413,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
           Not legal advice. SEO performance varies by location and competition.
         </p>
         <p className="mt-1 text-xs text-slate-500">
-          Scoring model: {snapshot?.scoringModelVersion || scan.scoringModelVersion}
+          Scoring model: {snapshot?.scoringModelVersion || dbScan?.scoringModelVersion || 'v0.1'}
         </p>
       </section>
 
@@ -331,6 +426,26 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       <footer className="print-only mt-6 border-t border-slate-300 pt-3 text-[10px] text-slate-600">
         Collision SEO Scan report. Modeled estimates for planning only.
       </footer>
-    </main>
-  );
+      </main>
+    );
+  } catch (error) {
+    console.error('REPORT_LOAD_ERROR', {
+      id: scanId,
+      message: error instanceof Error ? error.message : 'Unknown report load error'
+    });
+
+    return (
+      <main className="container-shell pb-20 pt-12">
+        <section className="mx-auto max-w-2xl rounded-xl border border-amber-200 bg-amber-50 p-6">
+          <h1 className="text-2xl font-bold text-slate-900">Report temporarily unavailable</h1>
+          <p className="mt-2 text-sm text-slate-700">
+            We could not load this report right now. Please retry in a moment or run a new scan.
+          </p>
+          <Link href="/" className="mt-4 inline-block text-sm font-semibold text-teal-700 underline">
+            Back to scanner
+          </Link>
+        </section>
+      </main>
+    );
+  }
 }

@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { DEFAULT_VERTICAL, type VerticalSlug } from '@/lib/verticals';
 
-export function ScanForm() {
+export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalSlug }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +31,8 @@ export function ScanForm() {
           has_oem: fd.get('has_oem') === 'on',
           has_adas: fd.get('has_adas') === 'on',
           has_aluminum: fd.get('has_aluminum') === 'on',
-          consented: fd.get('consented') === 'on'
+          consented: fd.get('consented') === 'on',
+          vertical: String(fd.get('vertical') || vertical)
         })
       });
 
@@ -48,6 +50,7 @@ export function ScanForm() {
 
   return (
     <form className="card p-6 md:p-8" onSubmit={onSubmit}>
+      <input type="hidden" name="vertical" value={vertical} />
       <div className="grid gap-4 md:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm">
           Website URL

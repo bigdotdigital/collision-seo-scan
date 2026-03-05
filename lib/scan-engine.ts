@@ -1,5 +1,4 @@
 import * as cheerio from 'cheerio';
-import { OpenAI } from 'openai';
 import { ISSUE_LIBRARY } from '@/lib/issue-library';
 import { clamp, normalizeSpace, textContainsAny } from '@/lib/utils';
 import type {
@@ -463,14 +462,7 @@ const generateAiSummary = async (
   total: number,
   issues: Array<{ title: string; why: string; fix: string }>
 ): Promise<string> => {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) {
-    return generateSummaryFallback(shopName, city, total, issues);
-  }
-
-  try {
-    const client = new OpenAI({ apiKey: key });
-    const prompt = `You are a blunt local SEO strategist. Write 6-10 sentences for a collision shop scan.
+  const prompt = `You are a blunt local SEO strategist. Write 6-10 sentences for a collision shop scan.
 Shop: ${shopName || 'Unknown'}
 City: ${city}
 Score: ${total}
@@ -480,18 +472,69 @@ Required format:
 - Mention exactly 3 biggest leaks.
 - End with the phrase "Fastest 30-day plan".`;
 
-    const resp = await client.responses.create({
-      model: 'gpt-4.1-mini',
-      input: prompt,
-      max_output_tokens: 280
-    });
+  const mistralKey = process.env.MISTRAL_API_KEY;
+  if (mistralKey) {
+    const model = process.env.MISTRAL_MODEL || 'mistral-small-latest';
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15_000);
+      const resp = await fetch('https://api.mistral.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${mistralKey}`
+        },
+        body: JSON.stringify({
+          model,
+          temperature: 0.3,
+          max_tokens: 280,
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a blunt local SEO strategist focused on fast execution.'
+            },
+            { role: 'user', content: prompt }
+          ]
+        }),
+        signal: controller.signal,
+        cache: 'no-store'
+      });
+      clearTimeout(timer);
 
-    const text = resp.output_text?.trim();
-    if (!text) return generateSummaryFallback(shopName, city, total, issues);
-    return text;
-  } catch {
-    return generateSummaryFallback(shopName, city, total, issues);
+      const data = await resp.json().catch(() => null);
+      const text = data?.choices?.[0]?.message?.content?.trim();
+      if (resp.ok && text) return text;
+    } catch {
+      // continue to fallback providers
+    }
   }
+
+  const openAiKey = process.env.OPENAI_API_KEY;
+  if (openAiKey) {
+    try {
+      const resp = await fetch('https://api.openai.com/v1/responses', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${openAiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4.1-mini',
+          input: prompt,
+          max_output_tokens: 280
+        }),
+        cache: 'no-store'
+      });
+
+      const data = await resp.json().catch(() => null);
+      const text = data?.output_text?.trim();
+      if (resp.ok && text) return text;
+    } catch {
+      // fall through to deterministic template
+    }
+  }
+
+  return generateSummaryFallback(shopName, city, total, issues);
 };
 
 export const runScan = async (

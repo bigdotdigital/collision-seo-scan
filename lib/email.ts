@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
 type TransportResult = { sent: boolean; reason?: string };
 
@@ -31,19 +32,58 @@ const smtpConfigured = () =>
       process.env.SMTP_FROM
   );
 
-async function sendMail(input: {
+const resendConfigured = () => Boolean(process.env.RESEND_API_KEY);
+
+const resendClient = process.env.RESEND_API_KEY
+  ? new Resend(process.env.RESEND_API_KEY)
+  : null;
+
+function resolveFromAddress(): string {
+  return (
+    process.env.RESEND_FROM ||
+    process.env.SMTP_FROM ||
+    'Collision SEO Scan <reports@shopseoscan.com>'
+  );
+}
+
+async function sendWithResend(input: {
   to: string;
   subject: string;
   text: string;
   html: string;
-  fallbackLabel: string;
 }): Promise<TransportResult> {
-  if (!smtpConfigured()) {
-    console.log(`[email:fallback:${input.fallbackLabel}]`, {
+  if (!resendConfigured() || !resendClient) {
+    return { sent: false, reason: 'Resend not configured' };
+  }
+
+  try {
+    const result = await resendClient.emails.send({
+      from: resolveFromAddress(),
       to: input.to,
       subject: input.subject,
+      html: input.html,
       text: input.text
     });
+
+    if (result.error) {
+      console.error('[email:resend:error]', result.error);
+      return { sent: false, reason: 'Resend send failed' };
+    }
+
+    return { sent: true };
+  } catch (error) {
+    console.error('[email:resend:exception]', error);
+    return { sent: false, reason: 'Resend send failed' };
+  }
+}
+
+async function sendWithSmtp(input: {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+}): Promise<TransportResult> {
+  if (!smtpConfigured()) {
     return { sent: false, reason: 'SMTP not configured' };
   }
 
@@ -59,7 +99,7 @@ async function sendMail(input: {
     });
 
     await transporter.sendMail({
-      from: process.env.SMTP_FROM,
+      from: resolveFromAddress(),
       to: input.to,
       subject: input.subject,
       text: input.text,
@@ -68,9 +108,36 @@ async function sendMail(input: {
 
     return { sent: true };
   } catch (error) {
-    console.error('[email:error]', error);
+    console.error('[email:smtp:error]', error);
     return { sent: false, reason: 'SMTP send failed' };
   }
+}
+
+async function sendMail(input: {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+  fallbackLabel: string;
+}): Promise<TransportResult> {
+  const resendResult = await sendWithResend(input);
+  if (resendResult.sent) return resendResult;
+
+  const smtpResult = await sendWithSmtp(input);
+  if (smtpResult.sent) return smtpResult;
+
+  console.log(`[email:fallback:${input.fallbackLabel}]`, {
+    to: input.to,
+    subject: input.subject,
+    text: input.text,
+    resendReason: resendResult.reason,
+    smtpReason: smtpResult.reason
+  });
+
+  return {
+    sent: false,
+    reason: resendResult.reason || smtpResult.reason || 'No email provider configured'
+  };
 }
 
 export const sendReportEmail = async (payload: ReportEmailPayload): Promise<TransportResult> =>
@@ -91,7 +158,9 @@ export const sendFollowupEmail = async (payload: FollowupPayload): Promise<Trans
     fallbackLabel: 'followup'
   });
 
-export const sendPortalInviteEmail = async (payload: PortalInvitePayload): Promise<TransportResult> =>
+export const sendPortalInviteEmail = async (
+  payload: PortalInvitePayload
+): Promise<TransportResult> =>
   sendMail({
     to: payload.to,
     subject: 'Your Collision SEO client portal access',

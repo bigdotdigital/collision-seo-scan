@@ -25,9 +25,11 @@ model Scan {
   moneyKeywordsJson String
   competitorsJson   String
   rawChecksJson     String
+  pagespeedJson     String?
   aiSummary         String?
   thirtyDayPlanJson String?
   status            String      @default("lead")
+  vertical          String      @default("collision")
   organizationId    String?
   scoringModelVersion String    @default("v0.1")
   componentScoresJson String?
@@ -44,6 +46,7 @@ model Scan {
   leads             Lead[]
 
   @@index([organizationId])
+  @@index([vertical])
   @@index([createdAt])
 }
 
@@ -120,6 +123,7 @@ model Organization {
   lng              Float?
   googlePlaceId    String?  @unique
   primaryCategory  String?
+  verticalDefault  String   @default("collision")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   scans            Scan[]
@@ -138,6 +142,7 @@ model ScanSnapshot {
   scanId                 String
   organizationId         String
   scoringModelVersion    String   @default("v0.1")
+  vertical               String   @default("collision")
   visibilityScore        Int
   reviewRating           Float?
   reviewCount            Int?
@@ -151,6 +156,7 @@ model ScanSnapshot {
   organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, createdAt])
+  @@index([vertical, createdAt])
   @@index([scanId])
 }
 
@@ -199,6 +205,7 @@ model Lead {
   intent         String?
   budgetRange    String?
   timeline       String?
+  vertical       String?
   consentedAt    DateTime?
   source         String?
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)

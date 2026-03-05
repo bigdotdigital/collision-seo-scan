@@ -15,6 +15,7 @@ type OrganizationInput = {
   lat?: number | null;
   lng?: number | null;
   primaryCategory?: string | null;
+  vertical?: string | null;
 };
 
 export function hashRequest(obj: unknown): string {
@@ -40,7 +41,8 @@ export async function upsertOrganizationFromInput(input: OrganizationInput) {
         zip: input.zip || undefined,
         lat: input.lat ?? undefined,
         lng: input.lng ?? undefined,
-        primaryCategory: input.primaryCategory || undefined
+        primaryCategory: input.primaryCategory || undefined,
+        verticalDefault: input.vertical || undefined
       },
       create: {
         googlePlaceId: input.googlePlaceId,
@@ -53,7 +55,8 @@ export async function upsertOrganizationFromInput(input: OrganizationInput) {
         zip: input.zip || undefined,
         lat: input.lat ?? undefined,
         lng: input.lng ?? undefined,
-        primaryCategory: input.primaryCategory || undefined
+        primaryCategory: input.primaryCategory || undefined,
+        verticalDefault: input.vertical || undefined
       }
     });
   }
@@ -70,7 +73,8 @@ export async function upsertOrganizationFromInput(input: OrganizationInput) {
       where: { id: existing.id },
       data: {
         websiteUrl: input.website_url || existing.websiteUrl,
-        phone: input.phone || existing.phone
+        phone: input.phone || existing.phone,
+        verticalDefault: input.vertical || existing.verticalDefault
       }
     });
   }
@@ -80,7 +84,8 @@ export async function upsertOrganizationFromInput(input: OrganizationInput) {
       name,
       websiteUrl: input.website_url || undefined,
       phone: input.phone || undefined,
-      city: input.city || input.city_or_zip || undefined
+      city: input.city || input.city_or_zip || undefined,
+      verticalDefault: input.vertical || undefined
     }
   });
 }
@@ -96,6 +101,7 @@ export async function createScanRecord(
     has_oem?: boolean;
     has_adas?: boolean;
     has_aluminum?: boolean;
+    vertical?: string;
   },
   organizationId?: string
 ) {
@@ -115,6 +121,7 @@ export async function createScanRecord(
       competitorsJson: '[]',
       rawChecksJson: '{}',
       status: 'lead',
+      vertical: input.vertical || 'collision',
       organizationId,
       scoringModelVersion: 'v0.1'
     }
@@ -134,6 +141,7 @@ export async function createSnapshot(args: {
   lostDemandEstimate?: unknown;
   recommendations?: unknown;
   componentScores?: unknown;
+  vertical?: string;
 }) {
   const snapshot = await prisma.scanSnapshot.create({
     data: {
@@ -141,6 +149,7 @@ export async function createSnapshot(args: {
       organizationId: args.organizationId,
       visibilityScore: args.visibilityScore,
       scoringModelVersion: args.scoringModelVersion,
+      vertical: args.vertical || 'collision',
       reviewRating: args.reviewRating ?? undefined,
       reviewCount: args.reviewCount ?? undefined,
       keywordsCheckedJson: args.keywordsChecked
@@ -257,6 +266,7 @@ export async function upsertLead(args: {
   timeline?: string | null;
   source?: string | null;
   consented?: boolean;
+  vertical?: string | null;
 }) {
   return prisma.lead.create({
     data: {
@@ -268,6 +278,7 @@ export async function upsertLead(args: {
       intent: args.intent || undefined,
       budgetRange: args.budgetRange || undefined,
       timeline: args.timeline || undefined,
+      vertical: args.vertical || undefined,
       source: args.source || undefined,
       consentedAt: args.consented ? new Date() : undefined
     }
