@@ -127,6 +127,11 @@ export type ScanResult = {
   missingPages: string[];
   pageFetchMeta: PageFetchMeta[];
   scanDurationMs: number;
+  sources: {
+    serp: 'live' | 'cached' | 'fallback';
+    aiSummary: 'live' | 'fallback';
+    keywords: 'live' | 'modeled';
+  };
   moneyKeywords: MoneyKeyword[];
   competitors: Competitor[];
   aiSummary?: string;

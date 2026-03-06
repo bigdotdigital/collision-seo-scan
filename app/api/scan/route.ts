@@ -11,6 +11,7 @@ import { runPageSpeed, type PageSpeedResult } from '@/lib/pagespeed';
 import { saveScanRecord, type ScanRecord } from '@/lib/scan-store';
 import { logEnvWarningsOnce } from '@/lib/env-check';
 import { checkScanRateLimit } from '@/lib/security/rate-limit';
+import { buildReportPayload } from '@/lib/report-payload';
 import {
   assertPublicHostname,
   normalizeWebsiteUrl,
@@ -164,6 +165,30 @@ export async function POST(req: Request) {
       }
     }
     console.info(`PAGESPEED_STATUS=${pageSpeedStatus} url=${websiteUrl}`);
+    const reportPayload = buildReportPayload({
+      city: normalizedCity,
+      shopName: normalizedShop,
+      checks: result.checks,
+      categoryScores: result.categoryScores,
+      detectedSignals: result.detectedSignals,
+      missingSignals: result.missingSignals,
+      capabilityMissing: result.capabilityMissing,
+      topFixes: result.topFixes,
+      competitorAdvantages: result.competitorAdvantages,
+      missingPages: result.missingPages,
+      pageFetchMeta: result.pageFetchMeta,
+      scanDurationMs: result.scanDurationMs,
+      competitors: result.competitors,
+      sources: {
+        pagespeed: pageSpeedStatus,
+        serp: result.sources.serp,
+        aiSummary: result.sources.aiSummary,
+        reviews: 'modeled',
+        mapPack: result.sources.serp === 'fallback' ? 'fallback' : 'modeled',
+        competitors: result.sources.serp,
+        keywords: result.sources.keywords
+      }
+    });
 
     const origin = req.headers.get('origin') || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
@@ -202,24 +227,7 @@ export async function POST(req: Request) {
           issuesJson: toJson(result.scores.issues),
           moneyKeywordsJson: toJson(result.moneyKeywords),
           competitorsJson: toJson(result.competitors),
-          rawChecksJson: toJson({
-            checks: result.checks,
-            categoryScores: result.categoryScores,
-            detectedSignals: result.detectedSignals,
-            missingSignals: result.missingSignals,
-            capabilityMissing: result.capabilityMissing,
-            topFixes: result.topFixes,
-            competitorAdvantages: result.competitorAdvantages,
-            missingPages: result.missingPages,
-            pageFetchMeta: result.pageFetchMeta,
-            scanDurationMs: result.scanDurationMs,
-            capabilities: {
-              has_i_car: Boolean(input.has_i_car),
-              has_oem: Boolean(input.has_oem),
-              has_adas: Boolean(input.has_adas),
-              has_aluminum: Boolean(input.has_aluminum)
-            }
-          }),
+          rawChecksJson: toJson(reportPayload),
           pagespeedJson: toJson(pagespeed),
           aiSummary: result.aiSummary || null,
           thirtyDayPlanJson: toJson(result.thirtyDayPlan)
@@ -361,16 +369,7 @@ export async function POST(req: Request) {
         thirtyDayPlan: result.thirtyDayPlan,
         aiSummary: result.aiSummary || null,
         rawChecks: {
-          checks: result.checks,
-          categoryScores: result.categoryScores,
-          detectedSignals: result.detectedSignals,
-          missingSignals: result.missingSignals,
-          capabilityMissing: result.capabilityMissing,
-          topFixes: result.topFixes,
-          competitorAdvantages: result.competitorAdvantages,
-          missingPages: result.missingPages,
-          pageFetchMeta: result.pageFetchMeta,
-          scanDurationMs: result.scanDurationMs
+          ...reportPayload
         }
       };
 

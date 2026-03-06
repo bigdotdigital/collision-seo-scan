@@ -139,7 +139,9 @@ const runPerformanceHeuristic = async (url: string): Promise<number> => {
   }
 };
 
-const getCompetitors = async (city: string): Promise<Competitor[]> => {
+const getCompetitors = async (
+  city: string
+): Promise<{ competitors: Competitor[]; source: 'live' | 'cached' | 'fallback' }> => {
   const cityKey = city.trim().toLowerCase();
   const cacheCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
@@ -185,7 +187,7 @@ const getCompetitors = async (city: string): Promise<Competitor[]> => {
             note: `Cached within 24h for ${cityKey}.`
           }));
           console.info(`SERP_STATUS=cache city=${cityKey} count=${cachedRows.length}`);
-          return cachedRows;
+          return { competitors: cachedRows, source: 'cached' };
         }
       }
     }
@@ -209,7 +211,7 @@ const getCompetitors = async (city: string): Promise<Competitor[]> => {
       }));
       if (top.length > 0) {
         console.info(`SERP_STATUS=live city=${cityKey} count=${top.length}`);
-        return top;
+        return { competitors: top, source: 'live' };
       }
     } catch {
       // fall through to graceful fallback
@@ -237,7 +239,7 @@ const getCompetitors = async (city: string): Promise<Competitor[]> => {
     }
   ];
   console.info(`SERP_STATUS=fallback city=${cityKey} count=${fallbackRows.length}`);
-  return fallbackRows;
+  return { competitors: fallbackRows, source: 'fallback' };
 };
 
 const hashKeyword = (value: string): number => {
@@ -701,7 +703,8 @@ export const runScan = async (
     hasPerformanceData: pagespeed?.status === 'ok'
   });
   const moneyKeywords = buildMoneyKeywords(city, checks.oemSignals);
-  const competitors = await getCompetitors(city);
+  const competitorResult = await getCompetitors(city);
+  const competitors = competitorResult.competitors;
   const competitorAdvantages: CompetitorAdvantage[] = await buildCompetitorComparison({
     city,
     competitors,
@@ -729,6 +732,11 @@ export const runScan = async (
     missingPages,
     pageFetchMeta,
     scanDurationMs: Date.now() - startedAt,
+    sources: {
+      serp: competitorResult.source,
+      aiSummary: aiSummaryResult.provider === 'fallback' ? 'fallback' : 'live',
+      keywords: moneyKeywords.some((k) => k.source === 'api') ? 'live' : 'modeled'
+    },
     moneyKeywords,
     competitors,
     aiSummary,

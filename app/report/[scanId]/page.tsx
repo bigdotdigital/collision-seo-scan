@@ -17,6 +17,7 @@ import type {
 import { ReportEmailCapture } from '@/components/report-email-capture';
 import { ReportCtaActions, ReportShareActions } from '@/components/report-cta-actions';
 import { buildReportViewModel, type ReportData } from '@/lib/report-view-model';
+import { parseReportPayload } from '@/lib/report-payload';
 import { ReportFastPathForm } from '@/components/report-fast-path-form';
 import type { PageSpeedResult } from '@/lib/pagespeed';
 import { formatCls, formatMilliseconds, formatScore } from '@/lib/metric-format';
@@ -253,6 +254,19 @@ function checksScore(raw: Record<string, unknown>, key: 'title' | 'estimate'): b
   return Boolean(checks.estimateCtaDetected);
 }
 
+function buildExecutiveSummaryFallback(input: {
+  shopName: string;
+  city: string;
+  overall: number;
+  categoryScores: CategoryScoreSet;
+  topFixes: PrioritizedFix[];
+}): string {
+  const fix1 = input.topFixes[0]?.title || 'Improve technical and conversion basics';
+  const fix2 = input.topFixes[1]?.title || 'Strengthen local trust and authority';
+  const fix3 = input.topFixes[2]?.title || 'Expand high-intent collision coverage';
+  return `${input.shopName} in ${input.city} scored ${input.overall}/100. Technical SEO is ${input.categoryScores.technicalSeo}, Local SEO is ${input.categoryScores.localSeo}, and Collision Authority is ${input.categoryScores.collisionAuthority}. Biggest opportunities are: ${fix1}; ${fix2}; ${fix3}. Fastest 30-day plan: implement the top fixes in order, validate with a re-scan, and tighten conversion CTAs on the highest-intent pages.`;
+}
+
 export default async function ReportPage({ params }: { params: { scanId: string } }) {
   logEnvWarningsOnce();
   const scanId = params.scanId;
@@ -304,23 +318,31 @@ export default async function ReportPage({ params }: { params: { scanId: string 
   const raw = dbScan
     ? parseJson<Record<string, unknown>>(dbScan.rawChecksJson, scanRecord.rawChecks || {})
     : scanRecord.rawChecks || {};
+  const payload = parseReportPayload(raw);
 
   const scoreTotal = snapshot?.visibilityScore ?? scanRecord.scoreTotal ?? 0;
   const scoreWebsite = scanRecord.scoreWebsite ?? 0;
   const scoreLocal = scanRecord.scoreLocal ?? 0;
   const scoreIntent = scanRecord.scoreIntent ?? 0;
-  const categoryScores = normalizeCategoryScores(raw.categoryScores, {
+  const categoryScores = normalizeCategoryScores(payload?.categoryScores || raw.categoryScores, {
     website: scoreWebsite,
     local: scoreLocal,
     intent: scoreIntent,
     total: scoreTotal
   });
-  const detectedSignals = normalizeSignals(raw.detectedSignals);
-  const missingSignals = normalizeMissingSignals(raw.missingSignals);
-  const topFixes = normalizeTopFixes(raw.topFixes, issues);
-  const competitorAdvantages = normalizeCompetitorAdvantages(raw.competitorAdvantages);
-  const pageMeta = normalizePageMeta(raw.pageFetchMeta);
-  const scanDurationMs = typeof raw.scanDurationMs === 'number' ? raw.scanDurationMs : 0;
+  const detectedSignals = normalizeSignals(payload?.detectedSignals || raw.detectedSignals);
+  const missingSignals = normalizeMissingSignals(payload?.missingSignals || raw.missingSignals);
+  const topFixes = normalizeTopFixes(payload?.topFixes || raw.topFixes, issues);
+  const competitorAdvantages = normalizeCompetitorAdvantages(
+    payload?.competitorAdvantages || raw.competitorAdvantages
+  );
+  const pageMeta = normalizePageMeta(payload?.pageFetchMeta || raw.pageFetchMeta);
+  const scanDurationMs =
+    typeof payload?.scanDurationMs === 'number'
+      ? payload.scanDurationMs
+      : typeof raw.scanDurationMs === 'number'
+        ? raw.scanDurationMs
+        : 0;
   const timestampLabel = dbScan?.createdAt
     ? new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(
         dbScan.createdAt
@@ -373,6 +395,26 @@ export default async function ReportPage({ params }: { params: { scanId: string 
   };
 
   const vm = buildReportViewModel(reportData);
+  const reviewGap = payload?.reviewGap || vm.reviewGap;
+  const mapPack = payload?.mapPack || vm.mapPack;
+  const sourceConfidence = payload?.sources || {
+    pagespeed: 'fallback',
+    serp: 'fallback',
+    aiSummary: 'fallback',
+    reviews: 'modeled',
+    mapPack: 'modeled',
+    competitors: 'fallback',
+    keywords: 'modeled'
+  };
+  const executiveSummary = (scanRecord.aiSummary || '').trim()
+    ? scanRecord.aiSummary || ''
+    : buildExecutiveSummaryFallback({
+        shopName: scanRecord.shopName,
+        city: scanRecord.city,
+        overall: scoreTotal,
+        categoryScores,
+        topFixes
+      });
     const reportUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/report/${scanRecord.id}`;
     const printedAt = new Intl.DateTimeFormat('en-US', {
       dateStyle: 'medium',
@@ -444,6 +486,10 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         </section>
       ) : null}
 
+      <section className="mb-6 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-700">
+        Sources: PageSpeed `{sourceConfidence.pagespeed}` • SERP `{sourceConfidence.serp}` • AI summary `{sourceConfidence.aiSummary}` • Keywords `{sourceConfidence.keywords}`
+      </section>
+
       <section className="mb-6 grid gap-4 md:grid-cols-5">
         <article className="card p-4">
           <p className="text-xs uppercase tracking-wide text-slate-500">Technical SEO</p>
@@ -489,6 +535,40 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         </div>
       </section>
 
+      <section className="card mb-6 p-5">
+        <h2 className="text-lg font-bold text-slate-900">Rapid Diagnosis</h2>
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
+          <article className="rounded border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs uppercase tracking-wide text-slate-500">What&apos;s wrong</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
+              {issues.slice(0, 3).map((issue) => (
+                <li key={issue.id}>{issue.title}</li>
+              ))}
+            </ul>
+          </article>
+          <article className="rounded border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Fix first</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
+              {topFixes.slice(0, 3).map((fix) => (
+                <li key={fix.title}>{fix.title}</li>
+              ))}
+            </ul>
+          </article>
+          <article className="rounded border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Competitor comparison</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
+              {(competitorAdvantages.length > 0 ? competitorAdvantages : vm.competitors)
+                .slice(0, 2)
+                .map((row, idx) => (
+                  <li key={row.name + idx}>
+                    {'advantages' in row ? row.advantages[0] || row.name : row.whyWinning}
+                  </li>
+                ))}
+            </ul>
+          </article>
+        </div>
+      </section>
+
       <section className="grid gap-4 md:grid-cols-3">
         <div className="card print-break-avoid p-5">
           <p className="text-xs uppercase tracking-wide text-slate-500">Website</p>
@@ -505,8 +585,8 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         </div>
       </section>
 
-      <section className="mt-6 card print-break-avoid p-6">
-        <h2 className="text-xl font-bold">Website Performance Diagnostics</h2>
+      <details className="mt-10 card print-break-avoid p-6">
+        <summary className="cursor-pointer text-xl font-bold">Technical Diagnostics (secondary)</summary>
         {pagespeed.status === 'error' ? (
           <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
             Could not load PageSpeed data right now. {pagespeed.message || 'Please try again later.'}
@@ -555,7 +635,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
             </div>
           </>
         )}
-      </section>
+      </details>
 
       <section className="mt-6 card print-break-avoid p-6">
         <h2 className="text-xl font-bold">Google Reputation Gap</h2>
@@ -566,24 +646,24 @@ export default async function ReportPage({ params }: { params: { scanId: string 
           <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
             <p className="text-xs uppercase tracking-wide text-slate-500">Your shop</p>
             <p className="mt-1 text-lg font-semibold">
-              {vm.reviewGap.shopRating.toFixed(1)} stars • {vm.reviewGap.shopReviews} reviews
+              {reviewGap.shopRating.toFixed(1)} stars • {reviewGap.shopReviews} reviews
             </p>
           </article>
           <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
             <p className="text-xs uppercase tracking-wide text-slate-500">Top competitor</p>
             <p className="mt-1 text-lg font-semibold">
-              {vm.reviewGap.competitorRating.toFixed(1)} stars • {vm.reviewGap.competitorReviews} reviews
+              {reviewGap.competitorRating.toFixed(1)} stars • {reviewGap.competitorReviews} reviews
             </p>
           </article>
           <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
             <p className="text-xs uppercase tracking-wide text-slate-500">Review gap</p>
-            <p className="mt-1 text-lg font-semibold">{vm.reviewGap.reviewGap} reviews</p>
-            <p className="text-sm text-slate-700">Impact: {vm.reviewGap.impact}</p>
+            <p className="mt-1 text-lg font-semibold">{reviewGap.reviewGap} reviews</p>
+            <p className="text-sm text-slate-700">Impact: {reviewGap.impact}</p>
           </article>
         </div>
-        {vm.reviewGap.isEstimated ? (
+        {sourceConfidence.reviews !== 'live' ? (
           <div className="mt-3 space-y-1 text-xs text-slate-500">
-            <p>Google review source: Not connected yet. Showing conservative estimate.</p>
+            <p>Google review source: {sourceConfidence.reviews}. Showing conservative estimate.</p>
             <p>We&apos;ll pull competitor review stats on the teardown.</p>
           </div>
         ) : null}
@@ -591,9 +671,9 @@ export default async function ReportPage({ params }: { params: { scanId: string 
 
       <section className="mt-6 card print-break-avoid p-6">
         <h2 className="text-xl font-bold">Google Maps Visibility</h2>
-        <p className="mt-1 text-sm text-slate-600">{vm.mapPack.info}</p>
+        <p className="mt-1 text-sm text-slate-600">{mapPack.info}</p>
         <div className="mt-4 space-y-3">
-          {vm.mapPack.queries.map((row) => (
+          {mapPack.queries.map((row) => (
             <article key={row.query} className="rounded-lg border border-slate-200 p-4">
               <p className="font-semibold text-slate-900">{row.query}</p>
               <div className="mt-2 grid gap-2 text-sm md:grid-cols-2">
@@ -611,7 +691,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
           ))}
         </div>
         <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-slate-700">
-          {vm.mapPack.likelySignals.map((signal) => (
+          {mapPack.likelySignals.map((signal) => (
             <li key={signal}>{signal}</li>
           ))}
         </ul>
@@ -710,8 +790,8 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         </div>
       </section>
 
-      <section className="mt-6 card print-break-avoid p-6">
-        <h2 className="text-xl font-bold">Crawl Evidence</h2>
+      <details className="mt-8 card print-break-avoid p-6">
+        <summary className="cursor-pointer text-xl font-bold">Crawl Evidence (secondary)</summary>
         <p className="mt-1 text-sm text-slate-600">
           Pages analyzed and fetch status used to compute this scan.
         </p>
@@ -729,7 +809,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
             ))
           )}
         </div>
-      </section>
+      </details>
 
       <section className="mt-6 rounded-xl border border-teal-200 bg-teal-50 print-break-avoid p-6">
         <h2 className="text-xl font-bold text-slate-900">Estimated Opportunity (modeled)</h2>
@@ -836,12 +916,10 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         </div>
       </section>
 
-      {scanRecord.aiSummary ? (
-        <section className="mt-8 card print-break-avoid p-6">
-          <h2 className="text-xl font-bold">Executive Summary</h2>
-          <p className="mt-3 whitespace-pre-wrap text-sm text-slate-700">{scanRecord.aiSummary}</p>
-        </section>
-      ) : null}
+      <section className="mt-8 card print-break-avoid p-6">
+        <h2 className="text-xl font-bold">Executive Summary</h2>
+        <p className="mt-3 whitespace-pre-wrap text-sm text-slate-700">{executiveSummary}</p>
+      </section>
 
       <section className="mt-8 card p-6 print-hide">
         <h2 className="text-xl font-bold">Next step: Fix the leaks</h2>
