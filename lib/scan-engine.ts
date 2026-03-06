@@ -542,6 +542,26 @@ const generateAiSummary = async (
   total: number,
   issues: Array<{ title: string; why: string; fix: string }>
 ): Promise<{ text: string; provider: 'mistral' | 'openai' | 'fallback' }> => {
+  const extractOpenAiText = (data: unknown): string | null => {
+    const row = (data || {}) as Record<string, unknown>;
+    if (typeof row.output_text === 'string' && row.output_text.trim()) {
+      return row.output_text.trim();
+    }
+
+    const output = Array.isArray(row.output) ? row.output : [];
+    for (const item of output) {
+      const msg = item as Record<string, unknown>;
+      const content = Array.isArray(msg.content) ? msg.content : [];
+      for (const block of content) {
+        const b = block as Record<string, unknown>;
+        if (b.type === 'output_text' && typeof b.text === 'string' && b.text.trim()) {
+          return b.text.trim();
+        }
+      }
+    }
+    return null;
+  };
+
   const prompt = `You are a blunt local SEO strategist. Write 6-10 sentences for a collision shop scan.
 Shop: ${shopName || 'Unknown'}
 City: ${city}
@@ -607,10 +627,18 @@ Required format:
       });
 
       const data = await resp.json().catch(() => null);
-      const text = data?.output_text?.trim();
+      const text = extractOpenAiText(data);
       if (resp.ok && text) return { text, provider: 'openai' };
+      if (!resp.ok) {
+        const errorMessage =
+          (data as { error?: { message?: string } } | null)?.error?.message || 'unknown_error';
+        console.info(`AI_OPENAI_ERROR=${errorMessage}`);
+      } else {
+        console.info('AI_OPENAI_ERROR=empty_output');
+      }
     } catch {
       // fall through to deterministic template
+      console.info('AI_OPENAI_ERROR=request_failed');
     }
   }
 
