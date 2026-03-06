@@ -31,7 +31,13 @@ export default async function AdminPage() {
   const [scans, clients] = await Promise.all([
     prisma.scan.findMany({
       orderBy: { createdAt: 'desc' },
-      take: 100
+      take: 100,
+      include: {
+        leads: {
+          orderBy: { createdAt: 'desc' },
+          take: 1
+        }
+      }
     }),
     prisma.client.findMany({
       orderBy: { createdAt: 'desc' },
@@ -81,6 +87,7 @@ export default async function AdminPage() {
               <th className="px-3 py-2 text-left">Email</th>
               <th className="px-3 py-2 text-left">Score</th>
               <th className="px-3 py-2 text-left">Status</th>
+              <th className="px-3 py-2 text-left">Intake</th>
               <th className="px-3 py-2 text-left">Actions</th>
             </tr>
           </thead>
@@ -98,6 +105,17 @@ export default async function AdminPage() {
                 <td className="px-3 py-2">{scan.email || '—'}</td>
                 <td className="px-3 py-2 font-semibold">{scan.scoreTotal}</td>
                 <td className="px-3 py-2">{scan.status}</td>
+                <td className="px-3 py-2 text-xs text-slate-700">
+                  {scan.leads[0] ? (
+                    <>
+                      <p>Intent: {scan.leads[0].intent || '—'}</p>
+                      <p>Budget: {scan.leads[0].budgetRange || '—'}</p>
+                      <p>Timeline: {scan.leads[0].timeline || '—'}</p>
+                    </>
+                  ) : (
+                    'No intake yet'
+                  )}
+                </td>
                 <td className="space-y-2 px-3 py-2">
                   <Link href={`/report/${scan.id}`} className="text-teal-700 underline">
                     Open report

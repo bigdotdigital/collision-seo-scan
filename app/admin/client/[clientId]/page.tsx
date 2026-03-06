@@ -20,7 +20,16 @@ export default async function AdminClientPage({ params }: { params: { clientId: 
   const client = await prisma.client.findUnique({
     where: { id: params.clientId },
     include: {
-      scans: { orderBy: { createdAt: 'desc' }, take: 10 },
+      scans: {
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+        include: {
+          leads: {
+            orderBy: { createdAt: 'desc' },
+            take: 1
+          }
+        }
+      },
       keywords: true,
       metricSnapshots: { orderBy: { createdAt: 'desc' }, take: 10 }
     }
@@ -99,6 +108,12 @@ export default async function AdminClientPage({ params }: { params: { clientId: 
               <Link href={`/report/${scan.id}`} className="text-teal-700 underline">
                 Open report
               </Link>
+              {scan.leads[0] ? (
+                <p className="mt-1 text-xs text-slate-600">
+                  Intake: {scan.leads[0].intent || '—'} | {scan.leads[0].budgetRange || '—'} |{' '}
+                  {scan.leads[0].timeline || '—'}
+                </p>
+              ) : null}
             </li>
           ))}
         </ul>

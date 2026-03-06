@@ -42,7 +42,7 @@ export default async function ThanksPage({
     }
   }
 
-  const calendlyBase = process.env.CALENDLY_LINK || 'https://calendly.com/your-team/15min';
+  const calendlyBase = process.env.CALENDLY_LINK || 'https://calendly.com/bigdotdigital/30min';
   const calendlyTracked = withTracking(calendlyBase, scan.id);
 
   return (

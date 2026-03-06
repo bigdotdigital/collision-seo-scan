@@ -18,7 +18,6 @@ import { ReportEmailCapture } from '@/components/report-email-capture';
 import { ReportCtaActions, ReportShareActions } from '@/components/report-cta-actions';
 import { buildReportViewModel, type ReportData } from '@/lib/report-view-model';
 import { parseReportPayload } from '@/lib/report-payload';
-import { ReportFastPathForm } from '@/components/report-fast-path-form';
 import type { PageSpeedResult } from '@/lib/pagespeed';
 import { formatCls, formatMilliseconds, formatScore } from '@/lib/metric-format';
 import { getScanRecord } from '@/lib/scan-store';
@@ -368,7 +367,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
     { label: 'Estimate CTA', score: checksScore(raw, 'estimate') ? 88 : 48 }
   ];
 
-  const calendly = process.env.CALENDLY_LINK || 'https://calendly.com/your-team/15min';
+  const calendly = process.env.CALENDLY_LINK || 'https://calendly.com/bigdotdigital/30min';
   const salesPhone = process.env.SALES_PHONE || '+13035551234';
 
   const reportData: ReportData = {
@@ -395,6 +394,15 @@ export default async function ReportPage({ params }: { params: { scanId: string 
   };
 
   const vm = buildReportViewModel(reportData);
+  const teardownIntakeUrl = (() => {
+    const p = new URLSearchParams();
+    p.set('scanId', scanRecord.id);
+    if (dbScan?.organizationId) p.set('orgId', dbScan.organizationId);
+    if (dbScan?.vertical) p.set('vertical', dbScan.vertical);
+    if (scanRecord.email) p.set('email', scanRecord.email);
+    if (scanRecord.phone) p.set('phone', scanRecord.phone);
+    return `/teardown-intake?${p.toString()}`;
+  })();
   const reviewGap = payload?.reviewGap || vm.reviewGap;
   const mapPack = payload?.mapPack || vm.mapPack;
   const sourceConfidence = payload?.sources || {
@@ -426,9 +434,11 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       {!scanRecord.email ? <ReportEmailCapture scanId={scanRecord.id} /> : null}
       <ReportCtaActions
         scanId={scanRecord.id}
-        calendlyUrl={vm.calendlyTrackedUrl}
+        calendlyUrl={teardownIntakeUrl}
         salesPhone={salesPhone}
+        reportUrl={reportUrl}
         mobileSticky
+        trackBooked={false}
       />
 
       <section className="print-only mb-4 border-b border-slate-300 pb-3">
@@ -922,20 +932,19 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       </section>
 
       <section className="mt-8 card p-6 print-hide">
-        <h2 className="text-xl font-bold">Next step: Fix the leaks</h2>
+        <h2 className="text-xl font-bold">Want help fixing this?</h2>
         <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-700">
           {vm.ctaBullets.map((line) => (
             <li key={line}>{line}</li>
           ))}
         </ul>
 
-        <ReportCtaActions scanId={scanRecord.id} calendlyUrl={vm.calendlyTrackedUrl} salesPhone={salesPhone} />
-        <ReportFastPathForm
-          orgId={dbScan?.organizationId}
+        <ReportCtaActions
           scanId={scanRecord.id}
-          vertical={dbScan?.vertical || 'collision'}
-          email={scanRecord.email}
-          phone={scanRecord.phone}
+          calendlyUrl={teardownIntakeUrl}
+          salesPhone={salesPhone}
+          reportUrl={reportUrl}
+          trackBooked={false}
         />
 
         <ReportShareActions reportUrl={reportUrl} />
