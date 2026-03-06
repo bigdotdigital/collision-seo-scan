@@ -25,7 +25,7 @@ export function ReportCtaActions({
   calendlyUrl,
   salesPhone,
   reportUrl,
-  primaryLabel = 'Book my teardown',
+  primaryLabel = 'Book my SEO audit',
   secondaryLabel = 'Text us for the plan',
   mobileSticky = false,
   trackBooked = true

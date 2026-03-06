@@ -70,7 +70,7 @@ export function TeardownIntakeForm({ scanId, orgId, vertical, email, phone }: Pr
     return (
       <section className="mx-auto max-w-xl rounded-xl border border-amber-200 bg-amber-50 p-6">
         <h1 className="text-2xl font-bold text-slate-900">Missing report context</h1>
-        <p className="mt-2 text-sm text-slate-700">Open your report first, then use Book my teardown.</p>
+          <p className="mt-2 text-sm text-slate-700">Open your report first, then use Book my SEO audit.</p>
         <Link href="/" className="mt-4 inline-block text-sm font-semibold text-teal-700 underline">
           Back to scanner
         </Link>
