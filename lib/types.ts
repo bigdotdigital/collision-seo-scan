@@ -1,5 +1,12 @@
 export type Severity = 'High' | 'Med' | 'Low';
 
+export type CategoryKey =
+  | 'technicalSeo'
+  | 'localSeo'
+  | 'collisionAuthority'
+  | 'speedPerformance'
+  | 'contentCoverage';
+
 export type Issue = {
   id: string;
   severity: Severity;
@@ -52,6 +59,53 @@ export type ScanChecks = {
   fetchNotes: string[];
 };
 
+export type SignalEvidence = {
+  url: string;
+  snippet: string;
+  selector?: string;
+};
+
+export type CollisionSignal = {
+  signal_name: string;
+  confidence: number;
+  evidence: SignalEvidence;
+  group: 'certification' | 'capability' | 'service';
+};
+
+export type CategoryScoreSet = {
+  technicalSeo: number;
+  localSeo: number;
+  collisionAuthority: number;
+  speedPerformance: number;
+  contentCoverage: number;
+  overall: number;
+  explanations: Record<CategoryKey, string>;
+};
+
+export type PrioritizedFix = {
+  title: string;
+  why: string;
+  steps: string[];
+  impact: Severity;
+};
+
+export type CompetitorAdvantage = {
+  name: string;
+  url?: string;
+  advantages: string[];
+  oemSignalCount: number;
+  capabilityCount: number;
+  estimateCta: boolean;
+};
+
+export type PageFetchMeta = {
+  url: string;
+  status: number;
+  fetchMs: number;
+  bytes: number;
+  ok: boolean;
+};
+
 export type ScoreResult = {
   total: number;
   website: number;
@@ -64,6 +118,15 @@ export type ScoreResult = {
 export type ScanResult = {
   checks: ScanChecks;
   scores: ScoreResult;
+  categoryScores: CategoryScoreSet;
+  detectedSignals: CollisionSignal[];
+  missingSignals: string[];
+  capabilityMissing: string[];
+  topFixes: PrioritizedFix[];
+  competitorAdvantages: CompetitorAdvantage[];
+  missingPages: string[];
+  pageFetchMeta: PageFetchMeta[];
+  scanDurationMs: number;
   moneyKeywords: MoneyKeyword[];
   competitors: Competitor[];
   aiSummary?: string;
@@ -79,4 +142,8 @@ export type ScanRecord = {
   email: string | null;
   phone: string | null;
   pagespeed: import('@/lib/pagespeed').PageSpeedResult;
+  scoreTotal?: number;
+  scoreWebsite?: number;
+  scoreLocal?: number;
+  scoreIntent?: number;
 };

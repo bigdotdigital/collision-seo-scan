@@ -1,0 +1,29 @@
+{
+  "shopName": "Summit Collision Center",
+  "city": "Denver",
+  "websiteUrl": "https://summitcollision.example",
+  "overallScore": 78,
+  "categoryScores": {
+    "technicalSeo": 74,
+    "localSeo": 81,
+    "collisionAuthority": 69,
+    "speedPerformance": 72,
+    "contentCoverage": 83
+  },
+  "topFixes": [
+    "Publish OEM certification pages with city intent.",
+    "Improve estimate CTA prominence on mobile hero.",
+    "Add ADAS + aluminum repair capability proof with evidence."
+  ],
+  "detectedSignals": [
+    "i_car_gold_class",
+    "adas_calibration",
+    "free_estimate_cta",
+    "hail_repair"
+  ],
+  "missingSignals": [
+    "ev_repair",
+    "aluminum_repair",
+    "hyundai_kia_genesis_certified"
+  ]
+}

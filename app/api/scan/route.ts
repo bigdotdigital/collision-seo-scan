@@ -10,6 +10,12 @@ import { computeScoreV01 } from '@/lib/scoring';
 import { runPageSpeed, type PageSpeedResult } from '@/lib/pagespeed';
 import { saveScanRecord, type ScanRecord } from '@/lib/scan-store';
 import { logEnvWarningsOnce } from '@/lib/env-check';
+import { checkScanRateLimit } from '@/lib/security/rate-limit';
+import {
+  assertPublicHostname,
+  normalizeWebsiteUrl,
+  sanitizeInput
+} from '@/lib/security/url';
 import {
   createScanRecord,
   createSnapshot,
@@ -76,38 +82,74 @@ function modeledPageSpeedFromScan(result: Awaited<ReturnType<typeof runScan>>): 
 function validateAndNormalizeUrl(input: string): string | null {
   const candidate = toWebsiteUrl(input);
   if (!candidate) return null;
+  return normalizeWebsiteUrl(candidate);
+}
 
-  try {
-    const parsed = new URL(candidate);
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
-    return parsed.toString();
-  } catch {
-    return null;
-  }
+function getClientIp(req: Request): string {
+  const forwarded = req.headers.get('x-forwarded-for');
+  if (forwarded) return forwarded.split(',')[0].trim();
+  return req.headers.get('x-real-ip') || 'unknown';
 }
 
 export async function POST(req: Request) {
+  const traceId = randomUUID();
   try {
     logEnvWarningsOnce();
+    const ip = getClientIp(req);
+    const limit = checkScanRateLimit(`scan:${ip}`);
+    if (!limit.ok) {
+      return NextResponse.json(
+        {
+          error: 'Too many scans from this network. Please try again in a minute.',
+          traceId
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(limit.retryAfterSec || 60)
+          }
+        }
+      );
+    }
+
     const body = await req.json();
     const input = scanInputSchema.parse(body);
 
-    const websiteUrl = validateAndNormalizeUrl(input.website_url);
+    const websiteUrl = validateAndNormalizeUrl(String(input.website_url || ''));
     if (!websiteUrl) {
-      return NextResponse.json({ error: 'Invalid website URL' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid website URL', traceId }, { status: 400 });
     }
 
-    const [result, pagespeedLive] = await Promise.all([
-      runScan(websiteUrl, input.city_or_zip, input.shop_name, {
+    await assertPublicHostname(websiteUrl);
+
+    const normalizedCity = sanitizeInput(input.city_or_zip, 80);
+    const normalizedShop = sanitizeInput(input.shop_name, 120);
+    const normalizedEmail = sanitizeInput(input.email || '', 160);
+    const normalizedPhone = sanitizeInput(input.phone || '', 40);
+
+    if (normalizedCity.length < 2 || normalizedShop.length < 2) {
+      return NextResponse.json(
+        { error: 'City and shop name must be at least 2 characters.', traceId },
+        { status: 400 }
+      );
+    }
+
+    const pagespeedLive = await runPageSpeed(websiteUrl);
+    const result = await runScan(
+      websiteUrl,
+      normalizedCity,
+      normalizedShop,
+      {
         hasICar: input.has_i_car,
         hasOEM: input.has_oem,
         hasAdas: input.has_adas,
         hasAluminum: input.has_aluminum
-      }),
-      runPageSpeed(websiteUrl)
-    ]);
+      },
+      pagespeedLive
+    );
 
     let pagespeed = pagespeedLive;
+    let pageSpeedStatus: 'live' | 'cached' | 'modeled' = 'live';
     if (pagespeed.status === 'error') {
       const cached = await getRecentSuccessfulPageSpeed(websiteUrl).catch(() => null);
       if (cached) {
@@ -115,29 +157,32 @@ export async function POST(req: Request) {
           ...cached,
           message: 'Showing recent PageSpeed data while live test is unavailable.'
         };
+        pageSpeedStatus = 'cached';
       } else {
         pagespeed = modeledPageSpeedFromScan(result);
+        pageSpeedStatus = 'modeled';
       }
     }
+    console.info(`PAGESPEED_STATUS=${pageSpeedStatus} url=${websiteUrl}`);
 
     const origin = req.headers.get('origin') || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
     try {
       const org = await upsertOrganizationFromInput({
-        shop_name: input.shop_name,
+        shop_name: normalizedShop,
         website_url: websiteUrl,
-        phone: input.phone || null,
-        city_or_zip: input.city_or_zip,
+        phone: normalizedPhone || null,
+        city_or_zip: normalizedCity,
         vertical: input.vertical
       });
 
       const seedScan = await createScanRecord(
         {
           website_url: websiteUrl,
-          city_or_zip: input.city_or_zip,
-          shop_name: input.shop_name,
-          email: input.email || '',
-          phone: input.phone || '',
+          city_or_zip: normalizedCity,
+          shop_name: normalizedShop,
+          email: normalizedEmail || '',
+          phone: normalizedPhone || '',
           has_i_car: input.has_i_car,
           has_oem: input.has_oem,
           has_adas: input.has_adas,
@@ -159,6 +204,15 @@ export async function POST(req: Request) {
           competitorsJson: toJson(result.competitors),
           rawChecksJson: toJson({
             checks: result.checks,
+            categoryScores: result.categoryScores,
+            detectedSignals: result.detectedSignals,
+            missingSignals: result.missingSignals,
+            capabilityMissing: result.capabilityMissing,
+            topFixes: result.topFixes,
+            competitorAdvantages: result.competitorAdvantages,
+            missingPages: result.missingPages,
+            pageFetchMeta: result.pageFetchMeta,
+            scanDurationMs: result.scanDurationMs,
             capabilities: {
               has_i_car: Boolean(input.has_i_car),
               has_oem: Boolean(input.has_oem),
@@ -225,19 +279,20 @@ export async function POST(req: Request) {
         rankPositions,
         topCompetitors: result.competitors,
         lostDemandEstimate: {
-          modeledFromScore: scan.scoreTotal
+          modeledFromScore: scan.scoreTotal,
+          categoryScores: result.categoryScores
         },
-        recommendations: result.scores.issues.map((issue) => issue.fix),
+        recommendations: result.topFixes,
         componentScores: scoreV01.componentScores,
         vertical: input.vertical
       });
 
-      if (input.email || input.phone) {
+      if (normalizedEmail || normalizedPhone) {
         await upsertLead({
           organizationId: org.id,
           scanId: scan.id,
-          email: input.email || null,
-          phone: input.phone || null,
+          email: normalizedEmail || null,
+          phone: normalizedPhone || null,
           source: 'scan_gate',
           consented: input.consented,
           vertical: input.vertical
@@ -251,12 +306,16 @@ export async function POST(req: Request) {
         reason: 'No email provided'
       };
 
-      if (input.email) {
+      if (normalizedEmail) {
         emailResult = await sendReportEmail({
-          to: input.email,
-          shopName: input.shop_name,
+          to: normalizedEmail,
+          shopName: normalizedShop,
           score: result.scores.total,
-          reportUrl
+          reportUrl,
+          categoryScores: result.categoryScores,
+          topFixes: result.topFixes,
+          detectedSignals: result.detectedSignals.map((s) => s.signal_name),
+          missingSignals: result.missingSignals
         });
 
         await prisma.queueJob.create({
@@ -287,10 +346,10 @@ export async function POST(req: Request) {
         id: scanId,
         createdAt: new Date().toISOString(),
         url: websiteUrl,
-        shopName: input.shop_name,
-        city: input.city_or_zip,
-        email: input.email || null,
-        phone: input.phone || null,
+        shopName: normalizedShop,
+        city: normalizedCity,
+        email: normalizedEmail || null,
+        phone: normalizedPhone || null,
         pagespeed,
         scoreTotal: result.scores.total,
         scoreWebsite: result.scores.website,
@@ -300,18 +359,34 @@ export async function POST(req: Request) {
         moneyKeywords: result.moneyKeywords,
         competitors: result.competitors,
         thirtyDayPlan: result.thirtyDayPlan,
-        aiSummary: result.aiSummary || null
+        aiSummary: result.aiSummary || null,
+        rawChecks: {
+          checks: result.checks,
+          categoryScores: result.categoryScores,
+          detectedSignals: result.detectedSignals,
+          missingSignals: result.missingSignals,
+          capabilityMissing: result.capabilityMissing,
+          topFixes: result.topFixes,
+          competitorAdvantages: result.competitorAdvantages,
+          missingPages: result.missingPages,
+          pageFetchMeta: result.pageFetchMeta,
+          scanDurationMs: result.scanDurationMs
+        }
       };
 
       saveScanRecord(memoryRecord);
 
-      if (input.email) {
+      if (normalizedEmail) {
         const reportUrl = `${origin}/report/${scanId}`;
         await sendReportEmail({
-          to: input.email,
-          shopName: input.shop_name,
+          to: normalizedEmail,
+          shopName: normalizedShop,
           score: result.scores.total,
-          reportUrl
+          reportUrl,
+          categoryScores: result.categoryScores,
+          topFixes: result.topFixes,
+          detectedSignals: result.detectedSignals.map((s) => s.signal_name),
+          missingSignals: result.missingSignals
         });
       }
 
@@ -320,15 +395,21 @@ export async function POST(req: Request) {
         scanId,
         reportUrl: `/report/${scanId}`,
         score: pagespeed.performanceScore ?? result.scores.website,
-        emailSent: Boolean(input.email),
-        emailReason: input.email ? null : 'No email provided',
+        emailSent: Boolean(normalizedEmail),
+        emailReason: normalizedEmail ? null : 'No email provided',
         snapshotId: null
       });
     }
   } catch (error) {
-    console.error('[scan:error]', error);
+    console.error('[scan:error]', { traceId, error });
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Scan failed' },
+      {
+        error:
+          error instanceof Error
+            ? 'Scan failed. Please retry in a moment.'
+            : 'Scan failed. Please retry in a moment.',
+        traceId
+      },
       { status: 400 }
     );
   }

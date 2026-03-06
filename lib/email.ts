@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { Resend } from 'resend';
+import type { CategoryScoreSet, PrioritizedFix } from '@/lib/types';
 
 type TransportResult = { sent: boolean; reason?: string };
 
@@ -8,6 +9,10 @@ type ReportEmailPayload = {
   shopName: string;
   score: number;
   reportUrl: string;
+  categoryScores?: CategoryScoreSet;
+  topFixes?: PrioritizedFix[];
+  detectedSignals?: string[];
+  missingSignals?: string[];
 };
 
 type FollowupPayload = {
@@ -144,8 +149,55 @@ export const sendReportEmail = async (payload: ReportEmailPayload): Promise<Tran
   sendMail({
     to: payload.to,
     subject: `Your Collision SEO Scan (${payload.score}/100)`,
-    text: `Hi ${payload.shopName || 'there'},\n\nYour Collision SEO Scan is ready.\nScore: ${payload.score}/100\nReport: ${payload.reportUrl}\n\n- Collision SEO Scan`,
-    html: `<p>Hi ${payload.shopName || 'there'},</p><p>Your Collision SEO Scan is ready.</p><p><strong>Score:</strong> ${payload.score}/100</p><p><a href="${payload.reportUrl}">Open your report</a></p><p>- Collision SEO Scan</p>`,
+    text: `Hi ${payload.shopName || 'there'},
+
+Your Collision SEO Scan is ready.
+Overall score: ${payload.score}/100
+
+Category breakdown:
+- Technical SEO: ${payload.categoryScores?.technicalSeo ?? 'n/a'}
+- Local SEO: ${payload.categoryScores?.localSeo ?? 'n/a'}
+- Collision Authority: ${payload.categoryScores?.collisionAuthority ?? 'n/a'}
+- Speed & Performance: ${payload.categoryScores?.speedPerformance ?? 'n/a'}
+- Content Coverage: ${payload.categoryScores?.contentCoverage ?? 'n/a'}
+
+Top 3 fixes:
+1) ${payload.topFixes?.[0]?.title || 'Improve on-page technical basics'}
+2) ${payload.topFixes?.[1]?.title || 'Strengthen collision authority signals'}
+3) ${payload.topFixes?.[2]?.title || 'Close local conversion gaps'}
+
+Detected signals: ${(payload.detectedSignals || []).slice(0, 5).join(', ') || 'None detected'}
+Missing signals: ${(payload.missingSignals || []).slice(0, 5).join(', ') || 'None'}
+
+Open full report: ${payload.reportUrl}
+
+Want help fixing this? Book your teardown from the report.
+
+- Collision SEO Scan`,
+    html: `<p>Hi ${payload.shopName || 'there'},</p>
+<p>Your Collision SEO Scan is ready.</p>
+<p><strong>Overall score:</strong> ${payload.score}/100</p>
+<p><strong>Category breakdown</strong><br/>
+Technical SEO: ${payload.categoryScores?.technicalSeo ?? 'n/a'}<br/>
+Local SEO: ${payload.categoryScores?.localSeo ?? 'n/a'}<br/>
+Collision Authority: ${payload.categoryScores?.collisionAuthority ?? 'n/a'}<br/>
+Speed & Performance: ${payload.categoryScores?.speedPerformance ?? 'n/a'}<br/>
+Content Coverage: ${payload.categoryScores?.contentCoverage ?? 'n/a'}</p>
+<p><strong>Top 3 fixes</strong></p>
+<ol>
+<li>${payload.topFixes?.[0]?.title || 'Improve on-page technical basics'}</li>
+<li>${payload.topFixes?.[1]?.title || 'Strengthen collision authority signals'}</li>
+<li>${payload.topFixes?.[2]?.title || 'Close local conversion gaps'}</li>
+</ol>
+<p><strong>Detected signals:</strong> ${
+      (payload.detectedSignals || []).slice(0, 5).join(', ') || 'None detected'
+    }<br/>
+<strong>Missing signals:</strong> ${
+      (payload.missingSignals || []).slice(0, 5).join(', ') || 'None'
+    }</p>
+<p><a href="${payload.reportUrl}">Open your full report</a></p>
+<p>Want help fixing this? Book your teardown from the report.</p>
+<p>- Collision SEO Scan</p>`,
     fallbackLabel: 'report'
   });
 

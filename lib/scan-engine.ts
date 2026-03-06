@@ -4,11 +4,19 @@ import { ISSUE_LIBRARY } from '@/lib/issue-library';
 import { clamp, normalizeSpace, textContainsAny } from '@/lib/utils';
 import type {
   Competitor,
+  CompetitorAdvantage,
+  PageFetchMeta,
   MoneyKeyword,
   ScanChecks,
   ScanResult,
   ThirtyDayPlanItem
 } from '@/lib/types';
+import { detectCollisionSignals, mapCapabilityMissing } from '@/lib/signals/collision-signals';
+import type { PageSpeedResult } from '@/lib/pagespeed';
+import { computeCategoryScores } from '@/lib/scoring/category-scores';
+import { buildTopFixes } from '@/lib/scoring/top-fixes';
+import { buildCompetitorComparison } from '@/lib/competitors/compare';
+import { safeFetchText } from '@/lib/security/safe-fetch';
 
 const UA =
   'Mozilla/5.0 (compatible; CollisionSEOScan/2.0; +https://collisionseoscan.local)';
@@ -56,25 +64,36 @@ const timeoutFetch = async (url: string, ms = 10000): Promise<Response> => {
 };
 
 const fetchText = async (
-  url: string
-): Promise<{ text: string; ok: boolean; status: number }> => {
+  url: string,
+  pageFetchMeta: PageFetchMeta[]
+): Promise<{ text: string; ok: boolean; status: number; finalUrl: string }> => {
   try {
-    const res = await timeoutFetch(url);
-    const contentType = res.headers.get('content-type') ?? '';
-    if (!res.ok) {
-      return { text: '', ok: false, status: res.status };
-    }
-    if (
-      !contentType.includes('text/html') &&
-      !contentType.includes('xml') &&
-      !contentType.includes('text/plain') &&
-      !contentType.includes('json')
-    ) {
-      return { text: '', ok: false, status: res.status };
-    }
-    return { text: await res.text(), ok: true, status: res.status };
+    const fetched = await safeFetchText(url, {
+      timeoutMs: 10_000,
+      userAgent: UA
+    });
+    pageFetchMeta.push({
+      url: fetched.finalUrl || url,
+      status: fetched.status,
+      fetchMs: fetched.durationMs,
+      bytes: fetched.bytes,
+      ok: fetched.ok
+    });
+    return {
+      text: fetched.text,
+      ok: fetched.ok,
+      status: fetched.status,
+      finalUrl: fetched.finalUrl || url
+    };
   } catch {
-    return { text: '', ok: false, status: 0 };
+    pageFetchMeta.push({
+      url,
+      status: 0,
+      fetchMs: 10_000,
+      bytes: 0,
+      ok: false
+    });
+    return { text: '', ok: false, status: 0, finalUrl: url };
   }
 };
 
@@ -161,10 +180,12 @@ const getCompetitors = async (city: string): Promise<Competitor[]> => {
           .slice(0, 3);
 
         if (normalized.length > 0) {
-          return normalized.map((c) => ({
+          const cachedRows = normalized.map((c) => ({
             ...c,
             note: `Cached within 24h for ${cityKey}.`
           }));
+          console.info(`SERP_STATUS=cache city=${cityKey} count=${cachedRows.length}`);
+          return cachedRows;
         }
       }
     }
@@ -186,16 +207,19 @@ const getCompetitors = async (city: string): Promise<Competitor[]> => {
         note: 'Live competitor signal from current SERP data.',
         differentiatorGuess: 'Likely stronger local pack visibility and review recency.'
       }));
-      if (top.length > 0) return top;
+      if (top.length > 0) {
+        console.info(`SERP_STATUS=live city=${cityKey} count=${top.length}`);
+        return top;
+      }
     } catch {
       // fall through to graceful fallback
     }
   }
 
   const fallbackNote =
-    'Competitor data not connected yet — we\'ll pull it on the teardown.';
+    'Top local competitors we’ll benchmark on your teardown.';
 
-  return [
+  const fallbackRows = [
     {
       name: `Leading ${city} collision shop`,
       note: fallbackNote,
@@ -212,6 +236,8 @@ const getCompetitors = async (city: string): Promise<Competitor[]> => {
       differentiatorGuess: 'Likely capturing estimate intent with stronger CTAs.'
     }
   ];
+  console.info(`SERP_STATUS=fallback city=${cityKey} count=${fallbackRows.length}`);
+  return fallbackRows;
 };
 
 const hashKeyword = (value: string): number => {
@@ -596,19 +622,28 @@ export const runScan = async (
   websiteUrl: string,
   city: string,
   shopName: string,
-  capabilities?: ScanCapabilities
+  capabilities?: ScanCapabilities,
+  pagespeed?: PageSpeedResult
 ): Promise<ScanResult> => {
+  const startedAt = Date.now();
   const base = websiteUrl.replace(/\/$/, '');
-  const urls = [base, `${base}/contact`, `${base}/services`];
+  const urls = [
+    base,
+    `${base}/contact`,
+    `${base}/services`,
+    `${base}/certifications`,
+    `${base}/estimate`
+  ];
 
   const htmlByUrl: Record<string, string> = {};
   const fetchNotes: string[] = [];
+  const pageFetchMeta: PageFetchMeta[] = [];
 
   await Promise.all(
     urls.map(async (url) => {
-      const { text, ok, status } = await fetchText(url);
+      const { text, ok, status, finalUrl } = await fetchText(url, pageFetchMeta);
       if (ok && text) {
-        htmlByUrl[url] = text;
+        htmlByUrl[finalUrl] = text;
       } else {
         fetchNotes.push(`${url} not fetched (status ${status || 'timeout/error'})`);
       }
@@ -623,15 +658,55 @@ export const runScan = async (
   const checks = parsePages(htmlByUrl, city, shopName, websiteUrl, capabilities);
   checks.fetchNotes = fetchNotes;
 
-  checks.performanceScore = await runPerformanceHeuristic(base);
-  checks.performanceMethod = 'ttfb-heuristic';
+  if (pagespeed?.status === 'ok' && typeof pagespeed.performanceScore === 'number') {
+    checks.performanceScore = pagespeed.performanceScore;
+    checks.performanceMethod = 'lighthouse';
+  } else {
+    checks.performanceScore = await runPerformanceHeuristic(base);
+    checks.performanceMethod = 'ttfb-heuristic';
+  }
 
-  const sitemap = await fetchText(`${base}/sitemap.xml`);
+  const sitemap = await fetchText(`${base}/sitemap.xml`, pageFetchMeta);
   checks.sitemapFound = sitemap.ok;
 
   const scores = buildScores(checks);
+  const signals = detectCollisionSignals(htmlByUrl);
+  const capabilityMissing = mapCapabilityMissing(
+    signals.detected.map((s) => s.signal_name),
+    capabilities
+  );
+  const missingSignals = [...new Set([...signals.missing, ...capabilityMissing])];
+  const missingPages = ['services', 'certifications', 'contact', 'estimate'].filter(
+    (page) => !Object.keys(htmlByUrl).some((url) => url.toLowerCase().includes(`/${page}`))
+  );
+  const categoryScores = computeCategoryScores({
+    checks,
+    pagespeed: pagespeed || {
+      status: 'error',
+      performanceScore: null,
+      lcpMs: null,
+      cls: null,
+      tbtMs: null,
+      speedIndexMs: null,
+      diagnostics: []
+    },
+    detectedSignals: signals.detected,
+    missingSignals,
+    pagesAnalyzed: Object.keys(htmlByUrl).length
+  });
+  const topFixes = buildTopFixes({
+    issues: scores.issues,
+    missingSignals,
+    missingPages,
+    hasPerformanceData: pagespeed?.status === 'ok'
+  });
   const moneyKeywords = buildMoneyKeywords(city, checks.oemSignals);
   const competitors = await getCompetitors(city);
+  const competitorAdvantages: CompetitorAdvantage[] = await buildCompetitorComparison({
+    city,
+    competitors,
+    userSignalNames: signals.detected.map((s) => s.signal_name)
+  });
   const aiSummaryResult = await generateAiSummary(shopName, city, scores.total, scores.issues);
   const aiSummary = aiSummaryResult.text;
   console.info(
@@ -645,6 +720,15 @@ export const runScan = async (
   return {
     checks,
     scores,
+    categoryScores,
+    detectedSignals: signals.detected,
+    missingSignals,
+    capabilityMissing,
+    topFixes,
+    competitorAdvantages,
+    missingPages,
+    pageFetchMeta,
+    scanDurationMs: Date.now() - startedAt,
     moneyKeywords,
     competitors,
     aiSummary,

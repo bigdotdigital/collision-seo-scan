@@ -3,7 +3,17 @@ import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { ScoreRing } from '@/components/score-ring';
 import { parseJson } from '@/lib/json';
-import type { Competitor, Issue, MoneyKeyword, ThirtyDayPlanItem } from '@/lib/types';
+import type {
+  CategoryScoreSet,
+  CollisionSignal,
+  Competitor,
+  CompetitorAdvantage,
+  Issue,
+  MoneyKeyword,
+  PageFetchMeta,
+  PrioritizedFix,
+  ThirtyDayPlanItem
+} from '@/lib/types';
 import { ReportEmailCapture } from '@/components/report-email-capture';
 import { ReportCtaActions, ReportShareActions } from '@/components/report-cta-actions';
 import { buildReportViewModel, type ReportData } from '@/lib/report-view-model';
@@ -156,6 +166,93 @@ function normalizePlan(input: unknown): ThirtyDayPlanItem[] {
     .slice(0, 4);
 }
 
+function normalizeCategoryScores(input: unknown, fallback: { website: number; local: number; intent: number; total: number }): CategoryScoreSet {
+  const row = (input || {}) as Partial<CategoryScoreSet>;
+  return {
+    technicalSeo: typeof row.technicalSeo === 'number' ? row.technicalSeo : fallback.website,
+    localSeo: typeof row.localSeo === 'number' ? row.localSeo : fallback.local,
+    collisionAuthority:
+      typeof row.collisionAuthority === 'number' ? row.collisionAuthority : fallback.intent,
+    speedPerformance:
+      typeof row.speedPerformance === 'number' ? row.speedPerformance : fallback.website,
+    contentCoverage: typeof row.contentCoverage === 'number' ? row.contentCoverage : 68,
+    overall: typeof row.overall === 'number' ? row.overall : fallback.total,
+    explanations: {
+      technicalSeo:
+        row.explanations?.technicalSeo ||
+        'Foundational crawlability, metadata quality, and indexability signals.',
+      localSeo:
+        row.explanations?.localSeo || 'Google Maps/NAP/review and local intent readiness signals.',
+      collisionAuthority:
+        row.explanations?.collisionAuthority ||
+        'Collision-specific certifications and capability trust signals.',
+      speedPerformance:
+        row.explanations?.speedPerformance ||
+        'Page speed and UX readiness from measured or modeled checks.',
+      contentCoverage:
+        row.explanations?.contentCoverage ||
+        'Coverage of high-intent service content and conversion pages.'
+    }
+  };
+}
+
+function normalizeSignals(input: unknown): CollisionSignal[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((item) => item as CollisionSignal)
+    .filter((s) => typeof s?.signal_name === 'string' && typeof s?.evidence?.url === 'string')
+    .slice(0, 30);
+}
+
+function normalizeTopFixes(input: unknown, issues: Issue[]): PrioritizedFix[] {
+  if (Array.isArray(input) && input.length > 0) {
+    return input
+      .map((item) => item as PrioritizedFix)
+      .filter((f) => typeof f?.title === 'string' && Array.isArray(f?.steps))
+      .slice(0, 3);
+  }
+
+  return issues.slice(0, 3).map((issue) => ({
+    title: issue.title,
+    why: issue.why,
+    impact: issue.severity,
+    steps: [issue.fix, 'Apply on homepage first.', 'Re-scan to verify improvement.']
+  }));
+}
+
+function normalizeMissingSignals(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  return input.filter((v): v is string => typeof v === 'string').slice(0, 20);
+}
+
+function normalizeCompetitorAdvantages(input: unknown): CompetitorAdvantage[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((item) => item as CompetitorAdvantage)
+    .filter((c) => typeof c?.name === 'string' && Array.isArray(c?.advantages))
+    .slice(0, 5);
+}
+
+function normalizePageMeta(input: unknown): PageFetchMeta[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((item) => item as PageFetchMeta)
+    .filter((p) => typeof p?.url === 'string' && typeof p?.status === 'number')
+    .slice(0, 20);
+}
+
+function scoreDot(score: number): string {
+  if (score >= 80) return '🟢';
+  if (score >= 60) return '🟡';
+  return '🔴';
+}
+
+function checksScore(raw: Record<string, unknown>, key: 'title' | 'estimate'): boolean {
+  const checks = (raw.checks as Record<string, unknown> | undefined) || {};
+  if (key === 'title') return typeof checks.title === 'string' && checks.title.trim().length > 0;
+  return Boolean(checks.estimateCtaDetected);
+}
+
 export default async function ReportPage({ params }: { params: { scanId: string } }) {
   logEnvWarningsOnce();
   const scanId = params.scanId;
@@ -204,15 +301,50 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       ? parseJson<unknown>(dbScan.thirtyDayPlanJson, scanRecord.thirtyDayPlan)
       : scanRecord.thirtyDayPlan
   );
-  const raw = dbScan ? parseJson<Record<string, unknown>>(dbScan.rawChecksJson, {}) : {};
+  const raw = dbScan
+    ? parseJson<Record<string, unknown>>(dbScan.rawChecksJson, scanRecord.rawChecks || {})
+    : scanRecord.rawChecks || {};
 
-  const scoreTotal = snapshot?.visibilityScore ?? scanRecord.scoreTotal;
-  const scoreWebsite = scanRecord.scoreWebsite;
-  const scoreLocal = scanRecord.scoreLocal;
-  const scoreIntent = scanRecord.scoreIntent;
-
-    const pagespeed = normalizePageSpeed(scanRecord.pagespeed, scoreWebsite);
+  const scoreTotal = snapshot?.visibilityScore ?? scanRecord.scoreTotal ?? 0;
+  const scoreWebsite = scanRecord.scoreWebsite ?? 0;
+  const scoreLocal = scanRecord.scoreLocal ?? 0;
+  const scoreIntent = scanRecord.scoreIntent ?? 0;
+  const categoryScores = normalizeCategoryScores(raw.categoryScores, {
+    website: scoreWebsite,
+    local: scoreLocal,
+    intent: scoreIntent,
+    total: scoreTotal
+  });
+  const detectedSignals = normalizeSignals(raw.detectedSignals);
+  const missingSignals = normalizeMissingSignals(raw.missingSignals);
+  const topFixes = normalizeTopFixes(raw.topFixes, issues);
+  const competitorAdvantages = normalizeCompetitorAdvantages(raw.competitorAdvantages);
+  const pageMeta = normalizePageMeta(raw.pageFetchMeta);
+  const scanDurationMs = typeof raw.scanDurationMs === 'number' ? raw.scanDurationMs : 0;
+  const timestampLabel = dbScan?.createdAt
+    ? new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(
+        dbScan.createdAt
+      )
+    : new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(
+        new Date(scanRecord.createdAt)
+      );
+  const domainLabel = (() => {
+    try {
+      return new URL(scanRecord.url).hostname;
+    } catch {
+      return scanRecord.url;
+    }
+  })();
+  const pagespeed = normalizePageSpeed(scanRecord.pagespeed, scoreWebsite);
   const websiteCardScore = pagespeed.performanceScore ?? scoreWebsite;
+  const healthChecks = [
+    { label: 'Title tags', score: checksScore(raw, 'title') ? 90 : 45 },
+    { label: 'Speed', score: categoryScores.speedPerformance },
+    { label: 'Certifications', score: categoryScores.collisionAuthority },
+    { label: 'Mobile UX', score: websiteCardScore },
+    { label: 'Local signals', score: categoryScores.localSeo },
+    { label: 'Estimate CTA', score: checksScore(raw, 'estimate') ? 88 : 48 }
+  ];
 
   const calendly = process.env.CALENDLY_LINK || 'https://calendly.com/your-team/15min';
   const salesPhone = process.env.SALES_PHONE || '+13035551234';
@@ -265,7 +397,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         </p>
       </section>
 
-      <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+      <div className="card mb-8 flex flex-col gap-5 overflow-hidden bg-gradient-to-br from-white via-white to-teal-50 p-6 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">
             Collision SEO Scan Report
@@ -278,11 +410,84 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         <ScoreRing score={scoreTotal} />
       </div>
 
+      <section className="card mb-6 p-5">
+        <h2 className="text-lg font-bold text-slate-900">Scan Completed</h2>
+        <div className="mt-3 grid gap-3 text-sm md:grid-cols-5">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-500">Domain</p>
+            <p className="font-medium text-slate-900">{domainLabel}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-500">Location</p>
+            <p className="font-medium text-slate-900">{scanRecord.city}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-500">Scan duration</p>
+            <p className="font-medium text-slate-900">
+              {scanDurationMs > 0 ? `${(scanDurationMs / 1000).toFixed(1)}s` : 'n/a'}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-500">Pages analyzed</p>
+            <p className="font-medium text-slate-900">{pageMeta.filter((p) => p.ok).length}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-500">Timestamp</p>
+            <p className="font-medium text-slate-900">{timestampLabel}</p>
+          </div>
+        </div>
+      </section>
+
       {vm.dataStatusBanner ? (
         <section className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           {vm.dataStatusBanner}
         </section>
       ) : null}
+
+      <section className="mb-6 grid gap-4 md:grid-cols-5">
+        <article className="card p-4">
+          <p className="text-xs uppercase tracking-wide text-slate-500">Technical SEO</p>
+          <p className="mt-1 text-3xl font-bold">{categoryScores.technicalSeo}</p>
+          <p className="mt-1 text-xs text-slate-600">{categoryScores.explanations.technicalSeo}</p>
+        </article>
+        <article className="card p-4">
+          <p className="text-xs uppercase tracking-wide text-slate-500">Local SEO</p>
+          <p className="mt-1 text-3xl font-bold">{categoryScores.localSeo}</p>
+          <p className="mt-1 text-xs text-slate-600">{categoryScores.explanations.localSeo}</p>
+        </article>
+        <article className="card p-4">
+          <p className="text-xs uppercase tracking-wide text-slate-500">Collision Authority</p>
+          <p className="mt-1 text-3xl font-bold">{categoryScores.collisionAuthority}</p>
+          <p className="mt-1 text-xs text-slate-600">
+            {categoryScores.explanations.collisionAuthority}
+          </p>
+        </article>
+        <article className="card p-4">
+          <p className="text-xs uppercase tracking-wide text-slate-500">Speed & Performance</p>
+          <p className="mt-1 text-3xl font-bold">{categoryScores.speedPerformance}</p>
+          <p className="mt-1 text-xs text-slate-600">
+            {categoryScores.explanations.speedPerformance}
+          </p>
+        </article>
+        <article className="card p-4">
+          <p className="text-xs uppercase tracking-wide text-slate-500">Content Coverage</p>
+          <p className="mt-1 text-3xl font-bold">{categoryScores.contentCoverage}</p>
+          <p className="mt-1 text-xs text-slate-600">{categoryScores.explanations.contentCoverage}</p>
+        </article>
+      </section>
+
+      <section className="card mb-6 p-5">
+        <h2 className="text-lg font-bold text-slate-900">Health Meter</h2>
+        <div className="mt-3 grid gap-2 md:grid-cols-2">
+          {healthChecks.map((item) => (
+            <div key={item.label} className="rounded border border-slate-200 bg-slate-50 px-3 py-2">
+              <p className="text-sm font-medium text-slate-900">
+                {scoreDot(item.score)} {item.label}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <section className="grid gap-4 md:grid-cols-3">
         <div className="card print-break-avoid p-5">
@@ -410,6 +615,120 @@ export default async function ReportPage({ params }: { params: { scanId: string 
             <li key={signal}>{signal}</li>
           ))}
         </ul>
+      </section>
+
+      <section className="mt-6 card print-break-avoid p-6">
+        <h2 className="text-xl font-bold">Certification Visibility</h2>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <article className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+            <h3 className="font-semibold text-emerald-900">Detected</h3>
+            {detectedSignals.length === 0 ? (
+              <p className="mt-2 text-sm text-emerald-900">No certification/capability signals detected.</p>
+            ) : (
+              <ul className="mt-2 space-y-2 text-sm text-emerald-900">
+                {detectedSignals.slice(0, 12).map((signal) => (
+                  <li key={signal.signal_name}>
+                    <p className="font-medium">{signal.signal_name.replace(/_/g, ' ')}</p>
+                    <p className="text-xs">Confidence: {(signal.confidence * 100).toFixed(0)}%</p>
+                    <a
+                      href={signal.evidence.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs underline"
+                    >
+                      Evidence: {signal.evidence.snippet}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </article>
+          <article className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <h3 className="font-semibold text-amber-900">Missing</h3>
+            {missingSignals.length === 0 ? (
+              <p className="mt-2 text-sm text-amber-900">No major baseline signals missing.</p>
+            ) : (
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-900">
+                {missingSignals.slice(0, 12).map((signal) => (
+                  <li key={signal}>{signal.replace(/_/g, ' ')}</li>
+                ))}
+              </ul>
+            )}
+          </article>
+        </div>
+      </section>
+
+      <section className="mt-6 card print-break-avoid p-6">
+        <h2 className="text-xl font-bold">Fix These First</h2>
+        <p className="mt-1 text-sm text-slate-600">Top 3 high-impact actions from this scan.</p>
+        <div className="mt-4 space-y-3">
+          {topFixes.map((fix) => (
+            <article key={fix.title} className="rounded-lg border border-slate-200 p-4">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="font-semibold text-slate-900">{fix.title}</h3>
+                <span className={`rounded-full px-2 py-1 text-xs font-semibold ${severityClass(fix.impact)}`}>
+                  {fix.impact}
+                </span>
+              </div>
+              <p className="mt-2 text-sm text-slate-700">{fix.why}</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
+                {fix.steps.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-6 card print-break-avoid p-6">
+        <h2 className="text-xl font-bold">Competitor Advantage</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Lightweight comparison of top competitors vs your current signal coverage.
+        </p>
+        <div className="mt-4 space-y-3">
+          {(competitorAdvantages.length > 0 ? competitorAdvantages : vm.competitors).map((row, idx) => (
+            <article key={row.name + idx} className="rounded-lg border border-slate-200 p-4">
+              <p className="font-semibold text-slate-900">{row.name}</p>
+              {'advantages' in row ? (
+                <>
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
+                    {row.advantages.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-xs text-slate-600">
+                    OEM mentions: {row.oemSignalCount} | Capabilities: {row.capabilityCount} | Estimate CTA:{' '}
+                    {row.estimateCta ? 'Yes' : 'No'}
+                  </p>
+                </>
+              ) : (
+                <p className="mt-2 text-sm text-slate-700">Why they&apos;re winning: {row.whyWinning}</p>
+              )}
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-6 card print-break-avoid p-6">
+        <h2 className="text-xl font-bold">Crawl Evidence</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Pages analyzed and fetch status used to compute this scan.
+        </p>
+        <div className="mt-4 grid gap-2">
+          {pageMeta.length === 0 ? (
+            <p className="text-sm text-slate-600">No page metadata captured in this run.</p>
+          ) : (
+            pageMeta.slice(0, 8).map((row) => (
+              <article key={`${row.url}-${row.status}`} className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                <p className="font-medium text-slate-900">{row.url}</p>
+                <p className="text-xs text-slate-600">
+                  status {row.status || 'n/a'} • {row.fetchMs}ms • {row.bytes} bytes
+                </p>
+              </article>
+            ))
+          )}
+        </div>
       </section>
 
       <section className="mt-6 rounded-xl border border-teal-200 bg-teal-50 print-break-avoid p-6">

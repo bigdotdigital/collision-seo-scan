@@ -19,6 +19,7 @@ export type ScanRecord = BaseScanRecord & {
   competitors: Competitor[];
   thirtyDayPlan: ThirtyDayPlanItem[];
   aiSummary: string | null;
+  rawChecks?: Record<string, unknown>;
 };
 
 const EMPTY_PAGESPEED: PageSpeedResult = {
@@ -59,6 +60,7 @@ function toRecord(scan: {
   competitorsJson: string;
   thirtyDayPlanJson: string | null;
   aiSummary: string | null;
+  rawChecksJson: string;
 }): ScanRecord {
   return {
     id: scan.id,
@@ -77,7 +79,8 @@ function toRecord(scan: {
     moneyKeywords: parseJson<MoneyKeyword[]>(scan.moneyKeywordsJson, []),
     competitors: parseJson<Competitor[]>(scan.competitorsJson, []),
     thirtyDayPlan: parseJson<ThirtyDayPlanItem[]>(scan.thirtyDayPlanJson, []),
-    aiSummary: scan.aiSummary
+    aiSummary: scan.aiSummary,
+    rawChecks: parseJson<Record<string, unknown>>(scan.rawChecksJson, {})
   };
 }
 
