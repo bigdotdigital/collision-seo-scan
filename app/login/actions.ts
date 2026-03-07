@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import {
   clearClientSession,
+  setDashboardSession,
   setClientSession,
   verifyPortalPassword
 } from '@/lib/client-auth';
@@ -20,7 +21,15 @@ export async function loginClient(
   }
 
   const client = await prisma.client.findFirst({
-    where: { ownerEmail: email, isActive: true }
+    where: { ownerEmail: email, isActive: true },
+    include: {
+      scans: {
+        where: { organizationId: { not: null } },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: { organizationId: true }
+      }
+    }
   });
 
   if (!client || !client.portalPasswordHash) {
@@ -34,7 +43,53 @@ export async function loginClient(
     return { ok: false, message: 'Invalid credentials.' };
   }
 
-  setClientSession(client.id);
+  const organizationId = client.scans[0]?.organizationId || null;
+
+  if (organizationId) {
+    const user = await prisma.user.upsert({
+      where: { email },
+      update: {
+        isActive: true,
+        passwordHash: client.portalPasswordHash,
+        name: client.shopName
+      },
+      create: {
+        email,
+        passwordHash: client.portalPasswordHash,
+        name: client.shopName,
+        isActive: true
+      }
+    });
+
+    const membership = await prisma.orgMembership.upsert({
+      where: {
+        orgId_userId: {
+          orgId: organizationId,
+          userId: user.id
+        }
+      },
+      update: {
+        role: 'owner',
+        status: 'active'
+      },
+      create: {
+        orgId: organizationId,
+        userId: user.id,
+        role: 'owner',
+        status: 'active'
+      }
+    });
+
+    setDashboardSession({
+      userId: user.id,
+      orgId: organizationId,
+      membershipRole: membership.role,
+      clientId: client.id
+    });
+  } else {
+    setClientSession(client.id);
+  }
+
   revalidatePath('/dashboard');
   return { ok: true };
 }

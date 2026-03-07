@@ -1,0 +1,404 @@
+<html lang="en" vid="0"><head vid="1">
+    <meta charset="UTF-8" vid="2">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+    <title vid="4">Big Dot - Billing</title>
+    <style vid="5">
+        :root {
+            --bg-app: #120505; 
+            --bg-panel: #1E0A0C; 
+            --bg-panel-hover: #260D0F;
+            --accent-red: #FF4D4D; 
+            --accent-dim: #5C2024; 
+            --text-primary: #FFFFFF;
+            --text-secondary: #9E8385; 
+            --text-tertiary: #5E3C3F;
+            --border-subtle: #331215;
+            
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --radius-card: 20px;
+            --radius-sm: 8px;
+            
+            --spacing-unit: 8px;
+            --spacing-md: 24px;
+            --spacing-lg: 32px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            outline: none;
+        }
+
+        body {
+            background-color: var(--bg-app);
+            color: var(--text-primary);
+            font-family: var(--font-family);
+            -webkit-font-smoothing: antialiased;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            font-size: 14px;
+        }
+
+        .app-shell {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            width: 100%;
+            height: 100%;
+        }
+
+        .sidebar {
+            padding: var(--spacing-lg) var(--spacing-md);
+            border-right: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .brand {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            margin-bottom: 48px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-dot {
+            width: 12px;
+            height: 12px;
+            background: var(--accent-red);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-red);
+        }
+
+        .nav-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-tertiary);
+            margin-bottom: 12px;
+            margin-top: 24px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-panel-hover);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: var(--bg-panel);
+            color: var(--text-primary);
+            border-left: 2px solid var(--accent-red);
+        }
+
+        .main-view {
+            padding: var(--spacing-lg);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-lg);
+            max-width: 1100px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding-bottom: var(--spacing-md);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .page-title {
+            font-size: 24px;
+            font-weight: 500;
+            letter-spacing: -0.5px;
+            margin-bottom: 4px;
+        }
+
+        .meta-text {
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .billing-grid {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: var(--spacing-md);
+        }
+
+        .card {
+            background: var(--bg-panel);
+            border-radius: var(--radius-card);
+            padding: 24px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid transparent;
+            transition: border-color 0.2s;
+        }
+
+        .card:hover {
+            border-color: var(--border-subtle);
+        }
+
+        .card-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+            display: block;
+        }
+
+        .plan-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 32px;
+        }
+
+        .plan-name {
+            font-size: 32px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .plan-price {
+            font-size: 20px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 20px;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--accent-red);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: var(--bg-app);
+            color: var(--text-primary);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-panel-hover);
+        }
+
+        .invoice-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .invoice-table th {
+            text-align: left;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-tertiary);
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .invoice-table td {
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .invoice-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .status-pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: var(--bg-app);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .pro-card {
+            background: linear-gradient(135deg, #2a0e10 0%, var(--bg-panel) 100%);
+            border: 1px solid var(--accent-dim);
+        }
+
+        .grid-bg {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 0;
+            background-image: linear-gradient(var(--border-subtle) 1px, transparent 1px), linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px);
+            background-size: 40px 40px; opacity: 0.1;
+        }
+
+        .billing-meta {
+            display: flex;
+            gap: 48px;
+            margin-top: 12px;
+        }
+
+        .meta-item label {
+            display: block;
+            font-size: 11px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .meta-item span {
+            font-size: 14px;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body vid="6">
+
+    <div class="app-shell" vid="7">
+        <nav class="sidebar" vid="8">
+            <div class="brand" vid="9">
+                <div class="brand-dot" vid="10"></div>
+                BIG DOT
+            </div>
+
+            <div class="nav-group" vid="11">
+                <div class="nav-label" vid="12">Monitoring</div>
+                <a href="#" class="nav-item" vid="13">Overview</a>
+                <a href="#" class="nav-item" vid="14">Rankings</a>
+                <a href="#" class="nav-item" vid="15">Competitors</a>
+                <a href="#" class="nav-item" vid="16">GBP Health</a>
+            </div>
+
+            <div class="nav-group" vid="17">
+                <div class="nav-label" vid="18">Settings</div>
+                <a href="#" class="nav-item" vid="19">Locations</a>
+                <a href="#" class="nav-item" vid="20">Integrations</a>
+                <a href="#" class="nav-item active" vid="21">Account</a>
+            </div>
+        </nav>
+
+        <main class="main-view" vid="22">
+            <div class="header" vid="23">
+                <div vid="24">
+                    <div class="meta-text" vid="25">Organization Settings</div>
+                    <h1 class="page-title" vid="26">Plans &amp; Billing</h1>
+                </div>
+            </div>
+
+            <div class="billing-grid" vid="27">
+                <div class="card" vid="28">
+                    <div class="grid-bg" vid="29"></div>
+                    <span class="card-label" vid="30">Current Subscription</span>
+                    
+                    <div class="plan-header" vid="31">
+                        <div vid="32">
+                            <div class="plan-name" vid="33">Monitor Plan</div>
+                            <div class="plan-price" vid="34">$49.00 <span style="font-size: 13px; color: var(--text-tertiary);" vid="35">/ month</span></div>
+                            
+                            <div class="billing-meta" vid="36">
+                                <div class="meta-item" vid="37">
+                                    <label vid="38">Next Billing Date</label>
+                                    <span vid="39">Oct 12, 2023</span>
+                                </div>
+                                <div class="meta-item" vid="40">
+                                    <label vid="41">Payment Method</label>
+                                    <span vid="42">Visa •••• 4242</span>
+                                </div>
+                            </div>
+                        </div>
+                        <a href="https://billing.stripe.com" class="btn btn-secondary" vid="43">Manage Billing</a>
+                    </div>
+                </div>
+
+                <div class="card pro-card" vid="44">
+                    <span class="card-label" style="color: var(--accent-red);" vid="45">Available Upgrade</span>
+                    <div class="plan-name" style="font-size: 24px; margin-bottom: 8px;" vid="46">Pro Agency</div>
+                    <p style="color: var(--text-secondary); margin-bottom: 24px; line-height: 1.5;" vid="47">Unlock daily refreshes, white-label reporting, and priority API access.</p>
+                    <div class="plan-price" style="margin-bottom: 24px; color: var(--text-primary);" vid="48">$199 <span style="font-size: 13px; color: var(--text-secondary);" vid="49">/ mo</span></div>
+                    <button class="btn btn-primary" style="width: 100%;" vid="50">Upgrade to Pro</button>
+                </div>
+
+                <div class="card" style="grid-column: span 2;" vid="51">
+                    <span class="card-label" vid="52">Invoice History</span>
+                    <table class="invoice-table" vid="53">
+                        <thead vid="54">
+                            <tr vid="55">
+                                <th vid="56">Invoice ID</th>
+                                <th vid="57">Date</th>
+                                <th vid="58">Amount</th>
+                                <th vid="59">Status</th>
+                                <th style="text-align: right;" vid="60">Download</th>
+                            </tr>
+                        </thead>
+                        <tbody vid="61">
+                            <tr vid="62">
+                                <td style="color: var(--text-primary);" vid="63">INV-2023-009</td>
+                                <td vid="64">Sep 12, 2023</td>
+                                <td vid="65">$49.00</td>
+                                <td vid="66"><span class="status-pill" vid="67">Paid</span></td>
+                                <td style="text-align: right;" vid="68"><a href="#" style="color: var(--accent-red); text-decoration: none;" vid="69">PDF</a></td>
+                            </tr>
+                            <tr vid="70">
+                                <td style="color: var(--text-primary);" vid="71">INV-2023-008</td>
+                                <td vid="72">Aug 12, 2023</td>
+                                <td vid="73">$49.00</td>
+                                <td vid="74"><span class="status-pill" vid="75">Paid</span></td>
+                                <td style="text-align: right;" vid="76"><a href="#" style="color: var(--accent-red); text-decoration: none;" vid="77">PDF</a></td>
+                            </tr>
+                            <tr vid="78">
+                                <td style="color: var(--text-primary);" vid="79">INV-2023-007</td>
+                                <td vid="80">Jul 12, 2023</td>
+                                <td vid="81">$49.00</td>
+                                <td vid="82"><span class="status-pill" vid="83">Paid</span></td>
+                                <td style="text-align: right;" vid="84"><a href="#" style="color: var(--accent-red); text-decoration: none;" vid="85">PDF</a></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+</body></html>

@@ -17,6 +17,7 @@ import { computeCategoryScores } from '@/lib/scoring/category-scores';
 import { buildTopFixes } from '@/lib/scoring/top-fixes';
 import { buildCompetitorComparison } from '@/lib/competitors/compare';
 import { safeFetchText } from '@/lib/security/safe-fetch';
+import { runNationalCollisionBenchmark } from '@/lib/benchmark/national-collision';
 
 const UA =
   'Mozilla/5.0 (compatible; CollisionSEOScan/2.0; +https://collisionseoscan.local)';
@@ -36,6 +37,39 @@ const CITY_TERMS = ['denver', 'aurora', 'lakewood', 'commerce city', 'co'];
 const OEM_TERMS = ['subaru', 'ford', 'gm', 'nissan', 'certified', 'oem'];
 const FLEET_TERMS = ['sprinter', 'promaster', 'transit'];
 const INSURANCE_TERMS = ['insurance', 'claim', 'deductible', 'rental', 'estimate'];
+const NON_SHOP_DOMAINS = [
+  'yelp.com',
+  'yellowpages.com',
+  'mapquest.com',
+  'bbb.org',
+  'angi.com',
+  'facebook.com',
+  'instagram.com',
+  'linkedin.com',
+  'tripadvisor.com',
+  'wikipedia.org'
+];
+const CHAIN_DOMAINS = [
+  'caliber.com',
+  'gerbercollision.com',
+  'crashchampions.com',
+  'maaco.com',
+  'fixauto.com',
+  'carstar.com',
+  'abraauto.com',
+  'serviceking.com',
+  'classiccollision.com'
+];
+const NON_SHOP_TITLE_HINTS = [
+  'best',
+  'top 10',
+  'directory',
+  'list of',
+  'near me results',
+  'reviews for',
+  'wiki',
+  'reddit'
+];
 
 const phoneRegex = /\+?1?[\s.-]?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/;
 const addressRegex =
@@ -139,6 +173,32 @@ const runPerformanceHeuristic = async (url: string): Promise<number> => {
   }
 };
 
+const hostnameOf = (input?: string): string => {
+  if (!input) return '';
+  try {
+    return new URL(input).hostname.replace(/^www\./i, '').toLowerCase();
+  } catch {
+    return '';
+  }
+};
+
+const isShopCompetitorCandidate = (candidate: { name?: string; url?: string }): boolean => {
+  const host = hostnameOf(candidate.url);
+  if (
+    host &&
+    (NON_SHOP_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`)) ||
+      CHAIN_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`)))
+  ) {
+    return false;
+  }
+
+  const name = (candidate.name || '').toLowerCase();
+  if (!name.trim()) return false;
+  if (NON_SHOP_TITLE_HINTS.some((hint) => name.includes(hint))) return false;
+  if (/(yelp|yellow pages|mapquest|tripadvisor|wikipedia|facebook)/i.test(name)) return false;
+  return /(collision|auto body|body shop|paint|repair|coachworks|motors|automotive)/i.test(name);
+};
+
 const getCompetitors = async (
   city: string
 ): Promise<{ competitors: Competitor[]; source: 'live' | 'cached' | 'fallback' }> => {
@@ -179,6 +239,7 @@ const getCompetitors = async (
                   : 'Likely stronger local pack visibility and review recency.'
             } as Competitor;
           })
+          .filter((item) => isShopCompetitorCandidate(item))
           .slice(0, 3);
 
         if (normalized.length > 0) {
@@ -203,12 +264,15 @@ const getCompetitors = async (
       const res = await timeoutFetch(url, 10000);
       const json = await res.json();
       const organic = Array.isArray(json.organic_results) ? json.organic_results : [];
-      const top = organic.slice(0, 3).map((item: Record<string, unknown>, idx: number) => ({
-        name: typeof item.title === 'string' ? item.title : `Competitor ${idx + 1}`,
-        url: typeof item.link === 'string' ? item.link : undefined,
-        note: 'Live competitor signal from current SERP data.',
-        differentiatorGuess: 'Likely stronger local pack visibility and review recency.'
-      }));
+      const top = organic
+        .map((item: Record<string, unknown>, idx: number) => ({
+          name: typeof item.title === 'string' ? item.title : `Competitor ${idx + 1}`,
+          url: typeof item.link === 'string' ? item.link : undefined,
+          note: 'Live competitor signal from current SERP data.',
+          differentiatorGuess: 'Likely stronger local pack visibility and review recency.'
+        }))
+        .filter((item: Competitor) => isShopCompetitorCandidate(item))
+        .slice(0, 3);
       if (top.length > 0) {
         console.info(`SERP_STATUS=live city=${cityKey} count=${top.length}`);
         return { competitors: top, source: 'live' };
@@ -315,8 +379,44 @@ const parsePages = (
   capabilities?: ScanCapabilities
 ): ScanChecks => {
   const combinedHtml = Object.values(htmlByUrl).join('\n');
-  const $home = cheerio.load(htmlByUrl[websiteUrl] || '');
+  const websiteHost = (() => {
+    try {
+      return new URL(websiteUrl).hostname.replace(/^www\./i, '').toLowerCase();
+    } catch {
+      return '';
+    }
+  })();
+  const homeHtml = (() => {
+    const direct =
+      htmlByUrl[websiteUrl] ||
+      htmlByUrl[websiteUrl.replace(/\/$/, '')] ||
+      htmlByUrl[websiteUrl.endsWith('/') ? websiteUrl : `${websiteUrl}/`];
+    if (direct && direct.trim().length > 0) return direct;
+
+    const candidates = Object.entries(htmlByUrl)
+      .filter(([url, html]) => {
+        if (!html || !html.trim()) return false;
+        try {
+          const parsed = new URL(url);
+          const host = parsed.hostname.replace(/^www\./i, '').toLowerCase();
+          const path = parsed.pathname || '/';
+          return host === websiteHost && (path === '/' || path === '');
+        } catch {
+          return false;
+        }
+      })
+      .map(([, html]) => html);
+
+    if (candidates.length > 0) {
+      return candidates.sort((a, b) => b.length - a.length)[0];
+    }
+    return '';
+  })();
+  const $home = cheerio.load(homeHtml || combinedHtml || '');
   const textCombined = normalizeSpace(cheerio.load(combinedHtml)('body').text());
+  const homeWordCount = normalizeSpace($home('body').text())
+    .split(/\s+/)
+    .filter(Boolean).length;
 
   const title = normalizeSpace($home('title').first().text());
   const metaDescription = normalizeSpace(
@@ -352,6 +452,27 @@ const parsePages = (
   const reviewWidgetOrSchema =
     /reviews?|rating|stars?/i.test(combinedHtml) ||
     schemaTypes.some((t) => /AggregateRating|Review/i.test(t));
+
+  const onlineEstimateFlow = /photo estimate|start estimate|book estimate|request estimate|online estimate/i.test(
+    normalizeSpace(
+      cheerio
+        .load(combinedHtml)('a,button')
+        .map((_, el) => cheerio.load(el).text())
+        .get()
+        .join(' ')
+    )
+  );
+  const locationFinderPresent = /find a location|locations|find a shop|near you/i.test(
+    normalizeSpace(cheerio.load(combinedHtml)('a,nav').text())
+  );
+  const warrantyMentioned = /warranty|lifetime guarantee|guarantee/i.test(pageTextLower);
+  const insuranceGuidancePresent = /insurance claim|we work with insurance|claim support|deductible/i.test(
+    pageTextLower
+  );
+  const adasMentioned = /adas|calibration|pre-scan|post-scan|scanning/i.test(pageTextLower);
+  const reviewProofPresent = /google reviews|testimonials|customer reviews|4\.\d\s*stars?/i.test(
+    pageTextLower
+  );
 
   const oemSignals = OEM_TERMS.filter((term) => pageTextLower.includes(term));
   const fleetSignals = FLEET_TERMS.filter((term) => pageTextLower.includes(term));
@@ -389,7 +510,14 @@ const parsePages = (
     fleetSignals: [...new Set(fleetSignals)],
     insuranceSignals: [...new Set(insuranceSignals)],
     schemaTypes,
-    fetchNotes: []
+    fetchNotes: [],
+    homeWordCount,
+    onlineEstimateFlow,
+    locationFinderPresent,
+    warrantyMentioned,
+    insuranceGuidancePresent,
+    adasMentioned,
+    reviewProofPresent
   };
 };
 
@@ -731,7 +859,10 @@ export const runScan = async (
     hasPerformanceData: pagespeed?.status === 'ok'
   });
   const moneyKeywords = buildMoneyKeywords(city, checks.oemSignals);
-  const competitorResult = await getCompetitors(city);
+  const [competitorResult, nationalBenchmark] = await Promise.all([
+    getCompetitors(city),
+    runNationalCollisionBenchmark(checks)
+  ]);
   const competitors = competitorResult.competitors;
   const competitorAdvantages: CompetitorAdvantage[] = await buildCompetitorComparison({
     city,
@@ -757,6 +888,7 @@ export const runScan = async (
     capabilityMissing,
     topFixes,
     competitorAdvantages,
+    nationalBenchmark,
     missingPages,
     pageFetchMeta,
     scanDurationMs: Date.now() - startedAt,

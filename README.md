@@ -19,7 +19,7 @@ A fast, client-closing SaaS-style app for collision shops:
 2. Report (`/report/[scanId]`) with score, issues, money keywords, competitor snapshot, impact model, 30-day plan
 3. Booking flow (`/thanks/[scanId]`) with tracked Calendly URL
 4. Admin (`/admin`) converts lead scans into clients
-5. Client portal (`/login`, `/dashboard`, `/dashboard/keywords`, `/dashboard/reviews`, `/dashboard/reports`)
+5. Client portal (`/login`, `/dashboard`, `/dashboard/rankings`, `/dashboard/competitors`, `/dashboard/alerts`, `/dashboard/billing`, `/dashboard/settings`)
 6. Weekly refresh + queue processing via cron endpoints
 
 ## Setup
@@ -79,6 +79,15 @@ Use `POST` with header `x-cron-secret: <CRON_SECRET>`.
 - Queue processor (24h lead follow-up emails):
 `/api/cron/process-queue`
 
+- Rank snapshot collector (dashboard scaffold):
+`/api/cron/rank-snapshot-collect`
+
+- Alert generation (dashboard scaffold):
+`/api/cron/alert-generate`
+
+- Alert digest sender (dashboard scaffold):
+`/api/cron/alert-digest-send`
+
 Example:
 ```bash
 curl -X POST http://localhost:3000/api/cron/weekly-refresh \
@@ -105,6 +114,11 @@ Public:
 Client portal:
 - `/login`
 - `/dashboard`
+- `/dashboard/rankings`
+- `/dashboard/competitors`
+- `/dashboard/alerts`
+- `/dashboard/billing`
+- `/dashboard/settings`
 - `/dashboard/keywords`
 - `/dashboard/reviews`
 - `/dashboard/reports`

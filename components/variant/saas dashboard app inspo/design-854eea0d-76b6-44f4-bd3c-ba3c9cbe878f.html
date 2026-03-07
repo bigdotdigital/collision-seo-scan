@@ -1,0 +1,642 @@
+<html lang="en" vid="0"><head vid="1">
+    <meta charset="UTF-8" vid="2">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+    <title vid="4">Big Dot SEO Dashboard</title>
+    <style vid="5">
+        :root {
+            
+            --bg-body: #120405; 
+            --bg-card: #22090C; 
+            --bg-card-hover: #2A0C0F;
+            --border-subtle: #3D1216;
+            
+            --text-primary: #FFFFFF;
+            --text-secondary: #BCA3A5;
+            --text-tertiary: #754E52;
+            
+            --accent-primary: #FF7B7B; 
+            --accent-glow: rgba(255, 123, 123, 0.15);
+            --accent-muted: #8F4545;
+            
+            --grid-dot: #4A1A1E;
+            
+            --radius-md: 16px;
+            --radius-sm: 8px;
+            
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --spacing-unit: 8px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-primary);
+            font-family: var(--font-family);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            font-feature-settings: "tnum" on, "cv11" on;
+        }
+
+        
+        .app-layout {
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            width: 100%;
+            height: 100%;
+        }
+
+        
+        .sidebar {
+            background: var(--bg-body);
+            border-right: 1px solid var(--border-subtle);
+            padding: 32px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            font-size: 18px;
+            letter-spacing: -0.02em;
+        }
+
+        .brand-dot {
+            width: 12px;
+            height: 12px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            box-shadow: 0 0 12px var(--accent-glow);
+        }
+
+        .nav-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .nav-label {
+            color: var(--text-tertiary);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s ease;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: var(--bg-card);
+            color: var(--accent-primary);
+        }
+
+        .nav-icon {
+            width: 18px;
+            height: 18px;
+            opacity: 0.7;
+        }
+
+        
+        .main-content {
+            padding: 32px 40px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        .page-title h1 {
+            font-size: 24px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .page-meta {
+            color: var(--text-tertiary);
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--bg-card);
+            padding: 6px 12px;
+            border-radius: 100px;
+            border: 1px solid var(--border-subtle);
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent-primary);
+            box-shadow: 0 0 8px var(--accent-primary);
+        }
+
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: auto auto 1fr;
+            gap: 24px;
+        }
+
+        
+        .card {
+            background: var(--bg-card);
+            border-radius: var(--radius-md);
+            padding: 24px;
+            position: relative;
+            border: 1px solid transparent;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        
+        .card.textured {
+            background-image: radial-gradient(var(--grid-dot) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .card-title {
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .card-icon {
+            color: var(--text-tertiary);
+        }
+
+        .metric-value {
+            font-size: 32px;
+            font-weight: 500;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .metric-sub {
+            font-size: 13px;
+            color: var(--text-tertiary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .delta {
+            display: inline-flex;
+            align-items: baseline;
+            gap: 2px;
+            font-size: 13px;
+        }
+
+        .delta.positive { color: var(--accent-primary); }
+        .delta.neutral { color: var(--text-secondary); }
+
+        
+        
+        
+        .visibility-card {
+            grid-column: span 1;
+            grid-row: span 2;
+            background: linear-gradient(180deg, var(--bg-card) 0%, #2e0c10 100%);
+            align-items: center;
+            text-align: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        
+        .particle-ring {
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            border: 1px dashed var(--accent-muted);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation: rotate 60s linear infinite;
+        }
+        
+        .particle-ring::before {
+            content: '';
+            position: absolute;
+            inset: -20px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 50% 50%, var(--accent-glow) 0%, transparent 60%);
+        }
+
+        .score-display {
+            position: relative;
+            z-index: 2;
+        }
+
+        .score-big {
+            font-size: 48px;
+            font-weight: 600;
+            color: var(--accent-primary);
+            text-shadow: 0 0 20px rgba(255, 123, 123, 0.2);
+        }
+
+        
+        .keywords-card {
+            grid-column: span 2;
+            grid-row: span 2;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .table-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .table-container {
+            padding: 8px 0;
+        }
+
+        .table-row {
+            display: grid;
+            grid-template-columns: 40px 2fr 1fr 1fr;
+            padding: 12px 24px;
+            align-items: center;
+            border-bottom: 1px solid transparent;
+            transition: background 0.2s;
+            font-size: 13px;
+        }
+
+        .table-row:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .col-header {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .rank-badge {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--border-subtle);
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .rank-badge.top-3 {
+            background: var(--accent-muted);
+            color: var(--text-primary);
+        }
+
+        .keyword-text { color: var(--text-primary); }
+        .volume-text { color: var(--text-secondary); text-align: right; }
+
+        
+        .chart-card {
+            grid-column: span 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .mini-chart {
+            height: 100px;
+            width: 100%;
+            position: relative;
+            margin-top: 16px;
+            border-top: 1px solid var(--border-subtle);
+            background: linear-gradient(180deg, rgba(255,123,123,0.05) 0%, transparent 100%);
+        }
+
+        .chart-line {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            stroke: var(--accent-primary);
+            stroke-width: 2;
+            fill: none;
+        }
+
+        
+        .gbp-card {
+            grid-column: span 1;
+        }
+        
+        .health-bar-container {
+            height: 4px;
+            background: var(--border-subtle);
+            border-radius: 2px;
+            margin-top: 16px;
+            overflow: hidden;
+        }
+        
+        .health-bar-fill {
+            height: 100%;
+            background: var(--accent-primary);
+            width: 92%;
+            border-radius: 2px;
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        
+        .competitor-card {
+            grid-column: span 4;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1px; 
+            background: var(--border-subtle); 
+            border: 1px solid var(--border-subtle);
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .comp-stat {
+            background: var(--bg-card);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .comp-name {
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .comp-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-tertiary);
+        }
+        
+        .comp-dot.active { background: var(--accent-primary); }
+
+        
+        .alert-pill {
+            background: rgba(255, 123, 123, 0.1);
+            color: var(--accent-primary);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            border: 1px solid rgba(255, 123, 123, 0.2);
+        }
+
+        @keyframes rotate {
+            from { transform: translate(-50%, -50%) rotate(0deg); }
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        
+        svg { overflow: visible; }
+    </style>
+</head>
+<body vid="6">
+
+    <div class="app-layout" vid="7">
+        
+        <aside class="sidebar" vid="8">
+            <div class="brand" vid="9">
+                <div class="brand-dot" vid="10"></div>
+                Big Dot SEO
+            </div>
+
+            <nav class="nav-group" vid="11">
+                <div class="nav-label" vid="12">Monitoring</div>
+                <a href="#" class="nav-item active" vid="13">
+                    <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="14">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" vid="15"></path>
+                    </svg>
+                    Dashboard
+                </a>
+                <a href="#" class="nav-item" vid="16">
+                    <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="17">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" vid="18"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" vid="19"></path>
+                    </svg>
+                    Local Map Pack
+                </a>
+                <a href="#" class="nav-item" vid="20">
+                    <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="21">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" vid="22"></path>
+                    </svg>
+                    Reports
+                </a>
+            </nav>
+
+            <nav class="nav-group" vid="23">
+                <div class="nav-label" vid="24">System</div>
+                <a href="#" class="nav-item" vid="25">
+                    <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="26">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" vid="27"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" vid="28"></path>
+                    </svg>
+                    Settings
+                </a>
+            </nav>
+        </aside>
+
+        <main class="main-content" vid="29">
+            <header class="header" vid="30">
+                <div class="page-title" vid="31">
+                    <h1 vid="32">Overview</h1>
+                    <div class="page-meta" vid="33">Big Dot Collision Repair • Seattle, WA</div>
+                </div>
+                <div class="status-badge" vid="34">
+                    <div class="status-dot" vid="35"></div>
+                    Scan Complete: Just now
+                </div>
+            </header>
+
+            <div class="dashboard-grid" vid="36">
+                
+                
+                <div class="card visibility-card" vid="37">
+                    <div class="particle-ring" vid="38"></div>
+                    <div class="score-display" vid="39">
+                        <div class="card-title" style="color: var(--text-tertiary); margin-bottom: 12px;" vid="40">VISIBILITY SCORE</div>
+                        <div class="score-big" vid="41">84.2</div>
+                        <div class="delta positive" style="justify-content: center; margin-top: 8px;" vid="42">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" vid="43">
+                                <path d="M12 19V5M5 12l7-7 7 7" vid="44"></path>
+                            </svg>
+                            +3.4% WoW
+                        </div>
+                    </div>
+                </div>
+
+                
+                <div class="card keywords-card" vid="45">
+                    <div class="table-header" vid="46">
+                        <div class="card-title" vid="47">Top Keyword Performance</div>
+                        <a href="#" style="color: var(--accent-primary); font-size: 12px; text-decoration: none;" vid="48">View All</a>
+                    </div>
+                    <div class="table-container" vid="49">
+                        <div class="table-row" style="padding-bottom: 8px;" vid="50">
+                            <div class="col-header" vid="51">RK</div>
+                            <div class="col-header" vid="52">KEYWORD</div>
+                            <div class="col-header" style="text-align: right;" vid="53">VOL</div>
+                            <div class="col-header" style="text-align: right;" vid="54">CHG</div>
+                        </div>
+                        
+                        <div class="table-row" vid="55">
+                            <div class="rank-badge top-3" vid="56">1</div>
+                            <div class="keyword-text" vid="57">auto body repair</div>
+                            <div class="volume-text" vid="58">1.2k</div>
+                            <div class="delta positive" style="justify-content: flex-end;" vid="59">+2</div>
+                        </div>
+                        
+                        <div class="table-row" vid="60">
+                            <div class="rank-badge top-3" vid="61">3</div>
+                            <div class="keyword-text" vid="62">collision center</div>
+                            <div class="volume-text" vid="63">850</div>
+                            <div class="delta neutral" style="justify-content: flex-end;" vid="64">-</div>
+                        </div>
+                        
+                        <div class="table-row" vid="65">
+                            <div class="rank-badge" vid="66">5</div>
+                            <div class="keyword-text" vid="67">bumper repair near me</div>
+                            <div class="volume-text" vid="68">420</div>
+                            <div class="delta positive" style="justify-content: flex-end;" vid="69">+4</div>
+                        </div>
+
+                        <div class="table-row" vid="70">
+                            <div class="rank-badge" vid="71">7</div>
+                            <div class="keyword-text" vid="72">paint scratch removal</div>
+                            <div class="volume-text" vid="73">310</div>
+                            <div class="delta positive" style="justify-content: flex-end;" vid="74">+1</div>
+                        </div>
+
+                        <div class="table-row" vid="75">
+                            <div class="rank-badge" vid="76">12</div>
+                            <div class="keyword-text" vid="77">fender bender fix</div>
+                            <div class="volume-text" vid="78">190</div>
+                            <div class="delta positive" style="justify-content: flex-end; color: var(--text-tertiary);" vid="79">-1</div>
+                        </div>
+                    </div>
+                </div>
+
+                
+                <div class="card textured" vid="80">
+                    <div class="card-header" vid="81">
+                        <div class="card-title" vid="82">Active Alerts</div>
+                        <div class="alert-pill" vid="83">High Priority</div>
+                    </div>
+                    <div class="metric-value" vid="84">3</div>
+                    <div class="metric-sub" vid="85">
+                        <span style="color: var(--accent-primary);" vid="86">1 Critical Review</span>
+                        <span style="margin: 0 6px; color: var(--border-subtle);" vid="87">|</span>
+                        <span vid="88">2 Citation Errors</span>
+                    </div>
+                </div>
+
+                
+                <div class="card" vid="89">
+                    <div class="card-header" vid="90">
+                        <div class="card-title" vid="91">GBP Health</div>
+                        <svg class="card-icon" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" vid="92"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" vid="93"></path></svg>
+                    </div>
+                    <div class="metric-value" vid="94">92<span style="font-size: 16px; opacity: 0.5;" vid="95">/100</span></div>
+                    <div class="metric-sub" vid="96">
+                        Profile Optimization
+                    </div>
+                    <div class="health-bar-container" vid="97">
+                        <div class="health-bar-fill" vid="98"></div>
+                    </div>
+                </div>
+
+                
+                <div class="competitor-card" vid="99">
+                    <div class="comp-stat" vid="100">
+                        <div class="comp-name" vid="101">
+                            <div class="comp-dot active" vid="102"></div>
+                            Big Dot Collision
+                        </div>
+                        <div class="metric-value" style="font-size: 20px;" vid="103">14.2%</div>
+                        <div class="metric-sub" vid="104">Share of Voice</div>
+                    </div>
+
+                    <div class="comp-stat" vid="105">
+                        <div class="comp-name" vid="106">
+                            <div class="comp-dot" vid="107"></div>
+                            Seattle Collision
+                        </div>
+                        <div class="metric-value" style="font-size: 20px; color: var(--text-secondary);" vid="108">11.8%</div>
+                        <div class="metric-sub" vid="109">Gap: <span style="color: var(--accent-primary);" vid="110">+2.4%</span></div>
+                    </div>
+
+                    <div class="comp-stat" vid="111">
+                        <div class="comp-name" vid="112">
+                            <div class="comp-dot" vid="113"></div>
+                            FixIt Auto
+                        </div>
+                        <div class="metric-value" style="font-size: 20px; color: var(--text-secondary);" vid="114">9.5%</div>
+                        <div class="metric-sub" vid="115">Gap: <span style="color: var(--accent-primary);" vid="116">+4.7%</span></div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+</body></html>

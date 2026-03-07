@@ -31,7 +31,7 @@ export function ReportCtaActions({
   trackBooked = true
 }: Props) {
   const containerClass = mobileSticky
-    ? 'fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 p-3 backdrop-blur md:hidden'
+    ? 'report-mobile-cta fixed inset-x-0 bottom-0 z-30 p-3 md:hidden'
     : '';
 
   const innerClass = mobileSticky
@@ -54,13 +54,13 @@ export function ReportCtaActions({
           onClick={() => {
             if (trackBooked) markBooked(scanId);
           }}
-          className="inline-flex flex-1 items-center justify-center rounded-md bg-teal-700 px-4 py-2 text-center font-semibold text-white"
+          className="btn-variant-primary inline-flex flex-1 items-center justify-center px-4 py-2 text-center"
         >
           {primaryLabel}
         </a>
         <a
           href={smsUrl}
-          className="inline-flex items-center justify-center rounded-md border border-slate-300 px-4 py-2 font-semibold text-slate-900"
+          className="btn-variant-secondary inline-flex items-center justify-center px-4 py-2"
         >
           {secondaryLabel}
         </a>
@@ -88,14 +88,14 @@ export function ReportShareActions({ reportUrl }: { reportUrl: string }) {
       <button
         type="button"
         onClick={copyLink}
-        className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium"
+        className="btn-variant-ghost px-3 py-2 text-sm font-medium"
       >
         Copy report link
       </button>
       <button
         type="button"
         onClick={downloadPdf}
-        className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium"
+        className="btn-variant-ghost px-3 py-2 text-sm font-medium"
       >
         Download PDF
       </button>

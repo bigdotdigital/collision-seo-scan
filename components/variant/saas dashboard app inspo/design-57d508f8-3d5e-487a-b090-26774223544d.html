@@ -1,0 +1,493 @@
+<html lang="en" vid="0"><head vid="1">
+    <meta charset="UTF-8" vid="2">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+    <title vid="4">Big Dot - Competitors</title>
+    <style vid="5">
+        :root {
+            --bg-app: #120505; 
+            --bg-panel: #1E0A0C; 
+            --bg-panel-hover: #260D0F;
+            --accent-red: #FF4D4D; 
+            --accent-dim: #5C2024; 
+            --text-primary: #FFFFFF;
+            --text-secondary: #9E8385; 
+            --text-tertiary: #5E3C3F;
+            --border-subtle: #331215;
+            
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --radius-card: 20px;
+            --radius-sm: 8px;
+            
+            --spacing-unit: 8px;
+            --spacing-md: 24px;
+            --spacing-lg: 32px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            outline: none;
+        }
+
+        body {
+            background-color: var(--bg-app);
+            color: var(--text-primary);
+            font-family: var(--font-family);
+            -webkit-font-smoothing: antialiased;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            font-size: 14px;
+        }
+
+        .app-shell {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            width: 100%;
+            height: 100%;
+        }
+
+        .sidebar {
+            padding: var(--spacing-lg) var(--spacing-md);
+            border-right: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .brand {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            margin-bottom: 48px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-dot {
+            width: 12px;
+            height: 12px;
+            background: var(--accent-red);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-red);
+        }
+
+        .nav-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-tertiary);
+            margin-bottom: 12px;
+            margin-top: 24px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-panel-hover);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: var(--bg-panel);
+            color: var(--text-primary);
+            border-left: 2px solid var(--accent-red);
+        }
+
+        .main-view {
+            padding: var(--spacing-lg);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-lg);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding-bottom: var(--spacing-md);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn-primary {
+            background: var(--accent-red);
+            color: var(--bg-app);
+            padding: 10px 18px;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            border: none;
+            transition: opacity 0.2s;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+
+        .page-title {
+            font-size: 24px;
+            font-weight: 500;
+            letter-spacing: -0.5px;
+            margin-bottom: 4px;
+        }
+
+        .meta-text {
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .card {
+            background: var(--bg-panel);
+            border-radius: var(--radius-card);
+            padding: 24px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid transparent;
+            transition: border-color 0.2s;
+        }
+
+        .card-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .comparison-table th {
+            text-align: left;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-tertiary);
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .comparison-table td {
+            padding: 20px 16px;
+            border-bottom: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            font-size: 13px;
+            vertical-align: middle;
+        }
+
+        .keyword-cell {
+            color: var(--text-primary) !important;
+            font-weight: 500;
+            min-width: 220px;
+        }
+
+        .rank-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--bg-app);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .rank-badge.top-spot {
+            background: var(--accent-dim);
+            border-color: var(--accent-red);
+            color: var(--accent-red);
+        }
+
+        .sov-container {
+            width: 100px;
+        }
+
+        .sov-bar-bg {
+            height: 4px;
+            background: var(--bg-app);
+            border-radius: 2px;
+            width: 100%;
+            overflow: hidden;
+            margin-bottom: 4px;
+        }
+
+        .sov-bar-fill {
+            height: 100%;
+            background: var(--accent-red);
+            border-radius: 2px;
+        }
+
+        .trend-icon {
+            font-size: 12px;
+            margin-left: 6px;
+        }
+
+        .trend-up { color: var(--accent-red); }
+        .trend-down { color: var(--text-tertiary); }
+        .trend-stable { color: var(--text-tertiary); opacity: 0.5; }
+
+        .competitor-header {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .comp-name-sub {
+            font-size: 10px;
+            opacity: 0.6;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        .you-tag {
+            background: var(--accent-dim);
+            color: var(--accent-red);
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 6px;
+        }
+
+    </style>
+</head>
+<body vid="6">
+
+    <div class="app-shell" vid="7">
+        <nav class="sidebar" vid="8">
+            <div class="brand" vid="9">
+                <div class="brand-dot" vid="10"></div>
+                BIG DOT
+            </div>
+            <div class="nav-group" vid="11">
+                <div class="nav-label" vid="12">Monitoring</div>
+                <a href="#" class="nav-item" vid="13">Overview</a>
+                <a href="#" class="nav-item" vid="14">Rankings</a>
+                <a href="#" class="nav-item active" vid="15">Competitors</a>
+                <a href="#" class="nav-item" vid="16">GBP Health</a>
+            </div>
+            <div class="nav-group" vid="17">
+                <div class="nav-label" vid="18">Settings</div>
+                <a href="#" class="nav-item" vid="19">Locations</a>
+                <a href="#" class="nav-item" vid="20">Integrations</a>
+                <a href="#" class="nav-item" vid="21">Account</a>
+            </div>
+        </nav>
+
+        <main class="main-view" vid="22">
+            <div class="header" vid="23">
+                <div vid="24">
+                    <div class="meta-text" vid="25">Market Analysis / Austin, TX</div>
+                    <h1 class="page-title" vid="26">Head-to-Head Comparison</h1>
+                </div>
+                <div class="header-actions" vid="27">
+                    <button class="btn-primary" vid="28">+ Add Competitor</button>
+                </div>
+            </div>
+
+            <div class="card" vid="29">
+                <div class="card-label" vid="30">Keyword Performance vs. Top 4 Rivals</div>
+                <table class="comparison-table" vid="31">
+                    <thead vid="32">
+                        <tr vid="33">
+                            <th vid="34">Target Keyword</th>
+                            <th vid="35">
+                                <div class="competitor-header" vid="36">
+                                    Big Dot <span class="you-tag" vid="37">YOU</span>
+                                    <span class="comp-name-sub" vid="38">64% SOV</span>
+                                </div>
+                            </th>
+                            <th vid="39">
+                                <div class="competitor-header" vid="40">
+                                    FixIt Auto
+                                    <span class="comp-name-sub" vid="41">42% SOV</span>
+                                </div>
+                            </th>
+                            <th vid="42">
+                                <div class="competitor-header" vid="43">
+                                    Crash Champs
+                                    <span class="comp-name-sub" vid="44">28% SOV</span>
+                                </div>
+                            </th>
+                            <th vid="45">
+                                <div class="competitor-header" vid="46">
+                                    Maaco South
+                                    <span class="comp-name-sub" vid="47">12% SOV</span>
+                                </div>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody vid="48">
+                        <tr vid="49">
+                            <td class="keyword-cell" vid="50">auto body shop austin</td>
+                            <td vid="51">
+                                <div class="rank-badge top-spot" vid="52">1</div>
+                                <span class="trend-icon trend-stable" vid="53">●</span>
+                            </td>
+                            <td vid="54">
+                                <div class="rank-badge" vid="55">3</div>
+                                <span class="trend-icon trend-up" vid="56">▲</span>
+                            </td>
+                            <td vid="57">
+                                <div class="rank-badge" vid="58">5</div>
+                                <span class="trend-icon trend-down" vid="59">▼</span>
+                            </td>
+                            <td vid="60">
+                                <div class="rank-badge" vid="61">12</div>
+                                <span class="trend-icon trend-down" vid="62">▼</span>
+                            </td>
+                        </tr>
+                        <tr vid="63">
+                            <td class="keyword-cell" vid="64">collision repair near me</td>
+                            <td vid="65">
+                                <div class="rank-badge" vid="66">3</div>
+                                <span class="trend-icon trend-up" vid="67">▲</span>
+                            </td>
+                            <td vid="68">
+                                <div class="rank-badge top-spot" vid="69">1</div>
+                                <span class="trend-icon trend-stable" vid="70">●</span>
+                            </td>
+                            <td vid="71">
+                                <div class="rank-badge" vid="72">4</div>
+                                <span class="trend-icon trend-up" vid="73">▲</span>
+                            </td>
+                            <td vid="74">
+                                <div class="rank-badge" vid="75">9</div>
+                                <span class="trend-icon trend-stable" vid="76">●</span>
+                            </td>
+                        </tr>
+                        <tr vid="77">
+                            <td class="keyword-cell" vid="78">car dent removal</td>
+                            <td vid="79">
+                                <div class="rank-badge" vid="80">4</div>
+                                <span class="trend-icon trend-down" vid="81">▼</span>
+                            </td>
+                            <td vid="82">
+                                <div class="rank-badge" vid="83">8</div>
+                                <span class="trend-icon trend-up" vid="84">▲</span>
+                            </td>
+                            <td vid="85">
+                                <div class="rank-badge top-spot" vid="86">2</div>
+                                <span class="trend-icon trend-stable" vid="87">●</span>
+                            </td>
+                            <td vid="88">
+                                <div class="rank-badge" vid="89">14</div>
+                                <span class="trend-icon trend-down" vid="90">▼</span>
+                            </td>
+                        </tr>
+                        <tr vid="91">
+                            <td class="keyword-cell" vid="92">bumper repair cost</td>
+                            <td vid="93">
+                                <div class="rank-badge" vid="94">7</div>
+                                <span class="trend-icon trend-up" vid="95">▲</span>
+                            </td>
+                            <td vid="96">
+                                <div class="rank-badge" vid="97">6</div>
+                                <span class="trend-icon trend-stable" vid="98">●</span>
+                            </td>
+                            <td vid="99">
+                                <div class="rank-badge" vid="100">8</div>
+                                <span class="trend-icon trend-down" vid="101">▼</span>
+                            </td>
+                            <td vid="102">
+                                <div class="rank-badge top-spot" vid="103">2</div>
+                                <span class="trend-icon trend-up" vid="104">▲</span>
+                            </td>
+                        </tr>
+                        <tr vid="105">
+                            <td class="keyword-cell" vid="106">paintless dent repair</td>
+                            <td vid="107">
+                                <div class="rank-badge top-spot" vid="108">1</div>
+                                <span class="trend-icon trend-stable" vid="109">●</span>
+                            </td>
+                            <td vid="110">
+                                <div class="rank-badge" vid="111">5</div>
+                                <span class="trend-icon trend-down" vid="112">▼</span>
+                            </td>
+                            <td vid="113">
+                                <div class="rank-badge" vid="114">7</div>
+                                <span class="trend-icon trend-up" vid="115">▲</span>
+                            </td>
+                            <td vid="116">
+                                <div class="rank-badge" vid="117">11</div>
+                                <span class="trend-icon trend-stable" vid="118">●</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--spacing-md);" vid="119">
+                <div class="card" vid="120">
+                    <div class="card-label" vid="121">Share of Voice Trend</div>
+                    <div class="sov-container" style="width:100%; margin-top: 12px;" vid="122">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:8px;" vid="123">
+                            <span class="meta-text" vid="124">Big Dot</span>
+                            <span style="font-weight:600" vid="125">64%</span>
+                        </div>
+                        <div class="sov-bar-bg" vid="126"><div class="sov-bar-fill" style="width: 64%" vid="127"></div></div>
+                    </div>
+                </div>
+                <div class="card" vid="128">
+                    <div class="card-label" vid="129">Competitor #1 SOV</div>
+                    <div class="sov-container" style="width:100%; margin-top: 12px;" vid="130">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:8px;" vid="131">
+                            <span class="meta-text" vid="132">FixIt Auto</span>
+                            <span style="font-weight:600" vid="133">42%</span>
+                        </div>
+                        <div class="sov-bar-bg" vid="134"><div class="sov-bar-fill" style="width: 42%; opacity: 0.6" vid="135"></div></div>
+                    </div>
+                </div>
+                <div class="card" vid="136">
+                    <div class="card-label" vid="137">Competitor #2 SOV</div>
+                    <div class="sov-container" style="width:100%; margin-top: 12px;" vid="138">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:8px;" vid="139">
+                            <span class="meta-text" vid="140">Crash Champs</span>
+                            <span style="font-weight:600" vid="141">28%</span>
+                        </div>
+                        <div class="sov-bar-bg" vid="142"><div class="sov-bar-fill" style="width: 28%; opacity: 0.4" vid="143"></div></div>
+                    </div>
+                </div>
+                <div class="card" vid="144">
+                    <div class="card-label" vid="145">Competitor #3 SOV</div>
+                    <div class="sov-container" style="width:100%; margin-top: 12px;" vid="146">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:8px;" vid="147">
+                            <span class="meta-text" vid="148">Maaco South</span>
+                            <span style="font-weight:600" vid="149">12%</span>
+                        </div>
+                        <div class="sov-bar-bg" vid="150"><div class="sov-bar-fill" style="width: 12%; opacity: 0.2" vid="151"></div></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+</body></html>

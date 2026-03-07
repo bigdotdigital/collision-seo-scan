@@ -1,0 +1,596 @@
+<html lang="en" vid="0"><head vid="1">
+    <meta charset="UTF-8" vid="2">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+    <title vid="4">Big Dot SEO Dashboard</title>
+    <style vid="5">
+        :root {
+            --bg-dark: #1C2626;
+            --bg-dark-surface: #263333;
+            --bg-light: #FFFFFF;
+            --bg-light-secondary: #F7F9F9;
+            
+            --text-white: #FFFFFF;
+            --text-grey-light: #A0B0B0;
+            --text-dark: #2A3333;
+            --text-grey-dark: #758585;
+            
+            --accent-green: #34C788;
+            --accent-green-hover: #2BB37A;
+            --accent-yellow: #F5B942;
+            --accent-red: #E85D5D;
+            
+            --border-light: #EFEFEF;
+            --border-dark: rgba(255,255,255,0.1);
+            
+            --radius-card: 24px;
+            --radius-sm: 4px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-dark);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        
+        .label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 600;
+        }
+
+        .label-light { color: var(--text-grey-light); }
+        .label-dark { color: var(--text-grey-dark); }
+
+        .value-huge {
+            font-size: 3.5rem;
+            font-weight: 400;
+            color: var(--text-white);
+            line-height: 1;
+        }
+
+        .value-large {
+            font-size: 2.5rem;
+            font-weight: 400;
+            color: var(--text-white);
+        }
+
+        .value-medium {
+            font-size: 1.5rem;
+            font-weight: 500;
+            color: var(--text-dark);
+        }
+
+        
+        .dashboard-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .top-section {
+            background-color: var(--bg-dark);
+            padding: 2rem 3rem 4rem 3rem; 
+            flex-shrink: 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .bottom-section {
+            background-color: var(--bg-light);
+            flex-grow: 1;
+            border-radius: var(--radius-card) var(--radius-card) 0 0;
+            margin-top: -24px; 
+            padding: 2rem 3rem;
+            position: relative;
+            z-index: 2;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 3rem;
+        }
+
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 3rem;
+        }
+
+        .brand {
+            color: var(--text-white);
+            font-size: 1.1rem;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand::before {
+            content: '';
+            display: block;
+            width: 8px;
+            height: 8px;
+            background-color: var(--accent-green);
+            border-radius: 50%;
+        }
+
+        .nav-actions {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .nav-link {
+            color: var(--text-grey-light);
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: color 0.2s;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            color: var(--text-white);
+        }
+
+        
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2rem;
+        }
+
+        .kpi-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .kpi-delta {
+            display: inline-flex;
+            align-items: center;
+            font-size: 0.85rem;
+            gap: 4px;
+        }
+
+        .delta-pos { color: var(--accent-green); }
+        .delta-neg { color: var(--accent-yellow); }
+        .delta-bad { color: var(--accent-red); }
+
+        .scan-meta {
+            font-family: monospace;
+            color: var(--text-grey-light);
+            font-size: 0.9rem;
+            margin-top: 8px;
+            display: block;
+        }
+
+        
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-light);
+            padding-bottom: 1rem;
+        }
+
+        .col-left, .col-right {
+            display: flex;
+            flex-direction: column;
+        }
+
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th {
+            text-align: left;
+            padding: 1rem 0;
+            color: var(--text-grey-dark);
+            font-weight: 500;
+            font-size: 0.8rem;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .data-table td {
+            padding: 1.25rem 0;
+            border-bottom: 1px solid var(--border-light);
+            color: var(--text-dark);
+            font-size: 0.95rem;
+        }
+
+        .keyword-cell {
+            font-weight: 500;
+        }
+
+        .rank-badge {
+            display: inline-block;
+            width: 32px;
+            height: 32px;
+            line-height: 32px;
+            text-align: center;
+            background-color: var(--bg-light-secondary);
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        
+        .mini-chart {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            height: 24px;
+        }
+
+        .chart-bar {
+            width: 12px;
+            background-color: var(--border-light);
+            height: 2px;
+            border-radius: 1px;
+            transition: all 0.3s;
+        }
+
+        .chart-bar.active {
+            background-color: var(--text-dark);
+            height: 2px;
+        }
+        
+        .chart-bar.rise {
+            background-color: var(--accent-green);
+            transform: translateY(-4px);
+        }
+        
+        .chart-bar.drop {
+            background-color: var(--accent-yellow);
+            transform: translateY(4px);
+        }
+
+        
+        .competitor-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .competitor-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .comp-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .comp-avatar {
+            width: 36px;
+            height: 36px;
+            background-color: var(--bg-light-secondary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.8rem;
+            color: var(--text-grey-dark);
+        }
+
+        .comp-bar-container {
+            flex-grow: 1;
+            margin-left: 1rem;
+            max-width: 120px;
+            height: 4px;
+            background-color: var(--bg-light-secondary);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .comp-bar-fill {
+            height: 100%;
+            background-color: var(--text-dark);
+        }
+
+        .comp-bar-fill.lead { background-color: var(--accent-green); }
+
+        
+        .fab-scan {
+            position: fixed;
+            bottom: 2rem;
+            right: 3rem;
+            background-color: var(--accent-green);
+            color: #fff;
+            padding: 0 2rem;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px; 
+            font-weight: 600;
+            letter-spacing: 1px;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            box-shadow: 0 10px 20px rgba(52, 199, 136, 0.3);
+            cursor: pointer;
+            z-index: 10;
+            transition: transform 0.2s, background-color 0.2s;
+            border: none;
+        }
+
+        .fab-scan:hover {
+            transform: translateY(-2px);
+            background-color: var(--accent-green-hover);
+        }
+
+        
+        .alerts-widget {
+            background-color: #FFF8E6;
+            border-left: 4px solid var(--accent-yellow);
+            padding: 1rem;
+            margin-top: 2rem;
+            border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+        }
+        
+        .alert-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #8A6D3B;
+        }
+
+        .alert-body {
+            font-size: 0.9rem;
+            color: #554422;
+            line-height: 1.4;
+        }
+
+    </style>
+</head>
+<body vid="6">
+
+    <div class="dashboard-container" vid="7">
+        
+        <div class="top-section" vid="8">
+            <header class="header" vid="9">
+                <div class="brand" vid="10">BIG DOT COLLISION</div>
+                <nav class="nav-actions" vid="11">
+                    <a href="#" class="nav-link active" vid="12">OVERVIEW</a>
+                    <a href="#" class="nav-link" vid="13">KEYWORDS</a>
+                    <a href="#" class="nav-link" vid="14">COMPETITORS</a>
+                    <a href="#" class="nav-link" vid="15">GBP TOOLS</a>
+                </nav>
+            </header>
+
+            <div class="kpi-grid" vid="16">
+                
+                <div class="kpi-item" vid="17">
+                    <span class="label label-light" vid="18">VISIBILITY SCORE</span>
+                    <div class="value-huge" vid="19">74<span style="font-size: 1.5rem; color: var(--text-grey-light)" vid="20">/100</span></div>
+                    <div class="kpi-delta delta-pos" vid="21">
+                        <span vid="22">+5.2%</span>
+                        <span vid="23">vs last week</span>
+                    </div>
+                </div>
+
+                
+                <div class="kpi-item" vid="24">
+                    <span class="label label-light" vid="25">GBP HEALTH</span>
+                    <div class="value-huge" vid="26">92<span style="font-size: 1.5rem; color: var(--text-grey-light)" vid="27">%</span></div>
+                    <div class="kpi-delta delta-pos" vid="28">
+                        <span vid="29">OPTIMIZED</span>
+                    </div>
+                </div>
+
+                
+                <div class="kpi-item" vid="30">
+                    <span class="label label-light" vid="31">ACTIVE ALERTS</span>
+                    <div class="value-huge" style="color: var(--accent-yellow)" vid="32">3</div>
+                    <div class="kpi-delta delta-neg" vid="33">
+                        <span vid="34">Requires Attention</span>
+                    </div>
+                </div>
+
+                
+                <div class="kpi-item" vid="35">
+                    <span class="label label-light" vid="36">LAST SCAN</span>
+                    <div class="value-large" style="font-size: 2rem;" vid="37">09:41<span style="font-size: 1rem; color: var(--text-grey-light)" vid="38"> AM</span></div>
+                    <span class="scan-meta" vid="39">Oct 24, 2023</span>
+                </div>
+            </div>
+        </div>
+
+        
+        <div class="bottom-section" vid="40">
+            
+            <div class="col-left" vid="41">
+                <div class="panel-header" vid="42">
+                    <div vid="43">
+                        <span class="label label-dark" vid="44">KEYWORD PERFORMANCE</span>
+                        <div class="value-medium" style="margin-top: 4px;" vid="45">Top Movers</div>
+                    </div>
+                    <div style="display: flex; gap: 1rem;" vid="46">
+                        <span class="label label-dark" style="color: var(--text-dark); border-bottom: 2px solid var(--accent-green); padding-bottom: 4px;" vid="47">RANKING</span>
+                        <span class="label label-dark" style="cursor: pointer; opacity: 0.5;" vid="48">VOLUME</span>
+                    </div>
+                </div>
+
+                <table class="data-table" vid="49">
+                    <thead vid="50">
+                        <tr vid="51">
+                            <th width="40%" vid="52">KEYWORD</th>
+                            <th width="15%" vid="53">RANK</th>
+                            <th width="15%" vid="54">CHANGE</th>
+                            <th width="30%" vid="55">7 DAY TREND</th>
+                        </tr>
+                    </thead>
+                    <tbody vid="56">
+                        <tr vid="57">
+                            <td class="keyword-cell" vid="58">auto body repair</td>
+                            <td vid="59"><span class="rank-badge" vid="60">1</span></td>
+                            <td class="delta-pos" vid="61">--</td>
+                            <td vid="62">
+                                <div class="mini-chart" vid="63">
+                                    <div class="chart-bar active" vid="64"></div>
+                                    <div class="chart-bar active" vid="65"></div>
+                                    <div class="chart-bar active" vid="66"></div>
+                                    <div class="chart-bar active" vid="67"></div>
+                                    <div class="chart-bar active" style="background-color: var(--accent-green)" vid="68"></div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr vid="69">
+                            <td class="keyword-cell" vid="70">collision center near me</td>
+                            <td vid="71"><span class="rank-badge" vid="72">3</span></td>
+                            <td class="delta-pos" vid="73">↑ 2</td>
+                            <td vid="74">
+                                <div class="mini-chart" vid="75">
+                                    <div class="chart-bar active" vid="76"></div>
+                                    <div class="chart-bar active" vid="77"></div>
+                                    <div class="chart-bar drop" vid="78"></div>
+                                    <div class="chart-bar active" vid="79"></div>
+                                    <div class="chart-bar rise" vid="80"></div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr vid="81">
+                            <td class="keyword-cell" vid="82">bumper replacement</td>
+                            <td vid="83"><span class="rank-badge" vid="84">7</span></td>
+                            <td class="delta-neg" vid="85">↓ 1</td>
+                            <td vid="86">
+                                <div class="mini-chart" vid="87">
+                                    <div class="chart-bar active" vid="88"></div>
+                                    <div class="chart-bar rise" vid="89"></div>
+                                    <div class="chart-bar active" vid="90"></div>
+                                    <div class="chart-bar active" vid="91"></div>
+                                    <div class="chart-bar drop" vid="92"></div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr vid="93">
+                            <td class="keyword-cell" vid="94">dent removal cost</td>
+                            <td vid="95"><span class="rank-badge" vid="96">12</span></td>
+                            <td class="delta-pos" vid="97">↑ 4</td>
+                            <td vid="98">
+                                <div class="mini-chart" vid="99">
+                                    <div class="chart-bar active" vid="100"></div>
+                                    <div class="chart-bar active" vid="101"></div>
+                                    <div class="chart-bar rise" vid="102"></div>
+                                    <div class="chart-bar rise" vid="103"></div>
+                                    <div class="chart-bar rise" vid="104"></div>
+                                </div>
+                            </td>
+                        </tr>
+                         <tr vid="105">
+                            <td class="keyword-cell" vid="106">paint shop</td>
+                            <td vid="107"><span class="rank-badge" vid="108">4</span></td>
+                            <td class="delta-pos" vid="109">--</td>
+                            <td vid="110">
+                                <div class="mini-chart" vid="111">
+                                    <div class="chart-bar active" vid="112"></div>
+                                    <div class="chart-bar active" vid="113"></div>
+                                    <div class="chart-bar active" vid="114"></div>
+                                    <div class="chart-bar active" vid="115"></div>
+                                    <div class="chart-bar active" vid="116"></div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="col-right" vid="117">
+                <div class="panel-header" vid="118">
+                    <div vid="119">
+                        <span class="label label-dark" vid="120">MARKET CONTEXT</span>
+                        <div class="value-medium" style="margin-top: 4px;" vid="121">Competitors</div>
+                    </div>
+                </div>
+
+                <div class="competitor-list" vid="122">
+                    <div class="competitor-item" vid="123">
+                        <div class="comp-info" vid="124">
+                            <div class="comp-avatar" style="background-color: var(--bg-dark); color: #fff;" vid="125">BD</div>
+                            <div vid="126">
+                                <div style="font-weight: 600; font-size: 0.9rem;" vid="127">Big Dot (You)</div>
+                                <div class="label label-dark" style="font-size: 0.6rem;" vid="128">VISIBILITY 74</div>
+                            </div>
+                        </div>
+                        <div class="comp-bar-container" vid="129">
+                            <div class="comp-bar-fill lead" style="width: 74%;" vid="130"></div>
+                        </div>
+                    </div>
+
+                    <div class="competitor-item" vid="131">
+                        <div class="comp-info" vid="132">
+                            <div class="comp-avatar" vid="133">A1</div>
+                            <div vid="134">
+                                <div style="font-weight: 500; font-size: 0.9rem; color: var(--text-dark);" vid="135">A1 Collision</div>
+                                <div class="label label-dark" style="font-size: 0.6rem;" vid="136">VISIBILITY 68</div>
+                            </div>
+                        </div>
+                        <div class="comp-bar-container" vid="137">
+                            <div class="comp-bar-fill" style="width: 68%;" vid="138"></div>
+                        </div>
+                    </div>
+
+                    <div class="competitor-item" vid="139">
+                        <div class="comp-info" vid="140">
+                            <div class="comp-avatar" vid="141">MM</div>
+                            <div vid="142">
+                                <div style="font-weight: 500; font-size: 0.9rem; color: var(--text-dark);" vid="143">Maaco Motors</div>
+                                <div class="label label-dark" style="font-size: 0.6rem;" vid="144">VISIBILITY 52</div>
+                            </div>
+                        </div>
+                        <div class="comp-bar-container" vid="145">
+                            <div class="comp-bar-fill" style="width: 52%;" vid="146"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alerts-widget" vid="147">
+                    <div class="alert-header" vid="148">
+                        <span vid="149">NEW REVIEW DETECTED</span>
+                        <span vid="150">2h ago</span>
+                    </div>
+                    <div class="alert-body" vid="151">
+                        3-star review received on Google Business Profile without comment.
+                    </div>
+                </div>
+                
+                 <div class="alerts-widget" style="background-color: #FFF2F2; border-color: var(--accent-red); margin-top: 1rem;" vid="152">
+                    <div class="alert-header" style="color: var(--accent-red)" vid="153">
+                        <span vid="154">RANKING DROP</span>
+                        <span vid="155">4h ago</span>
+                    </div>
+                    <div class="alert-body" vid="156">
+                        "Bumper repair" dropped 5 positions out of top 10.
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        
+        <button class="fab-scan" vid="157">START NEW SCAN</button>
+
+    </div>
+
+
+</body></html>

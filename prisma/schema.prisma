@@ -113,6 +113,7 @@ model QueueJob {
 model Organization {
   id               String   @id @default(cuid())
   name             String
+  slug             String?  @unique
   websiteUrl       String?
   phone            String?
   address          String?
@@ -124,6 +125,10 @@ model Organization {
   googlePlaceId    String?  @unique
   primaryCategory  String?
   verticalDefault  String   @default("collision")
+  planTier         String   @default("monitor")
+  agencyManaged    Boolean  @default(false)
+  stripeCustomerId String?
+  stripeSubscriptionId String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   scans            Scan[]
@@ -131,6 +136,15 @@ model Organization {
   providerCache    ProviderCache[]
   rawResponses     RawProviderResponse[]
   leads            Lead[]
+  memberships      OrgMembership[]
+  locations        Location[]
+  trackedKeywords  TrackedKeyword[]
+  trackedCompetitors TrackedCompetitor[]
+  rankSnapshots    KeywordRankSnapshot[]
+  alerts           Alert[]
+  alertPreference  AlertPreference?
+  subscription     Subscription?
+  invoices         Invoice[]
 
   @@index([city, state])
   @@index([name])
@@ -213,4 +227,207 @@ model Lead {
 
   @@index([email])
   @@index([organizationId, createdAt])
+}
+
+model User {
+  id           String          @id @default(cuid())
+  email        String          @unique
+  passwordHash String
+  name         String?
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  memberships  OrgMembership[]
+}
+
+model OrgMembership {
+  id        String         @id @default(cuid())
+  orgId     String
+  userId    String
+  role      MembershipRole @default(owner)
+  status    String         @default("active")
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  org       Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+  @@index([userId, role])
+  @@index([orgId, role])
+}
+
+model Location {
+  id          String             @id @default(cuid())
+  orgId       String
+  name        String
+  websiteUrl  String?
+  gbpUrl      String?
+  address     String?
+  city        String?
+  state       String?
+  zip         String?
+  serviceArea String?
+  isPrimary   Boolean            @default(false)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  org         Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  keywords    TrackedKeyword[]
+  competitors TrackedCompetitor[]
+  snapshots   KeywordRankSnapshot[]
+  alerts      Alert[]
+
+  @@index([orgId, isPrimary])
+  @@index([orgId, city, state])
+}
+
+model TrackedKeyword {
+  id         String                @id @default(cuid())
+  orgId      String
+  locationId String
+  term       String
+  isActive   Boolean               @default(true)
+  source     String                @default("scanner")
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
+  org        Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  location   Location              @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  snapshots  KeywordRankSnapshot[]
+
+  @@unique([locationId, term])
+  @@index([orgId, isActive])
+}
+
+model TrackedCompetitor {
+  id         String                @id @default(cuid())
+  orgId      String
+  locationId String
+  name       String
+  websiteUrl String?
+  gbpPlaceId String?
+  isActive   Boolean               @default(true)
+  source     String                @default("scanner")
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
+  org        Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  location   Location              @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  snapshots  KeywordRankSnapshot[]
+
+  @@index([orgId, isActive])
+  @@index([locationId, isActive])
+}
+
+model KeywordRankSnapshot {
+  id           String             @id @default(cuid())
+  orgId        String
+  locationId   String
+  keywordId    String
+  competitorId String?
+  snapshotDate DateTime
+  rankPosition Int?
+  delta        Int?
+  source       String             @default("stub")
+  rawJson      String?
+  createdAt    DateTime           @default(now())
+  org          Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  location     Location           @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  keyword      TrackedKeyword     @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+  competitor   TrackedCompetitor? @relation(fields: [competitorId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, snapshotDate])
+  @@index([locationId, snapshotDate])
+  @@index([keywordId, snapshotDate])
+  @@index([competitorId, snapshotDate])
+  @@unique([keywordId, competitorId, snapshotDate])
+}
+
+model Alert {
+  id         String       @id @default(cuid())
+  orgId      String
+  locationId String?
+  type       AlertType
+  severity   AlertSeverity @default(info)
+  payloadJson String
+  isRead     Boolean      @default(false)
+  createdAt  DateTime     @default(now())
+  digestSentAt DateTime?
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  location   Location?    @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, createdAt])
+  @@index([orgId, isRead, createdAt])
+  @@index([locationId, createdAt])
+}
+
+model AlertPreference {
+  id                    String       @id @default(cuid())
+  orgId                 String       @unique
+  rankDropThreshold     Int          @default(3)
+  rankGainThreshold     Int          @default(3)
+  competitorMoveEnabled Boolean      @default(true)
+  newCompetitorEnabled  Boolean      @default(true)
+  gbpIssueEnabled       Boolean      @default(true)
+  digestFrequency       DigestFrequency @default(daily)
+  digestEmail           String?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  org                   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+model Subscription {
+  id                   String       @id @default(cuid())
+  orgId                String       @unique
+  stripeCustomerId     String?
+  stripeSubscriptionId String?      @unique
+  planTier             String       @default("monitor")
+  status               String       @default("trialing")
+  trialEndsAt          DateTime?
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean      @default(false)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  org                  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+model Invoice {
+  id              String       @id @default(cuid())
+  orgId           String
+  stripeInvoiceId String       @unique
+  amountCents     Int
+  currency        String       @default("usd")
+  status          String
+  invoiceDate     DateTime
+  hostedInvoiceUrl String?
+  pdfUrl          String?
+  createdAt       DateTime     @default(now())
+  org             Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, invoiceDate])
+}
+
+enum MembershipRole {
+  owner
+  manager
+  viewer
+  agency_admin
+}
+
+enum AlertType {
+  rank_drop
+  rank_gain
+  competitor_moved_above
+  new_competitor
+  gbp_issue
+}
+
+enum AlertSeverity {
+  info
+  warning
+  critical
+}
+
+enum DigestFrequency {
+  off
+  daily
+  weekly
 }

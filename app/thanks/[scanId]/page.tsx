@@ -42,15 +42,23 @@ export default async function ThanksPage({
     }
   }
 
-  const calendlyBase = process.env.CALENDLY_LINK || 'https://calendly.com/bigdotdigital/30min';
+  const calendlyBase =
+    process.env.CALENDLY_LINK ||
+    process.env.CALENDLY_URL ||
+    process.env.BOOKING_LINK ||
+    process.env.NEXT_PUBLIC_CALENDLY_LINK ||
+    'https://calendly.com/bigdotdigital/30min';
   const calendlyTracked = withTracking(calendlyBase, scan.id);
 
   return (
-    <main className="container-shell py-14">
-      <div className="mx-auto max-w-2xl rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">Thanks</p>
-        <h1 className="mt-3 text-3xl font-extrabold text-slate-900">We have your scan details.</h1>
-        <p className="mt-3 text-slate-700">
+    <main className="container-shell report-variant py-14">
+      <div className="report-ambient-glow" />
+      <div className="report-noise-overlay" />
+
+      <div className="mx-auto max-w-2xl rounded-3xl border border-white/15 bg-[rgba(40,35,32,0.45)] p-8 text-center shadow-[0_16px_60px_rgba(0,0,0,0.4)] backdrop-blur-xl">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#c49a7a]">Thanks</p>
+        <h1 className="mt-3 text-3xl font-extrabold text-white">We have your scan details.</h1>
+        <p className="mt-3 text-[#d8d2cd]">
           We will review your site and local market before the call so your teardown is specific and actionable.
         </p>
 
@@ -58,15 +66,17 @@ export default async function ThanksPage({
           href={calendlyTracked}
           target="_blank"
           rel="noreferrer"
-          className="mt-6 inline-flex rounded-md bg-teal-700 px-5 py-3 font-semibold text-white"
+          className="btn-variant-primary mt-6 px-5 py-3"
         >
           Continue to booking calendar
         </a>
 
-        <p className="mt-4 text-sm text-slate-500">UTM and scan tracking were attached to your booking link.</p>
+        <p className="mt-4 text-sm text-white/60">
+          UTM and scan tracking were attached to your booking link.
+        </p>
 
         <div className="mt-6">
-          <Link href={`/report/${scan.id}`} className="text-sm text-teal-700 underline">
+          <Link href={`/report/${scan.id}`} className="text-sm text-[#c49a7a] underline">
             Back to report
           </Link>
         </div>

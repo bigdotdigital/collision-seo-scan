@@ -1,0 +1,499 @@
+<html lang="en" vid="0"><head vid="1">
+    <meta charset="UTF-8" vid="2">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+    <title vid="4">Big Dot - Alerts</title>
+    <style vid="5">
+        :root {
+            --bg-app: #120505; 
+            --bg-panel: #1E0A0C; 
+            --bg-panel-hover: #260D0F;
+            --accent-red: #FF4D4D; 
+            --accent-dim: #5C2024; 
+            --accent-warning: #D97706;
+            --accent-info: #3B82F6;
+            --text-primary: #FFFFFF;
+            --text-secondary: #9E8385; 
+            --text-tertiary: #5E3C3F;
+            --border-subtle: #331215;
+            
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --radius-card: 20px;
+            --radius-sm: 8px;
+            
+            --spacing-unit: 8px;
+            --spacing-md: 24px;
+            --spacing-lg: 32px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            outline: none;
+        }
+
+        body {
+            background-color: var(--bg-app);
+            color: var(--text-primary);
+            font-family: var(--font-family);
+            -webkit-font-smoothing: antialiased;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            font-size: 14px;
+        }
+
+        .app-shell {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            width: 100%;
+            height: 100%;
+        }
+
+        .sidebar {
+            padding: var(--spacing-lg) var(--spacing-md);
+            border-right: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .brand {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            margin-bottom: 48px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-dot {
+            width: 12px;
+            height: 12px;
+            background: var(--accent-red);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-red);
+        }
+
+        .nav-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-tertiary);
+            margin-bottom: 12px;
+            margin-top: 24px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-panel-hover);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: var(--bg-panel);
+            color: var(--text-primary);
+            border-left: 2px solid var(--accent-red);
+        }
+
+        .main-view {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            overflow: hidden;
+        }
+
+        .feed-container {
+            padding: var(--spacing-lg);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+            border-right: 1px solid var(--border-subtle);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding-bottom: var(--spacing-md);
+            border-bottom: 1px solid var(--border-subtle);
+            margin-bottom: 8px;
+        }
+
+        .page-title {
+            font-size: 24px;
+            font-weight: 500;
+            letter-spacing: -0.5px;
+            margin-bottom: 4px;
+        }
+
+        .meta-text {
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .alert-card {
+            background: var(--bg-panel);
+            border-radius: var(--radius-card);
+            padding: 24px;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+            display: grid;
+            grid-template-columns: 48px 1fr auto;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .alert-card:hover {
+            border-color: var(--border-subtle);
+            background: var(--bg-panel-hover);
+        }
+
+        .severity-indicator {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-app);
+            position: relative;
+        }
+
+        .severity-indicator.critical { border: 1px solid var(--accent-red); color: var(--accent-red); }
+        .severity-indicator.warning { border: 1px solid var(--accent-warning); color: var(--accent-warning); }
+        .severity-indicator.info { border: 1px solid var(--accent-info); color: var(--accent-info); }
+
+        .severity-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        .critical .severity-dot { background: var(--accent-red); box-shadow: 0 0 8px var(--accent-red); }
+        .warning .severity-dot { background: var(--accent-warning); box-shadow: 0 0 8px var(--accent-warning); }
+        .info .severity-dot { background: var(--accent-info); box-shadow: 0 0 8px var(--accent-info); }
+
+        .alert-body {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .alert-title {
+            font-weight: 500;
+            font-size: 15px;
+            color: var(--text-primary);
+        }
+
+        .alert-meta {
+            font-size: 13px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .comparison {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-family: monospace;
+            font-size: 13px;
+            margin-top: 4px;
+        }
+
+        .old-val { color: var(--text-tertiary); text-decoration: line-through; }
+        .new-val { color: var(--text-primary); font-weight: 600; }
+        .val-arrow { color: var(--text-tertiary); }
+
+        .timestamp {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            white-space: nowrap;
+        }
+
+        .settings-panel {
+            padding: var(--spacing-lg);
+            background: var(--bg-app);
+            overflow-y: auto;
+        }
+
+        .settings-header {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-tertiary);
+            margin-bottom: 24px;
+            display: block;
+        }
+
+        .settings-group {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .toggle-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .toggle-label {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .toggle-label span:first-child {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .toggle-label span:last-child {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .switch {
+            width: 36px;
+            height: 20px;
+            background: var(--bg-panel);
+            border-radius: 10px;
+            position: relative;
+            cursor: pointer;
+            border: 1px solid var(--border-subtle);
+        }
+
+        .switch.on {
+            background: var(--accent-dim);
+            border-color: var(--accent-red);
+        }
+
+        .switch::after {
+            content: '';
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            top: 3px;
+            left: 3px;
+            transition: all 0.2s;
+        }
+
+        .switch.on::after {
+            left: 19px;
+            background: var(--accent-red);
+        }
+
+        .divider {
+            height: 1px;
+            background: var(--border-subtle);
+            margin: 24px 0;
+        }
+
+    </style>
+</head>
+<body vid="6">
+
+    <div class="app-shell" vid="7">
+        <nav class="sidebar" vid="8">
+            <div class="brand" vid="9">
+                <div class="brand-dot" vid="10"></div>
+                BIG DOT
+            </div>
+            <div class="nav-group" vid="11">
+                <div class="nav-label" vid="12">Monitoring</div>
+                <a href="#" class="nav-item" vid="13">Overview</a>
+                <a href="#" class="nav-item" vid="14">Rankings</a>
+                <a href="#" class="nav-item" vid="15">Competitors</a>
+                <a href="#" class="nav-item" vid="16">GBP Health</a>
+            </div>
+            <div class="nav-group" vid="17">
+                <div class="nav-label" vid="18">Settings</div>
+                <a href="#" class="nav-item" vid="19">Locations</a>
+                <a href="#" class="nav-item" vid="20">Integrations</a>
+                <a href="#" class="nav-item" vid="21">Account</a>
+            </div>
+        </nav>
+
+        <main class="main-view" vid="22">
+            <div class="feed-container" vid="23">
+                <div class="header" vid="24">
+                    <div vid="25">
+                        <div class="meta-text" vid="26">Notifications &amp; Activity</div>
+                        <h1 class="page-title" vid="27">Alerts Feed</h1>
+                    </div>
+                    <div class="meta-text" vid="28">7 unread alerts</div>
+                </div>
+
+                <div class="alert-card" vid="29">
+                    <div class="severity-indicator critical" vid="30">
+                        <div class="severity-dot" vid="31"></div>
+                    </div>
+                    <div class="alert-body" vid="32">
+                        <div class="alert-title" vid="33">Significant Rank Drop Detected</div>
+                        <div class="alert-meta" vid="34">
+                            Keyword: <span style="color:var(--text-primary)" vid="35">"collision repair austin"</span>
+                        </div>
+                        <div class="comparison" vid="36">
+                            <span class="old-val" vid="37">#2</span>
+                            <span class="val-arrow" vid="38">→</span>
+                            <span class="new-val" style="color:var(--accent-red)" vid="39">#14</span>
+                        </div>
+                    </div>
+                    <div class="timestamp" vid="40">14m ago</div>
+                </div>
+
+                <div class="alert-card" vid="41">
+                    <div class="severity-indicator warning" vid="42">
+                        <div class="severity-dot" vid="43"></div>
+                    </div>
+                    <div class="alert-body" vid="44">
+                        <div class="alert-title" vid="45">GBP Health Issue</div>
+                        <div class="alert-meta" vid="46">
+                            Missing Attribute: <span style="color:var(--text-primary)" vid="47">"Wheelchair Accessible Entrance"</span>
+                        </div>
+                        <div class="comparison" vid="48">
+                            <span class="old-val" vid="49">100%</span>
+                            <span class="val-arrow" vid="50">→</span>
+                            <span class="new-val" vid="51">94%</span>
+                        </div>
+                    </div>
+                    <div class="timestamp" vid="52">2h ago</div>
+                </div>
+
+                <div class="alert-card" vid="53">
+                    <div class="severity-indicator info" vid="54">
+                        <div class="severity-dot" vid="55"></div>
+                    </div>
+                    <div class="alert-body" vid="56">
+                        <div class="alert-title" vid="57">New Local Competitor Spotted</div>
+                        <div class="alert-meta" vid="58">
+                            Entity: <span style="color:var(--text-primary)" vid="59">"Precision Paint &amp; Body"</span>
+                        </div>
+                        <div class="comparison" vid="60">
+                            <span class="new-val" vid="61">1.2 miles away</span>
+                        </div>
+                    </div>
+                    <div class="timestamp" vid="62">5h ago</div>
+                </div>
+
+                <div class="alert-card" vid="63">
+                    <div class="severity-indicator critical" vid="64">
+                        <div class="severity-dot" vid="65"></div>
+                    </div>
+                    <div class="alert-body" vid="66">
+                        <div class="alert-title" vid="67">GBP Listing Suspended</div>
+                        <div class="alert-meta" vid="68">
+                            Location: <span style="color:var(--text-primary)" vid="69">Austin South Main</span>
+                        </div>
+                        <div class="comparison" vid="70">
+                            <span class="old-val" vid="71">Active</span>
+                            <span class="val-arrow" vid="72">→</span>
+                            <span class="new-val" style="color:var(--accent-red)" vid="73">Suspended</span>
+                        </div>
+                    </div>
+                    <div class="timestamp" vid="74">Yesterday</div>
+                </div>
+
+                <div class="alert-card" vid="75">
+                    <div class="severity-indicator warning" vid="76">
+                        <div class="severity-dot" vid="77"></div>
+                    </div>
+                    <div class="alert-body" vid="78">
+                        <div class="alert-title" vid="79">Review Velocity Drop</div>
+                        <div class="alert-meta" vid="80">
+                            Weekly Average
+                        </div>
+                        <div class="comparison" vid="81">
+                            <span class="old-val" vid="82">12/wk</span>
+                            <span class="val-arrow" vid="83">→</span>
+                            <span class="new-val" vid="84">3/wk</span>
+                        </div>
+                    </div>
+                    <div class="timestamp" vid="85">Yesterday</div>
+                </div>
+            </div>
+
+            <aside class="settings-panel" vid="86">
+                <span class="settings-header" vid="87">Alert Settings</span>
+                
+                <div class="settings-group" vid="88">
+                    <div class="toggle-row" vid="89">
+                        <div class="toggle-label" vid="90">
+                            <span vid="91">Rank Volatility</span>
+                            <span vid="92">Notify on +/- 3 position changes</span>
+                        </div>
+                        <div class="switch on" vid="93"></div>
+                    </div>
+
+                    <div class="toggle-row" vid="94">
+                        <div class="toggle-label" vid="95">
+                            <span vid="96">Competitor Entry</span>
+                            <span vid="97">New domains in top 20 results</span>
+                        </div>
+                        <div class="switch on" vid="98"></div>
+                    </div>
+
+                    <div class="toggle-row" vid="99">
+                        <div class="toggle-label" vid="100">
+                            <span vid="101">GBP Attribute Drift</span>
+                            <span vid="102">External suggested edits detected</span>
+                        </div>
+                        <div class="switch" vid="103"></div>
+                    </div>
+                </div>
+
+                <div class="divider" vid="104"></div>
+
+                <span class="settings-header" vid="105">Notification Channels</span>
+                
+                <div class="settings-group" vid="106">
+                    <div class="toggle-row" vid="107">
+                        <div class="toggle-label" vid="108">
+                            <span vid="109">Email Digest</span>
+                            <span vid="110">Daily summary at 8:00 AM</span>
+                        </div>
+                        <div class="switch on" vid="111"></div>
+                    </div>
+
+                    <div class="toggle-row" vid="112">
+                        <div class="toggle-label" vid="113">
+                            <span vid="114">Slack Hook</span>
+                            <span vid="115">Immediate critical alerts</span>
+                        </div>
+                        <div class="switch on" vid="116"></div>
+                    </div>
+
+                    <div class="toggle-row" vid="117">
+                        <div class="toggle-label" vid="118">
+                            <span vid="119">SMS Alerts</span>
+                            <span vid="120">Critical severity only</span>
+                        </div>
+                        <div class="switch" vid="121"></div>
+                    </div>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+</body></html>

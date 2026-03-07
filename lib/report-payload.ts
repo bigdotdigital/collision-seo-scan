@@ -3,6 +3,7 @@ import type {
   CollisionSignal,
   Competitor,
   CompetitorAdvantage,
+  NationalBenchmarkResult,
   PageFetchMeta,
   PrioritizedFix,
   ScanChecks
@@ -43,11 +44,25 @@ export type ReportPayload = {
   capabilityMissing: string[];
   topFixes: PrioritizedFix[];
   competitorAdvantages: CompetitorAdvantage[];
+  nationalBenchmark?: NationalBenchmarkResult;
   missingPages: string[];
   pageFetchMeta: PageFetchMeta[];
   scanDurationMs: number;
   reviewGap: ReviewGapPayload;
   mapPack: MapPackPayload;
+  scannerPreview?: {
+    screenshotUrl: string | null;
+    captureSource: SourceConfidence;
+    metadata: {
+      title: string | null;
+      metaDescription: string | null;
+      url: string;
+      statusCode: number | null;
+      responseTimeMs: number | null;
+      fileSizeBytes: number | null;
+      wordCount: number | null;
+    };
+  };
   sources: {
     pagespeed: SourceConfidence;
     serp: SourceConfidence;
@@ -126,6 +141,8 @@ export function buildReportPayload(input: {
   pageFetchMeta: PageFetchMeta[];
   scanDurationMs: number;
   competitors: Competitor[];
+  nationalBenchmark?: NationalBenchmarkResult;
+  scannerPreview?: ReportPayload['scannerPreview'];
   sources: ReportPayload['sources'];
 }): ReportPayload {
   return {
@@ -138,11 +155,13 @@ export function buildReportPayload(input: {
     capabilityMissing: input.capabilityMissing,
     topFixes: input.topFixes,
     competitorAdvantages: input.competitorAdvantages,
+    nationalBenchmark: input.nationalBenchmark,
     missingPages: input.missingPages,
     pageFetchMeta: input.pageFetchMeta,
     scanDurationMs: input.scanDurationMs,
     reviewGap: buildReviewGapPayload(),
     mapPack: buildMapPackPayload(input.city, input.shopName, input.competitors),
+    scannerPreview: input.scannerPreview,
     sources: input.sources
   };
 }

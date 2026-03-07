@@ -1,0 +1,454 @@
+<html lang="en" vid="0"><head vid="1">
+    <meta charset="UTF-8" vid="2">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+    <title vid="4">Big Dot - Reports</title>
+    <style vid="5">
+        :root {
+            --bg-app: #120505; 
+            --bg-panel: #1E0A0C; 
+            --bg-panel-hover: #260D0F;
+            --accent-red: #FF4D4D; 
+            --accent-dim: #5C2024; 
+            --text-primary: #FFFFFF;
+            --text-secondary: #9E8385; 
+            --text-tertiary: #5E3C3F;
+            --border-subtle: #331215;
+            
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --radius-card: 20px;
+            --radius-sm: 8px;
+            
+            --spacing-unit: 8px;
+            --spacing-md: 24px;
+            --spacing-lg: 32px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            outline: none;
+        }
+
+        body {
+            background-color: var(--bg-app);
+            color: var(--text-primary);
+            font-family: var(--font-family);
+            -webkit-font-smoothing: antialiased;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            font-size: 14px;
+        }
+
+        .app-shell {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            width: 100%;
+            height: 100%;
+        }
+
+        .sidebar {
+            padding: var(--spacing-lg) var(--spacing-md);
+            border-right: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .brand {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            margin-bottom: 48px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-dot {
+            width: 12px;
+            height: 12px;
+            background: var(--accent-red);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-red);
+        }
+
+        .nav-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-tertiary);
+            margin-bottom: 12px;
+            margin-top: 24px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-panel-hover);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: var(--bg-panel);
+            color: var(--text-primary);
+            border-left: 2px solid var(--accent-red);
+        }
+
+        .main-view {
+            padding: var(--spacing-lg);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-lg);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding-bottom: var(--spacing-md);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .page-title {
+            font-size: 24px;
+            font-weight: 500;
+            letter-spacing: -0.5px;
+            margin-bottom: 4px;
+        }
+
+        .meta-text {
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .btn-primary {
+            background: var(--accent-red);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            font-size: 13px;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+
+        .card {
+            background: var(--bg-panel);
+            border-radius: var(--radius-card);
+            padding: 24px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid transparent;
+            transition: border-color 0.2s;
+        }
+
+        .card-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        
+        .timeline-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding: 40px 20px;
+            position: relative;
+            height: 200px;
+        }
+
+        .timeline-line {
+            position: absolute;
+            bottom: 60px;
+            left: 40px;
+            right: 40px;
+            height: 1px;
+            background: var(--border-subtle);
+            z-index: 1;
+        }
+
+        .scan-point {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .scan-score {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--accent-red);
+        }
+
+        .scan-dot {
+            width: 10px;
+            height: 10px;
+            background: var(--accent-red);
+            border-radius: 50%;
+            border: 3px solid var(--bg-panel);
+            box-shadow: 0 0 8px var(--accent-red);
+        }
+
+        .scan-date {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        
+        .reports-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            background: var(--border-subtle);
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+        }
+
+        .report-row {
+            background: var(--bg-panel);
+            display: grid;
+            grid-template-columns: 1fr 150px 150px 100px;
+            padding: 16px 24px;
+            align-items: center;
+            transition: background 0.2s;
+        }
+
+        .report-row:hover {
+            background: var(--bg-panel-hover);
+        }
+
+        .report-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .report-name {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .report-meta {
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+
+        .report-stat {
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .btn-download {
+            background: var(--bg-app);
+            color: var(--text-primary);
+            border: 1px solid var(--border-subtle);
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+        }
+
+        .btn-download:hover {
+            border-color: var(--accent-red);
+        }
+
+        .grid-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            background-image: 
+                linear-gradient(var(--border-subtle) 1px, transparent 1px),
+                linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px);
+            background-size: 40px 40px;
+            opacity: 0.1;
+        }
+
+        .trend-line {
+            position: absolute;
+            bottom: 60px;
+            left: 40px;
+            right: 40px;
+            height: 60px;
+            z-index: 1;
+            opacity: 0.3;
+            overflow: visible;
+        }
+    </style>
+</head>
+<body vid="6">
+    <div class="app-shell" vid="7">
+        <nav class="sidebar" vid="8">
+            <div class="brand" vid="9">
+                <div class="brand-dot" vid="10"></div>
+                BIG DOT
+            </div>
+            <div class="nav-group" vid="11">
+                <div class="nav-label" vid="12">Monitoring</div>
+                <a href="#" class="nav-item" vid="13">Overview</a>
+                <a href="#" class="nav-item" vid="14">Rankings</a>
+                <a href="#" class="nav-item" vid="15">Competitors</a>
+                <a href="#" class="nav-item" vid="16">GBP Health</a>
+                <a href="#" class="nav-item active" vid="17">Reports</a>
+            </div>
+            <div class="nav-group" vid="18">
+                <div class="nav-label" vid="19">Settings</div>
+                <a href="#" class="nav-item" vid="20">Locations</a>
+                <a href="#" class="nav-item" vid="21">Integrations</a>
+                <a href="#" class="nav-item" vid="22">Account</a>
+            </div>
+        </nav>
+
+        <main class="main-view" vid="23">
+            <div class="header" vid="24">
+                <div vid="25">
+                    <div class="meta-text" vid="26">Collision Repair SEO / Austin, TX</div>
+                    <h1 class="page-title" vid="27">Reports &amp; Scan History</h1>
+                </div>
+                <button class="btn-primary" vid="28">Generate New Report</button>
+            </div>
+
+            <div class="card" vid="29">
+                <div class="grid-bg" vid="30"></div>
+                <div class="card-label" vid="31">
+                    Visibility Trend
+                    <span style="color:var(--text-tertiary)" vid="32">Oct 2023 – Present</span>
+                </div>
+                
+                <div class="timeline-container" vid="33">
+                    <div class="timeline-line" vid="34"></div>
+                    
+                    <div class="scan-point" vid="35">
+                        <div class="scan-score" vid="36">642.1</div>
+                        <div class="scan-dot" vid="37"></div>
+                        <div class="scan-date" vid="38">Oct 12</div>
+                    </div>
+                    
+                    <div class="scan-point" vid="39">
+                        <div class="scan-score" vid="40">658.4</div>
+                        <div class="scan-dot" vid="41"></div>
+                        <div class="scan-date" vid="42">Nov 15</div>
+                    </div>
+                    
+                    <div class="scan-point" vid="43">
+                        <div class="scan-score" vid="44">689.0</div>
+                        <div class="scan-dot" vid="45"></div>
+                        <div class="scan-date" vid="46">Dec 18</div>
+                    </div>
+                    
+                    <div class="scan-point" vid="47">
+                        <div class="scan-score" vid="48">705.2</div>
+                        <div class="scan-dot" vid="49"></div>
+                        <div class="scan-date" vid="50">Jan 22</div>
+                    </div>
+                    
+                    <div class="scan-point" vid="51">
+                        <div class="scan-score" vid="52">718.5</div>
+                        <div class="scan-dot" vid="53"></div>
+                        <div class="scan-date" vid="54">Feb 14</div>
+                    </div>
+                    
+                    <div class="scan-point" vid="55">
+                        <div class="scan-score" vid="56" style="color:#fff">721.3</div>
+                        <div class="scan-dot" vid="57" style="transform:scale(1.5)"></div>
+                        <div class="scan-date" vid="58" style="color:var(--text-primary)">Today</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="flex:1" vid="59">
+                <div class="card-label" vid="60">Monthly Summary Reports</div>
+                <div class="reports-list" vid="61">
+                    <div class="report-row" vid="62">
+                        <div class="report-info" vid="63">
+                            <span class="report-name" vid="64">February 2024 Performance Report</span>
+                            <span class="report-meta" vid="65">Generated Feb 29, 2024 • 2.4 MB</span>
+                        </div>
+                        <div class="report-stat" vid="66">718.5 Score</div>
+                        <div class="report-stat" vid="67" style="color:var(--accent-red)">+1.8% Growth</div>
+                        <a href="#" class="btn-download" vid="68">PDF</a>
+                    </div>
+                    
+                    <div class="report-row" vid="69">
+                        <div class="report-info" vid="70">
+                            <span class="report-name" vid="71">January 2024 Performance Report</span>
+                            <span class="report-meta" vid="72">Generated Jan 31, 2024 • 2.1 MB</span>
+                        </div>
+                        <div class="report-stat" vid="73">705.2 Score</div>
+                        <div class="report-stat" vid="74" style="color:var(--accent-red)">+2.3% Growth</div>
+                        <a href="#" class="btn-download" vid="75">PDF</a>
+                    </div>
+                    
+                    <div class="report-row" vid="76">
+                        <div class="report-info" vid="77">
+                            <span class="report-name" vid="78">Q4 2023 Executive Summary</span>
+                            <span class="report-meta" vid="79">Generated Jan 05, 2024 • 4.8 MB</span>
+                        </div>
+                        <div class="report-stat" vid="80">689.0 Score</div>
+                        <div class="report-stat" vid="81" style="color:var(--accent-red)">+7.4% Growth</div>
+                        <a href="#" class="btn-download" vid="82">PDF</a>
+                    </div>
+                    
+                    <div class="report-row" vid="83">
+                        <div class="report-info" vid="84">
+                            <span class="report-name" vid="85">December 2023 Performance Report</span>
+                            <span class="report-meta" vid="86">Generated Dec 31, 2023 • 2.2 MB</span>
+                        </div>
+                        <div class="report-stat" vid="87">689.0 Score</div>
+                        <div class="report-stat" vid="88" style="color:var(--accent-red)">+4.6% Growth</div>
+                        <a href="#" class="btn-download" vid="89">PDF</a>
+                    </div>
+
+                    <div class="report-row" vid="90">
+                        <div class="report-info" vid="91">
+                            <span class="report-name" vid="92">November 2023 Performance Report</span>
+                            <span class="report-meta" vid="93">Generated Nov 30, 2023 • 2.1 MB</span>
+                        </div>
+                        <div class="report-stat" vid="94">658.4 Score</div>
+                        <div class="report-stat" vid="95" style="color:var(--accent-red)">+2.5% Growth</div>
+                        <a href="#" class="btn-download" vid="96">PDF</a>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</body></html>

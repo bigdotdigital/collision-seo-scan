@@ -57,6 +57,13 @@ export type ScanChecks = {
   insuranceSignals: string[];
   schemaTypes: string[];
   fetchNotes: string[];
+  homeWordCount: number;
+  onlineEstimateFlow: boolean;
+  locationFinderPresent: boolean;
+  warrantyMentioned: boolean;
+  insuranceGuidancePresent: boolean;
+  adasMentioned: boolean;
+  reviewProofPresent: boolean;
 };
 
 export type SignalEvidence = {
@@ -98,6 +105,49 @@ export type CompetitorAdvantage = {
   estimateCta: boolean;
 };
 
+export type BenchmarkPatternKey =
+  | 'estimate_cta'
+  | 'oem_certifications'
+  | 'insurance_guidance'
+  | 'warranty_visibility'
+  | 'location_finder'
+  | 'review_proof'
+  | 'service_page_depth';
+
+export type NationalBenchmarkPattern = {
+  key: BenchmarkPatternKey;
+  label: string;
+  importance: Severity;
+  leaderRate: number;
+  shopHas: boolean;
+  gap: boolean;
+  evidenceExample: string | null;
+};
+
+export type NationalBenchmarkRecommendation = {
+  title: string;
+  why: string;
+  action: string[];
+  impact: Severity;
+};
+
+export type NationalBenchmarkSite = {
+  domain: string;
+  url: string;
+  patterns: Record<BenchmarkPatternKey, boolean>;
+  evidence: Partial<Record<BenchmarkPatternKey, string>>;
+};
+
+export type NationalBenchmarkResult = {
+  source: 'live' | 'cached' | 'fallback';
+  scannedAt: string;
+  sampleSize: number;
+  successfulSites: number;
+  leaderSites: NationalBenchmarkSite[];
+  patterns: NationalBenchmarkPattern[];
+  topRecommendations: NationalBenchmarkRecommendation[];
+};
+
 export type PageFetchMeta = {
   url: string;
   status: number;
@@ -124,6 +174,7 @@ export type ScanResult = {
   capabilityMissing: string[];
   topFixes: PrioritizedFix[];
   competitorAdvantages: CompetitorAdvantage[];
+  nationalBenchmark: NationalBenchmarkResult;
   missingPages: string[];
   pageFetchMeta: PageFetchMeta[];
   scanDurationMs: number;

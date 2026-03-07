@@ -1,0 +1,560 @@
+<html lang="en" vid="0"><head vid="1">
+    <meta charset="UTF-8" vid="2">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+    <title vid="4">Big Dot - SEO Monitoring</title>
+    <style vid="5">
+        :root {
+            
+            --bg-app: #120505; 
+            --bg-panel: #1E0A0C; 
+            --bg-panel-hover: #260D0F;
+            --accent-red: #FF4D4D; 
+            --accent-dim: #5C2024; 
+            --text-primary: #FFFFFF;
+            --text-secondary: #9E8385; 
+            --text-tertiary: #5E3C3F;
+            --border-subtle: #331215;
+            
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --radius-card: 20px;
+            --radius-sm: 8px;
+            
+            --spacing-unit: 8px;
+            --spacing-md: 24px;
+            --spacing-lg: 32px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            outline: none;
+        }
+
+        body {
+            background-color: var(--bg-app);
+            color: var(--text-primary);
+            font-family: var(--font-family);
+            -webkit-font-smoothing: antialiased;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            font-size: 14px;
+        }
+
+        
+        .app-shell {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            width: 100%;
+            height: 100%;
+        }
+
+        
+        .sidebar {
+            padding: var(--spacing-lg) var(--spacing-md);
+            border-right: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .brand {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            margin-bottom: 48px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-dot {
+            width: 12px;
+            height: 12px;
+            background: var(--accent-red);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-red);
+        }
+
+        .nav-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-tertiary);
+            margin-bottom: 12px;
+            margin-top: 24px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-panel-hover);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: var(--bg-panel);
+            color: var(--text-primary);
+            border-left: 2px solid var(--accent-red);
+        }
+
+        
+        .main-view {
+            padding: var(--spacing-lg);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-lg);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding-bottom: var(--spacing-md);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .page-title {
+            font-size: 24px;
+            font-weight: 500;
+            letter-spacing: -0.5px;
+            margin-bottom: 4px;
+        }
+
+        .meta-text {
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: auto auto; 
+            gap: var(--spacing-md);
+        }
+
+        
+        .card {
+            background: var(--bg-panel);
+            border-radius: var(--radius-card);
+            padding: 24px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid transparent;
+            transition: border-color 0.2s;
+        }
+
+        .card:hover {
+            border-color: var(--border-subtle);
+        }
+
+        
+        .card-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .big-number {
+            font-size: 42px;
+            font-weight: 500;
+            letter-spacing: -1px;
+            color: var(--text-primary);
+            line-height: 1.1;
+        }
+
+        .huge-number {
+            font-size: 64px;
+            font-weight: 500;
+            letter-spacing: -2px;
+            color: var(--text-primary);
+            line-height: 1;
+        }
+
+        .delta {
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: 8px;
+        }
+
+        .delta.positive { color: var(--accent-red); }
+        .delta.negative { color: var(--text-secondary); }
+
+        
+        .card-hero {
+            grid-column: span 2;
+            background: radial-gradient(circle at 80% 50%, #2a0e10 0%, var(--bg-panel) 60%);
+        }
+
+        
+        .particle-bg {
+            position: absolute;
+            right: -20px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 200px;
+            height: 200px;
+            opacity: 0.6;
+            background-image: radial-gradient(var(--accent-red) 1px, transparent 1px);
+            background-size: 10px 10px;
+            border-radius: 50%;
+            mask-image: radial-gradient(circle, black 40%, transparent 80%);
+            -webkit-mask-image: radial-gradient(circle, black 40%, transparent 80%);
+            animation: pulse 4s ease-in-out infinite alternate;
+        }
+
+        @keyframes pulse {
+            0% { transform: translateY(-50%) scale(1); opacity: 0.4; }
+            100% { transform: translateY(-50%) scale(1.05); opacity: 0.7; }
+        }
+
+        
+        .gauge-container {
+            position: relative;
+            height: 100px;
+            width: 100%;
+            margin-top: 16px;
+            display: flex;
+            align-items: flex-end;
+            gap: 4px;
+        }
+
+        .bar {
+            flex: 1;
+            background: var(--bg-app);
+            border-radius: 2px;
+            transition: height 0.5s ease;
+        }
+        
+        .bar.fill {
+            background: var(--accent-red);
+            opacity: 0.8;
+        }
+        
+        .bar.dim {
+            background: var(--accent-dim);
+        }
+
+        
+        .table-container {
+            grid-column: span 3;
+            min-height: 300px;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+
+        .data-table th {
+            text-align: left;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-tertiary);
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .data-table td {
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .data-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .data-table td.primary {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .rank-badge {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            line-height: 24px;
+            text-align: center;
+            border-radius: 50%;
+            background: var(--bg-app);
+            color: var(--text-primary);
+            font-size: 12px;
+            border: 1px solid var(--border-subtle);
+        }
+
+        
+        .alerts-card {
+            grid-column: span 1;
+        }
+
+        .alert-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        
+        .alert-item:last-child { border-bottom: none; }
+
+        .alert-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--accent-red);
+            border-radius: 50%;
+            margin-top: 6px;
+            box-shadow: 0 0 5px var(--accent-red);
+        }
+
+        .alert-content p {
+            color: var(--text-primary);
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+
+        .alert-content span {
+            color: var(--text-secondary);
+            font-size: 11px;
+        }
+
+        
+        .competitor-card {
+            grid-column: span 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .comp-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 16px;
+        }
+
+        .comp-name {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .comp-bar-track {
+            width: 80px;
+            height: 4px;
+            background: var(--bg-app);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .comp-bar-fill {
+            height: 100%;
+            background: var(--accent-red);
+            border-radius: 2px;
+        }
+        
+        
+        .grid-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            background-image: 
+                linear-gradient(var(--border-subtle) 1px, transparent 1px),
+                linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px);
+            background-size: 40px 40px;
+            opacity: 0.1;
+        }
+
+    </style>
+</head>
+<body vid="6">
+
+    <div class="app-shell" vid="7">
+        
+        <nav class="sidebar" vid="8">
+            <div class="brand" vid="9">
+                <div class="brand-dot" vid="10"></div>
+                BIG DOT
+            </div>
+
+            <div class="nav-group" vid="11">
+                <div class="nav-label" vid="12">Monitoring</div>
+                <a href="#" class="nav-item active" vid="13">Overview</a>
+                <a href="#" class="nav-item" vid="14">Rankings</a>
+                <a href="#" class="nav-item" vid="15">Competitors</a>
+                <a href="#" class="nav-item" vid="16">GBP Health</a>
+            </div>
+
+            <div class="nav-group" vid="17">
+                <div class="nav-label" vid="18">Settings</div>
+                <a href="#" class="nav-item" vid="19">Locations</a>
+                <a href="#" class="nav-item" vid="20">Integrations</a>
+                <a href="#" class="nav-item" vid="21">Account</a>
+            </div>
+        </nav>
+
+        
+        <main class="main-view" vid="22">
+            <div class="header" vid="23">
+                <div vid="24">
+                    <div class="meta-text" vid="25">Collision Repair SEO / Austin, TX</div>
+                    <h1 class="page-title" vid="26">Dashboard Overview</h1>
+                </div>
+                <div class="meta-text" vid="27">Last scan: Today, 09:41 AM</div>
+            </div>
+
+            <div class="dashboard-grid" vid="28">
+                
+                
+                <div class="card card-hero" vid="29">
+                    <div class="grid-bg" vid="30"></div>
+                    <div class="particle-bg" vid="31"></div>
+                    <div class="card-label" vid="32">Visibility Score <span style="opacity:0.5" vid="33">Global</span></div>
+                    <div style="flex-grow:1; display:flex; flex-direction:column; justify-content:center;" vid="34">
+                        <div class="huge-number" vid="35">721.3</div>
+                        <div class="delta positive" vid="36">
+                            <span vid="37">+3.4%</span>
+                            <span style="color:var(--text-tertiary)" vid="38">vs last week</span>
+                        </div>
+                    </div>
+                </div>
+
+                
+                <div class="card alerts-card" vid="39">
+                    <div class="card-label" vid="40">Active Alerts</div>
+                    <div class="big-number" vid="41">3</div>
+                    <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px;" vid="42">
+                        <div class="alert-item" vid="43">
+                            <div class="alert-dot" vid="44"></div>
+                            <div class="alert-content" vid="45">
+                                <p vid="46">Review Velocity Drop</p>
+                                <span vid="47">2 hours ago</span>
+                            </div>
+                        </div>
+                        <div class="alert-item" vid="48">
+                            <div class="alert-dot" style="background:var(--text-secondary)" vid="49"></div>
+                            <div class="alert-content" vid="50">
+                                <p vid="51">New Competitor Detected</p>
+                                <span vid="52">Yesterday</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                
+                <div class="card" vid="53">
+                    <div class="card-label" vid="54">GBP Health</div>
+                    <div class="big-number" vid="55">94%</div>
+                    <div class="gauge-container" vid="56">
+                        <div class="bar dim" style="height: 40%" vid="57"></div>
+                        <div class="bar dim" style="height: 55%" vid="58"></div>
+                        <div class="bar dim" style="height: 45%" vid="59"></div>
+                        <div class="bar fill" style="height: 60%" vid="60"></div>
+                        <div class="bar fill" style="height: 75%" vid="61"></div>
+                        <div class="bar fill" style="height: 85%" vid="62"></div>
+                        <div class="bar fill" style="height: 94%" vid="63"></div>
+                        <div class="bar" style="height: 100%; background:var(--bg-app); border:1px solid var(--border-subtle)" vid="64"></div>
+                    </div>
+                    <div class="delta positive" style="margin-top: 12px;" vid="65">Optimized</div>
+                </div>
+
+                
+                <div class="card table-container" vid="66">
+                    <div class="card-label" vid="67">
+                        <span vid="68">Top Keywords</span>
+                        <span vid="69">Rank / Delta</span>
+                    </div>
+                    <table class="data-table" vid="70">
+                        <tbody vid="71">
+                            <tr vid="72">
+                                <td class="primary" vid="73">auto body shop austin</td>
+                                <td vid="74">2,400 vol</td>
+                                <td style="text-align: right;" vid="75"><span class="rank-badge" vid="76">1</span></td>
+                                <td style="text-align: right; color: var(--accent-red);" vid="77">+0</td>
+                            </tr>
+                            <tr vid="78">
+                                <td class="primary" vid="79">collision repair near me</td>
+                                <td vid="80">1,850 vol</td>
+                                <td style="text-align: right;" vid="81"><span class="rank-badge" vid="82">3</span></td>
+                                <td style="text-align: right; color: var(--accent-red);" vid="83">+2</td>
+                            </tr>
+                            <tr vid="84">
+                                <td class="primary" vid="85">car dent removal</td>
+                                <td vid="86">900 vol</td>
+                                <td style="text-align: right;" vid="87"><span class="rank-badge" vid="88">4</span></td>
+                                <td style="text-align: right; color: var(--text-secondary);" vid="89">-1</td>
+                            </tr>
+                            <tr vid="90">
+                                <td class="primary" vid="91">bumper repair cost</td>
+                                <td vid="92">1,200 vol</td>
+                                <td style="text-align: right;" vid="93"><span class="rank-badge" vid="94">7</span></td>
+                                <td style="text-align: right; color: var(--accent-red);" vid="95">+4</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                
+                <div class="card competitor-card" vid="96">
+                    <div class="card-label" vid="97">Share of Voice</div>
+                    
+                    <div style="display:flex; flex-direction:column; gap:8px; margin-top:16px;" vid="98">
+                        <div class="comp-row" vid="99">
+                            <span class="comp-name" style="color:var(--text-primary)" vid="100">Big Dot (You)</span>
+                            <div class="comp-bar-track" vid="101"><div class="comp-bar-fill" style="width: 65%" vid="102"></div></div>
+                        </div>
+                        <div class="comp-row" vid="103">
+                            <span class="comp-name" vid="104">FixIt Auto</span>
+                            <div class="comp-bar-track" vid="105"><div class="comp-bar-fill" style="width: 40%; opacity: 0.5" vid="106"></div></div>
+                        </div>
+                        <div class="comp-row" vid="107">
+                            <span class="comp-name" vid="108">Crash Champs</span>
+                            <div class="comp-bar-track" vid="109"><div class="comp-bar-fill" style="width: 25%; opacity: 0.3" vid="110"></div></div>
+                        </div>
+                        <div class="comp-row" vid="111">
+                            <span class="comp-name" vid="112">Maaco South</span>
+                            <div class="comp-bar-track" vid="113"><div class="comp-bar-fill" style="width: 15%; opacity: 0.2" vid="114"></div></div>
+                        </div>
+                    </div>
+                    
+                    <div class="delta positive" style="margin-top:24px;" vid="115">Market Leader</div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+
+</body></html>

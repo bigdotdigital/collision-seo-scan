@@ -1,0 +1,447 @@
+<html lang="en" vid="0"><head vid="1">
+    <meta charset="UTF-8" vid="2">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+    <title vid="4">Big Dot - Keyword Rankings</title>
+    <style vid="5">
+        :root {
+            --bg-app: #120505; 
+            --bg-panel: #1E0A0C; 
+            --bg-panel-hover: #260D0F;
+            --accent-red: #FF4D4D; 
+            --accent-dim: #5C2024; 
+            --text-primary: #FFFFFF;
+            --text-secondary: #9E8385; 
+            --text-tertiary: #5E3C3F;
+            --border-subtle: #331215;
+            
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --radius-card: 20px;
+            --radius-sm: 8px;
+            
+            --spacing-unit: 8px;
+            --spacing-md: 24px;
+            --spacing-lg: 32px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            outline: none;
+        }
+
+        body {
+            background-color: var(--bg-app);
+            color: var(--text-primary);
+            font-family: var(--font-family);
+            -webkit-font-smoothing: antialiased;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            font-size: 14px;
+        }
+
+        .app-shell {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            width: 100%;
+            height: 100%;
+        }
+
+        .sidebar {
+            padding: var(--spacing-lg) var(--spacing-md);
+            border-right: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .brand {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            margin-bottom: 48px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-dot {
+            width: 12px;
+            height: 12px;
+            background: var(--accent-red);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-red);
+        }
+
+        .nav-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-tertiary);
+            margin-bottom: 12px;
+            margin-top: 24px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-panel-hover);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: var(--bg-panel);
+            color: var(--text-primary);
+            border-left: 2px solid var(--accent-red);
+        }
+
+        .main-view {
+            padding: var(--spacing-lg);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-lg);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding-bottom: var(--spacing-md);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .page-title {
+            font-size: 24px;
+            font-weight: 500;
+            letter-spacing: -0.5px;
+            margin-bottom: 4px;
+        }
+
+        .meta-text {
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .controls-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .filters {
+            display: flex;
+            gap: 8px;
+        }
+
+        .filter-chip {
+            padding: 8px 16px;
+            border-radius: 100px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .filter-chip:hover {
+            border-color: var(--accent-dim);
+            color: var(--text-primary);
+        }
+
+        .filter-chip.active {
+            background: var(--accent-dim);
+            color: var(--text-primary);
+            border-color: var(--accent-red);
+        }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent-red);
+            color: #000;
+            border: none;
+        }
+
+        .btn-primary:hover {
+            filter: brightness(1.1);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-panel-hover);
+        }
+
+        .card {
+            background: var(--bg-panel);
+            border-radius: var(--radius-card);
+            padding: 24px;
+            border: 1px solid transparent;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th {
+            text-align: left;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-tertiary);
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .data-table td {
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .data-table td.primary {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .rank-badge {
+            display: inline-block;
+            width: 28px;
+            height: 28px;
+            line-height: 28px;
+            text-align: center;
+            border-radius: 50%;
+            background: var(--bg-app);
+            color: var(--text-primary);
+            font-size: 12px;
+            border: 1px solid var(--border-subtle);
+        }
+
+        .sparkline {
+            width: 100px;
+            height: 20px;
+            display: flex;
+            align-items: flex-end;
+            gap: 2px;
+        }
+
+        .sparkline-bar {
+            width: 4px;
+            background: var(--accent-dim);
+            border-radius: 1px;
+        }
+
+        .sparkline-bar.up {
+            background: var(--accent-red);
+        }
+
+        .score-pill {
+            padding: 4px 10px;
+            border-radius: 4px;
+            background: rgba(255, 77, 77, 0.1);
+            color: var(--accent-red);
+            font-weight: 600;
+            font-size: 11px;
+        }
+
+        .delta-pos { color: var(--accent-red); }
+        .delta-neg { color: var(--text-tertiary); }
+
+    </style>
+</head>
+<body vid="6">
+
+    <div class="app-shell" vid="7">
+        <nav class="sidebar" vid="8">
+            <div class="brand" vid="9">
+                <div class="brand-dot" vid="10"></div>
+                BIG DOT
+            </div>
+
+            <div class="nav-group" vid="11">
+                <div class="nav-label" vid="12">Monitoring</div>
+                <a href="#" class="nav-item" vid="13">Overview</a>
+                <a href="#" class="nav-item active" vid="14">Rankings</a>
+                <a href="#" class="nav-item" vid="15">Competitors</a>
+                <a href="#" class="nav-item" vid="16">GBP Health</a>
+            </div>
+
+            <div class="nav-group" vid="17">
+                <div class="nav-label" vid="18">Settings</div>
+                <a href="#" class="nav-item" vid="19">Locations</a>
+                <a href="#" class="nav-item" vid="20">Integrations</a>
+                <a href="#" class="nav-item" vid="21">Account</a>
+            </div>
+        </nav>
+
+        <main class="main-view" vid="22">
+            <div class="header" vid="23">
+                <div vid="24">
+                    <div class="meta-text" vid="25">Collision Repair SEO / Austin, TX</div>
+                    <h1 class="page-title" vid="26">Keyword Rankings</h1>
+                </div>
+                <div class="meta-text" vid="27">Tracking 142 keywords</div>
+            </div>
+
+            <div class="controls-row" vid="28">
+                <div class="filters" vid="29">
+                    <div class="filter-chip active" vid="30">All Positions</div>
+                    <div class="filter-chip" vid="31">Top 3</div>
+                    <div class="filter-chip" vid="32">4-10</div>
+                    <div class="filter-chip" vid="33">11+</div>
+                </div>
+                <div class="actions" vid="34">
+                    <button class="btn btn-secondary" vid="35">Export CSV</button>
+                    <button class="btn btn-primary" vid="36">+ Add Keyword</button>
+                </div>
+            </div>
+
+            <div class="card" vid="37">
+                <table class="data-table" vid="38">
+                    <thead vid="39">
+                        <tr vid="40">
+                            <th vid="41">Keyword</th>
+                            <th vid="42">Volume</th>
+                            <th vid="43">Rank</th>
+                            <th vid="44">Delta</th>
+                            <th vid="45">30-Day Trend</th>
+                            <th vid="46">Opportunity</th>
+                        </tr>
+                    </thead>
+                    <tbody vid="47">
+                        <tr vid="48">
+                            <td class="primary" vid="49">auto body shop austin</td>
+                            <td vid="50">2,400</td>
+                            <td vid="51"><span class="rank-badge" vid="52">1</span></td>
+                            <td class="delta-pos" vid="53">+0</td>
+                            <td vid="54">
+                                <div class="sparkline" vid="55">
+                                    <div class="sparkline-bar" style="height: 40%" vid="56"></div>
+                                    <div class="sparkline-bar" style="height: 50%" vid="57"></div>
+                                    <div class="sparkline-bar" style="height: 45%" vid="58"></div>
+                                    <div class="sparkline-bar up" style="height: 90%" vid="59"></div>
+                                </div>
+                            </td>
+                            <td vid="60"><span class="score-pill" vid="61">92</span></td>
+                        </tr>
+                        <tr vid="62">
+                            <td class="primary" vid="63">collision repair near me</td>
+                            <td vid="64">1,850</td>
+                            <td vid="65"><span class="rank-badge" vid="66">3</span></td>
+                            <td class="delta-pos" vid="67">+2</td>
+                            <td vid="68">
+                                <div class="sparkline" vid="69">
+                                    <div class="sparkline-bar" style="height: 20%" vid="70"></div>
+                                    <div class="sparkline-bar" style="height: 30%" vid="71"></div>
+                                    <div class="sparkline-bar up" style="height: 60%" vid="72"></div>
+                                    <div class="sparkline-bar up" style="height: 75%" vid="73"></div>
+                                </div>
+                            </td>
+                            <td vid="74"><span class="score-pill" vid="75">88</span></td>
+                        </tr>
+                        <tr vid="76">
+                            <td class="primary" vid="77">car dent removal</td>
+                            <td vid="78">900</td>
+                            <td vid="79"><span class="rank-badge" vid="80">4</span></td>
+                            <td class="delta-neg" vid="81">-1</td>
+                            <td vid="82">
+                                <div class="sparkline" vid="83">
+                                    <div class="sparkline-bar up" style="height: 80%" vid="84"></div>
+                                    <div class="sparkline-bar up" style="height: 85%" vid="85"></div>
+                                    <div class="sparkline-bar" style="height: 70%" vid="86"></div>
+                                    <div class="sparkline-bar" style="height: 65%" vid="87"></div>
+                                </div>
+                            </td>
+                            <td vid="88"><span class="score-pill" vid="89">74</span></td>
+                        </tr>
+                        <tr vid="90">
+                            <td class="primary" vid="91">bumper repair cost</td>
+                            <td vid="92">1,200</td>
+                            <td vid="93"><span class="rank-badge" vid="94">7</span></td>
+                            <td class="delta-pos" vid="95">+4</td>
+                            <td vid="96">
+                                <div class="sparkline" vid="97">
+                                    <div class="sparkline-bar" style="height: 10%" vid="98"></div>
+                                    <div class="sparkline-bar" style="height: 25%" vid="99"></div>
+                                    <div class="sparkline-bar up" style="height: 40%" vid="100"></div>
+                                    <div class="sparkline-bar up" style="height: 55%" vid="101"></div>
+                                </div>
+                            </td>
+                            <td vid="102"><span class="score-pill" vid="103">81</span></td>
+                        </tr>
+                        <tr vid="104">
+                            <td class="primary" vid="105">tesla body shop austin</td>
+                            <td vid="106">580</td>
+                            <td vid="107"><span class="rank-badge" vid="108">12</span></td>
+                            <td class="delta-pos" vid="109">+12</td>
+                            <td vid="110">
+                                <div class="sparkline" vid="111">
+                                    <div class="sparkline-bar" style="height: 5%" vid="112"></div>
+                                    <div class="sparkline-bar" style="height: 10%" vid="113"></div>
+                                    <div class="sparkline-bar up" style="height: 30%" vid="114"></div>
+                                    <div class="sparkline-bar up" style="height: 80%" vid="115"></div>
+                                </div>
+                            </td>
+                            <td vid="116"><span class="score-pill" vid="117">95</span></td>
+                        </tr>
+                        <tr vid="118">
+                            <td class="primary" vid="119">hail damage repair</td>
+                            <td vid="120">4,200</td>
+                            <td vid="121"><span class="rank-badge" vid="122">18</span></td>
+                            <td class="delta-neg" vid="123">-3</td>
+                            <td vid="124">
+                                <div class="sparkline" vid="125">
+                                    <div class="sparkline-bar up" style="height: 60%" vid="126"></div>
+                                    <div class="sparkline-bar" style="height: 55%" vid="127"></div>
+                                    <div class="sparkline-bar" style="height: 50%" vid="128"></div>
+                                    <div class="sparkline-bar" style="height: 45%" vid="129"></div>
+                                </div>
+                            </td>
+                            <td vid="130"><span class="score-pill" vid="131">62</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+</body></html>

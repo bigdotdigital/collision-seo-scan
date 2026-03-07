@@ -16,11 +16,21 @@ type Props = {
   vertical: string;
   email: string;
   phone: string;
+  initialIntent?: string;
 };
 
-export function TeardownIntakeForm({ scanId, orgId, vertical, email, phone }: Props) {
+export function TeardownIntakeForm({
+  scanId,
+  orgId,
+  vertical,
+  email,
+  phone,
+  initialIntent = 'fix_seo'
+}: Props) {
   const router = useRouter();
-  const [intent, setIntent] = useState('fix_seo');
+  const [intent, setIntent] = useState(
+    INTENTS.some((item) => item.value === initialIntent) ? initialIntent : 'fix_seo'
+  );
   const [budgetRange, setBudgetRange] = useState('');
   const [timeline, setTimeline] = useState('');
   const [loading, setLoading] = useState(false);
@@ -68,10 +78,12 @@ export function TeardownIntakeForm({ scanId, orgId, vertical, email, phone }: Pr
 
   if (missingScan) {
     return (
-      <section className="mx-auto max-w-xl rounded-xl border border-amber-200 bg-amber-50 p-6">
-        <h1 className="text-2xl font-bold text-slate-900">Missing report context</h1>
-          <p className="mt-2 text-sm text-slate-700">Open your report first, then use Book my SEO audit.</p>
-        <Link href="/" className="mt-4 inline-block text-sm font-semibold text-teal-700 underline">
+      <section className="mx-auto max-w-xl rounded-3xl border border-white/15 bg-[rgba(40,35,32,0.5)] p-6 backdrop-blur-xl">
+        <h1 className="text-2xl font-bold text-white">Missing report context</h1>
+        <p className="mt-2 text-sm text-[#d8d2cd]">
+          Open your report first, then use Book my SEO audit.
+        </p>
+        <Link href="/" className="mt-4 inline-block text-sm font-semibold text-[#c49a7a] underline">
           Back to scanner
         </Link>
       </section>
@@ -79,10 +91,10 @@ export function TeardownIntakeForm({ scanId, orgId, vertical, email, phone }: Pr
   }
 
   return (
-    <section className="mx-auto max-w-2xl card p-8">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">Teardown intake</p>
-      <h1 className="mt-2 text-3xl font-extrabold text-slate-900">A few details before booking</h1>
-      <p className="mt-2 text-sm text-slate-700">
+    <section className="mx-auto max-w-2xl rounded-3xl border border-white/15 bg-[rgba(40,35,32,0.45)] p-8 backdrop-blur-xl shadow-[0_16px_60px_rgba(0,0,0,0.4)]">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#c49a7a]">Teardown intake</p>
+      <h1 className="mt-2 text-3xl font-extrabold text-white">A few details before booking</h1>
+      <p className="mt-2 text-sm text-[#d8d2cd]">
         This helps us tailor your teardown to your goals before you pick a time.
       </p>
 
@@ -91,10 +103,10 @@ export function TeardownIntakeForm({ scanId, orgId, vertical, email, phone }: Pr
           {INTENTS.map((item) => (
             <label
               key={item.value}
-              className={`cursor-pointer rounded-md border px-3 py-2 text-xs font-semibold ${
+              className={`cursor-pointer rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${
                 intent === item.value
-                  ? 'border-teal-700 bg-teal-50 text-teal-800'
-                  : 'border-slate-300 bg-white text-slate-700'
+                  ? 'border-[#c49a7a]/60 bg-[#c49a7a]/15 text-[#f2e6db]'
+                  : 'border-white/15 bg-white/[0.03] text-[#d8d2cd]'
               }`}
             >
               <input
@@ -111,15 +123,17 @@ export function TeardownIntakeForm({ scanId, orgId, vertical, email, phone }: Pr
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
-          <label className="flex flex-col gap-1 text-xs text-slate-700">
+          <label className="flex flex-col gap-1 text-xs text-[#d8d2cd]">
             Budget range
             <select
-              className="rounded-md border border-slate-300 bg-white px-2 py-2 text-sm"
+              className="rounded-lg border border-white/15 bg-white/[0.03] px-2 py-2 text-sm text-white focus:border-[#c49a7a] focus:outline-none"
               value={budgetRange}
               onChange={(e) => setBudgetRange(e.target.value)}
               required
             >
-              <option value="">Select</option>
+              <option value="" className="bg-[#161413]">
+                Select
+              </option>
               <option value="under_2k">Under $2k</option>
               <option value="2k_5k">$2k-$5k</option>
               <option value="5k_10k">$5k-$10k</option>
@@ -127,15 +141,17 @@ export function TeardownIntakeForm({ scanId, orgId, vertical, email, phone }: Pr
             </select>
           </label>
 
-          <label className="flex flex-col gap-1 text-xs text-slate-700">
+          <label className="flex flex-col gap-1 text-xs text-[#d8d2cd]">
             Timeline
             <select
-              className="rounded-md border border-slate-300 bg-white px-2 py-2 text-sm"
+              className="rounded-lg border border-white/15 bg-white/[0.03] px-2 py-2 text-sm text-white focus:border-[#c49a7a] focus:outline-none"
               value={timeline}
               onChange={(e) => setTimeline(e.target.value)}
               required
             >
-              <option value="">Select</option>
+              <option value="" className="bg-[#161413]">
+                Select
+              </option>
               <option value="asap">ASAP</option>
               <option value="30_days">Within 30 days</option>
               <option value="60_90_days">60-90 days</option>
@@ -144,12 +160,12 @@ export function TeardownIntakeForm({ scanId, orgId, vertical, email, phone }: Pr
           </label>
         </div>
 
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {error ? <p className="text-sm text-red-400">{error}</p> : null}
 
         <button
           type="submit"
           disabled={loading}
-          className="rounded-md bg-teal-700 px-4 py-2 font-semibold text-white disabled:opacity-60"
+          className="btn-variant-primary px-4 py-2 disabled:opacity-60"
         >
           {loading ? 'Saving...' : 'Continue to booking'}
         </button>

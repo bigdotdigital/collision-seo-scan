@@ -12,6 +12,7 @@ import { saveScanRecord, type ScanRecord } from '@/lib/scan-store';
 import { logEnvWarningsOnce } from '@/lib/env-check';
 import { checkScanRateLimit } from '@/lib/security/rate-limit';
 import { buildReportPayload } from '@/lib/report-payload';
+import { capturePageSnapshot } from '@/lib/page-snapshot';
 import {
   assertPublicHostname,
   normalizeWebsiteUrl,
@@ -24,6 +25,7 @@ import {
   upsertLead,
   upsertOrganizationFromInput
 } from '@/lib/org-data';
+import { seedDashboardFromScan } from '@/lib/dashboard-prefill';
 
 export const dynamic = 'force-dynamic';
 
@@ -148,6 +150,23 @@ export async function POST(req: Request) {
       },
       pagespeedLive
     );
+    const homepageFetch =
+      result.pageFetchMeta.find((row) => row.url === websiteUrl) ||
+      result.pageFetchMeta.find((row) => row.url.includes(new URL(websiteUrl).hostname));
+    const captured = await capturePageSnapshot(websiteUrl);
+    const scannerPreview = {
+      screenshotUrl: captured.screenshotUrl,
+      captureSource: captured.captureSource,
+      metadata: {
+        title: captured.metadata.title || result.checks.title || null,
+        metaDescription: captured.metadata.metaDescription || result.checks.metaDescription || null,
+        url: captured.metadata.url || websiteUrl,
+        statusCode: captured.metadata.statusCode ?? homepageFetch?.status ?? null,
+        responseTimeMs: captured.metadata.responseTimeMs ?? homepageFetch?.fetchMs ?? null,
+        fileSizeBytes: captured.metadata.fileSizeBytes ?? homepageFetch?.bytes ?? null,
+        wordCount: captured.metadata.wordCount ?? result.checks.homeWordCount ?? null
+      }
+    };
 
     let pagespeed = pagespeedLive;
     let pageSpeedStatus: 'live' | 'cached' | 'modeled' = 'live';
@@ -175,10 +194,12 @@ export async function POST(req: Request) {
       capabilityMissing: result.capabilityMissing,
       topFixes: result.topFixes,
       competitorAdvantages: result.competitorAdvantages,
+      nationalBenchmark: result.nationalBenchmark,
       missingPages: result.missingPages,
       pageFetchMeta: result.pageFetchMeta,
       scanDurationMs: result.scanDurationMs,
       competitors: result.competitors,
+      scannerPreview,
       sources: {
         pagespeed: pageSpeedStatus,
         serp: result.sources.serp,
@@ -294,6 +315,23 @@ export async function POST(req: Request) {
         componentScores: scoreV01.componentScores,
         vertical: input.vertical
       });
+
+      try {
+        await seedDashboardFromScan({
+          organizationId: org.id,
+          shopName: normalizedShop,
+          websiteUrl,
+          city: normalizedCity,
+          keywords: result.moneyKeywords.map((row) => ({ keyword: row.keyword })),
+          competitors: result.competitors.map((row) => ({ name: row.name, url: row.url }))
+        });
+      } catch (prefillError) {
+        console.warn('[scan:dashboard-prefill-warning]', {
+          scanId: scan.id,
+          organizationId: org.id,
+          error: prefillError instanceof Error ? prefillError.message : 'Unknown prefill error'
+        });
+      }
 
       if (normalizedEmail || normalizedPhone) {
         await upsertLead({

@@ -1,0 +1,604 @@
+<html lang="en" vid="0"><head vid="1">
+    <meta charset="UTF-8" vid="2">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+    <title vid="4">Big Dot Collision - SEO Dashboard</title>
+    <style vid="5">
+        :root {
+            
+            --bg-body: #0a0a0a;
+            --bg-card: #141414;
+            --bg-card-hover: #1A1A1A;
+            --bg-surface: #1E1E1E;
+            
+            --text-primary: #FFFFFF;
+            --text-secondary: #9CA3AF; 
+            --text-tertiary: #4B5563;
+            
+            --accent-green: #34D399; 
+            --accent-green-dim: rgba(52, 211, 153, 0.1);
+            --accent-red: #F87171; 
+            --accent-red-dim: rgba(248, 113, 113, 0.1);
+            
+            --border-subtle: #27272A;
+            
+            
+            --radius-xl: 24px; 
+            --radius-lg: 16px;
+            --radius-md: 12px;
+            --radius-sm: 8px;
+            
+            
+            --space-xs: 4px;
+            --space-sm: 8px;
+            --space-md: 16px;
+            --space-lg: 24px;
+            --space-xl: 32px;
+            
+            
+            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-primary);
+            font-family: var(--font-family);
+            font-size: 14px;
+            line-height: 1.5;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            
+            background-image: radial-gradient(circle at 50% 0%, #1a1a1a 0%, #0a0a0a 60%);
+        }
+
+        
+        .app-shell {
+            display: grid;
+            grid-template-columns: 80px 1fr; 
+            width: 100%;
+            height: 100%;
+        }
+
+        
+        .sidebar {
+            border-right: 1px solid var(--border-subtle);
+            padding: var(--space-lg) 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--space-xl);
+        }
+
+        .logo {
+            width: 40px;
+            height: 40px;
+            background: var(--text-primary);
+            border-radius: 50%; 
+            margin-bottom: var(--space-lg);
+        }
+
+        .nav-item {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .nav-item.active {
+            background: var(--bg-surface);
+            color: var(--text-primary);
+        }
+
+        .nav-item:hover {
+            color: var(--text-primary);
+            background: var(--bg-surface);
+        }
+
+        
+        .main-content {
+            padding: var(--space-xl);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-xl);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-title h1 {
+            font-size: 20px;
+            font-weight: 500;
+            letter-spacing: -0.02em;
+        }
+
+        .header-meta {
+            color: var(--text-secondary);
+            font-size: 13px;
+            display: flex;
+            gap: var(--space-lg);
+            align-items: center;
+        }
+
+        .badge-scan {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            background: var(--bg-surface);
+            border-radius: 100px;
+            font-size: 12px;
+        }
+
+        .dot-pulse {
+            width: 6px;
+            height: 6px;
+            background-color: var(--accent-green);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--accent-green-dim);
+        }
+
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: auto 1fr;
+            gap: var(--space-lg);
+            height: 100%;
+        }
+
+        
+        .card {
+            background-color: var(--bg-card);
+            border-radius: var(--radius-xl);
+            padding: var(--space-lg);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.2s ease, background-color 0.2s ease;
+            
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+
+        .card:hover {
+            background-color: var(--bg-card-hover);
+        }
+
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: var(--space-lg);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+        }
+
+        .icon-box {
+            width: 36px;
+            height: 36px;
+            background: var(--bg-surface);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+        }
+
+        .card-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .action-pill {
+            padding: 4px 12px;
+            border: 1px solid var(--border-subtle);
+            border-radius: 100px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .action-pill:hover {
+            border-color: var(--text-secondary);
+            color: var(--text-primary);
+        }
+
+        
+        .metric-large {
+            font-size: 56px;
+            font-weight: 400; 
+            color: var(--text-primary);
+            line-height: 1;
+            margin-bottom: var(--space-sm);
+            letter-spacing: -0.03em;
+            display: flex;
+            align-items: flex-start;
+            gap: var(--space-sm);
+        }
+
+        .metric-trend {
+            font-size: 20px;
+            font-weight: 500;
+            margin-top: 8px;
+        }
+
+        .trend-up { color: var(--accent-green); }
+        .trend-down { color: var(--accent-red); }
+
+        .metric-desc {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+            max-width: 80%;
+        }
+
+        
+        .span-2 { grid-column: span 2; }
+        .span-1 { grid-column: span 1; }
+        .row-span-2 { grid-row: span 2; }
+
+        
+        .list-group {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-lg);
+            flex: 1;
+        }
+
+        .list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: var(--space-md);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .list-item:last-child {
+            border-bottom: none;
+        }
+
+        .list-content {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .list-value-group {
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+        }
+
+        .list-value {
+            font-size: 24px;
+            font-weight: 400;
+        }
+
+        .list-label {
+            font-size: 13px;
+            color: var(--text-tertiary);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .list-meta {
+            text-align: right;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .trend-small {
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        
+        .stepper-container {
+            display: flex;
+            gap: 6px;
+            margin-top: auto;
+            padding-top: var(--space-lg);
+        }
+
+        .step {
+            height: 4px;
+            flex: 1;
+            background: var(--bg-surface);
+            border-radius: 2px;
+        }
+
+        .step.active { background: var(--accent-green); }
+        .step.filled { background: var(--text-tertiary); }
+
+        
+        .table-row {
+            display: grid;
+            grid-template-columns: 30px 1fr auto;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 14px;
+        }
+        .table-row:last-child { border-bottom: none; }
+        
+        .rank-badge {
+            width: 24px;
+            height: 24px;
+            background: var(--bg-surface);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .rank-delta {
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        
+        .text-dim { color: var(--text-tertiary); }
+        
+        
+        svg {
+            width: 20px;
+            height: 20px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+    </style>
+</head>
+<body vid="6">
+
+<div class="app-shell" vid="7">
+    
+    
+    <nav class="sidebar" vid="8">
+        <div class="logo" vid="9"></div>
+        <div class="nav-item active" vid="10">
+            <svg viewBox="0 0 24 24" vid="11"><rect x="3" y="3" width="7" height="7" vid="12"></rect><rect x="14" y="3" width="7" height="7" vid="13"></rect><rect x="14" y="14" width="7" height="7" vid="14"></rect><rect x="3" y="14" width="7" height="7" vid="15"></rect></svg>
+        </div>
+        <div class="nav-item" vid="16">
+            <svg viewBox="0 0 24 24" vid="17"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" vid="18"></path></svg>
+        </div>
+        <div class="nav-item" vid="19">
+            <svg viewBox="0 0 24 24" vid="20"><path d="M22 12h-4l-3 9L9 3l-3 9H2" vid="21"></path></svg>
+        </div>
+        <div class="nav-item" style="margin-top: auto" vid="22">
+            <svg viewBox="0 0 24 24" vid="23"><circle cx="12" cy="12" r="3" vid="24"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" vid="25"></path></svg>
+        </div>
+    </nav>
+
+    <main class="main-content" vid="26">
+        
+        <header class="header" vid="27">
+            <div class="header-title" vid="28">
+                <h1 vid="29">Big Dot Collision</h1>
+                <div class="header-meta" vid="30">
+                    <span vid="31">Overview</span>
+                    <span vid="32">•</span>
+                    <span vid="33">Monitoring 12 keywords</span>
+                </div>
+            </div>
+            <div class="badge-scan" vid="34">
+                <span class="dot-pulse" vid="35"></span>
+                Last scan: 2 mins ago
+            </div>
+        </header>
+
+        
+        <div class="dashboard-grid" vid="36">
+            
+            
+            
+            <article class="card span-1" vid="37">
+                <div class="card-header" vid="38">
+                    <div class="header-left" vid="39">
+                        <div class="icon-box" vid="40">
+                            <svg viewBox="0 0 24 24" vid="41"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" vid="42"></path><circle cx="12" cy="12" r="3" vid="43"></circle></svg>
+                        </div>
+                        <span class="card-title" vid="44">Visibility</span>
+                    </div>
+                    <div class="action-pill" vid="45">
+                        This Week <svg style="width:12px; height:12px;" viewBox="0 0 24 24" vid="46"><path d="M6 9l6 6 6-6" vid="47"></path></svg>
+                    </div>
+                </div>
+
+                <div class="metric-large" vid="48">
+                    78% 
+                    <svg class="metric-trend trend-up" style="width:24px; height:24px" viewBox="0 0 24 24" vid="49"><line x1="7" y1="17" x2="17" y2="7" vid="50"></line><polyline points="7 7 17 7 17 17" vid="51"></polyline></svg>
+                </div>
+                
+                <p class="metric-desc" vid="52">
+                    Visibility across local search terms has improved by 12% since last week.
+                </p>
+
+                
+                <div class="stepper-container" vid="53">
+                    <div class="step active" vid="54"></div>
+                    <div class="step active" vid="55"></div>
+                    <div class="step active" vid="56"></div>
+                    <div class="step filled" vid="57"></div>
+                    <div class="step filled" vid="58"></div>
+                </div>
+            </article>
+
+            
+            
+            <article class="card span-1" vid="59">
+                <div class="card-header" vid="60">
+                    <div class="header-left" vid="61">
+                        <div class="icon-box" vid="62">
+                            <svg viewBox="0 0 24 24" vid="63"><line x1="8" y1="6" x2="21" y2="6" vid="64"></line><line x1="8" y1="12" x2="21" y2="12" vid="65"></line><line x1="8" y1="18" x2="21" y2="18" vid="66"></line><line x1="3" y1="6" x2="3.01" y2="6" vid="67"></line><line x1="3" y1="12" x2="3.01" y2="12" vid="68"></line><line x1="3" y1="18" x2="3.01" y2="18" vid="69"></line></svg>
+                        </div>
+                        <span class="card-title" vid="70">Top Ranks</span>
+                    </div>
+                </div>
+
+                <div class="list-group" vid="71">
+                    <div class="table-row" vid="72">
+                        <div class="rank-badge" vid="73">1</div>
+                        <div vid="74">auto body repair</div>
+                        <div class="rank-delta trend-up" vid="75">
+                            <svg style="width:12px; height:12px" viewBox="0 0 24 24" vid="76"><polyline points="18 15 12 9 6 15" vid="77"></polyline></svg>
+                             -
+                        </div>
+                    </div>
+                    <div class="table-row" vid="78">
+                        <div class="rank-badge" vid="79">3</div>
+                        <div vid="80">collision center</div>
+                        <div class="rank-delta trend-up" vid="81">
+                            <svg style="width:12px; height:12px" viewBox="0 0 24 24" vid="82"><polyline points="18 15 12 9 6 15" vid="83"></polyline></svg>
+                            +1
+                        </div>
+                    </div>
+                    <div class="table-row" vid="84">
+                        <div class="rank-badge" style="background:none; color:var(--text-tertiary)" vid="85">8</div>
+                        <div style="color:var(--text-secondary)" vid="86">dent repair</div>
+                        <div class="rank-delta trend-down" vid="87">
+                            <svg style="width:12px; height:12px" viewBox="0 0 24 24" vid="88"><polyline points="6 9 12 15 18 9" vid="89"></polyline></svg>
+                            -2
+                        </div>
+                    </div>
+                </div>
+            </article>
+
+            
+            <article class="card span-1" vid="90">
+                <div class="card-header" vid="91">
+                    <div class="header-left" vid="92">
+                        <div class="icon-box" vid="93">
+                            <svg viewBox="0 0 24 24" vid="94"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" vid="95"></path><path d="M13.73 21a2 2 0 0 1-3.46 0" vid="96"></path></svg>
+                        </div>
+                        <span class="card-title" vid="97">Active Alerts</span>
+                    </div>
+                    <div class="action-pill" style="border-color: var(--border-subtle)" vid="98">...</div>
+                </div>
+
+                <div class="list-group" style="justify-content: center; gap: 8px;" vid="99">
+                    <div class="metric-large" style="font-size: 42px; margin:0;" vid="100">
+                        3
+                        <span style="font-size:14px; color:var(--accent-red); margin-top:14px; font-weight:500;" vid="101">Needs Review</span>
+                    </div>
+                    <p class="metric-desc" style="font-size: 13px;" vid="102">Missing photos on GBP profile.</p>
+                </div>
+            </article>
+
+            
+            <article class="card span-1" vid="103">
+                <div class="card-header" vid="104">
+                    <div class="header-left" vid="105">
+                        <div class="icon-box" vid="106">
+                            <svg viewBox="0 0 24 24" vid="107"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" vid="108"></path><circle cx="12" cy="10" r="3" vid="109"></circle></svg>
+                        </div>
+                        <span class="card-title" vid="110">GBP Health</span>
+                    </div>
+                </div>
+                
+                <div style="display:flex; align-items:flex-end; gap:8px;" vid="111">
+                     <div class="metric-large" style="margin:0;" vid="112">94</div>
+                     <span style="color:var(--text-tertiary); margin-bottom: 12px; font-size: 18px;" vid="113">/100</span>
+                </div>
+                
+                <div class="stepper-container" style="margin-top:var(--space-lg);" vid="114">
+                    <div class="step active" style="flex:4" vid="115"></div>
+                    <div class="step filled" style="flex:1" vid="116"></div>
+                </div>
+            </article>
+
+            
+            <article class="card span-2" vid="117">
+                <div class="card-header" vid="118">
+                    <div class="header-left" vid="119">
+                        <div class="icon-box" vid="120">
+                            <svg viewBox="0 0 24 24" vid="121"><circle cx="12" cy="12" r="10" vid="122"></circle><line x1="2" y1="12" x2="22" y2="12" vid="123"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" vid="124"></path></svg>
+                        </div>
+                        <span class="card-title" vid="125">Competitor Share</span>
+                    </div>
+                    <div class="action-pill" vid="126">
+                        Radius: 5mi <svg style="width:12px; height:12px;" viewBox="0 0 24 24" vid="127"><path d="M6 9l6 6 6-6" vid="128"></path></svg>
+                    </div>
+                </div>
+
+                
+                <div style="display: flex; gap: var(--space-xl); padding-top: var(--space-sm);" vid="129">
+                    
+                    <div class="list-content" style="flex:1;" vid="130">
+                        <div class="list-label" vid="131">Market Leader</div>
+                        <div class="list-value-group" vid="132">
+                            <svg class="trend-up" style="width:16px; height:16px" viewBox="0 0 24 24" vid="133"><line x1="7" y1="17" x2="17" y2="7" vid="134"></line><polyline points="7 7 17 7 17 17" vid="135"></polyline></svg>
+                            <span class="list-value" vid="136">City Garage</span>
+                        </div>
+                        <div class="list-meta trend-up" style="text-align: left; margin-top: 4px;" vid="137">24% Share</div>
+                    </div>
+
+                    <div style="width: 1px; background: var(--border-subtle);" vid="138"></div>
+
+                    <div class="list-content" style="flex:1;" vid="139">
+                        <div class="list-label" vid="140">Closest Rival</div>
+                        <div class="list-value-group" vid="141">
+                            <svg class="trend-down" style="width:16px; height:16px" viewBox="0 0 24 24" vid="142"><line x1="17" y1="17" x2="7" y2="7" vid="143"></line><polyline points="17 7 17 17 7 17" vid="144"></polyline></svg>
+                            <span class="list-value" style="color:var(--text-secondary)" vid="145">Fast Fix</span>
+                        </div>
+                        <div class="list-meta trend-down" style="text-align: left; margin-top: 4px;" vid="146">11% Share</div>
+                    </div>
+
+                </div>
+            </article>
+
+            
+            <article class="card span-2" style="background: linear-gradient(145deg, var(--bg-card), #1F2937);" vid="147">
+                <div class="card-header" vid="148">
+                     <div class="header-left" vid="149">
+                        <span class="card-title" vid="150">Quick Actions</span>
+                    </div>
+                </div>
+                <div style="display:flex; gap:12px;" vid="151">
+                    <div class="action-pill" style="padding: 8px 16px; border-color: var(--accent-green); color: var(--accent-green); background: rgba(52, 211, 153, 0.05);" vid="152">
+                        + Add Keyword
+                    </div>
+                    <div class="action-pill" style="padding: 8px 16px;" vid="153">
+                        Update Photos
+                    </div>
+                    <div class="action-pill" style="padding: 8px 16px;" vid="154">
+                        Generate Report
+                    </div>
+                </div>
+            </article>
+
+        </div>
+    </main>
+</div>
+
+
+</body></html>

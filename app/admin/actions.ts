@@ -6,6 +6,8 @@ import { prisma } from '@/lib/prisma';
 import { createPortalPassword, hashPortalPassword } from '@/lib/client-auth';
 import { sendFollowupEmail, sendPortalInviteEmail } from '@/lib/email';
 import { buildDefaultKeywords, createMetricSnapshot, oemSignalsFromScan } from '@/lib/client-services';
+import { upsertOrganizationFromInput } from '@/lib/org-data';
+import { seedDashboardFromScan } from '@/lib/dashboard-prefill';
 
 const COOKIE_NAME = 'collision_admin_auth';
 
@@ -157,6 +159,19 @@ function demoConfig() {
 
 async function seedDemoClient() {
   const { demoEmail, demoPassword, city, shopName, websiteUrl } = demoConfig();
+  const defaultKeywords = buildDefaultKeywords(city, ['subaru', 'ford', 'gm']);
+  const defaultCompetitors = [
+    { name: `${city} Collision Center`, url: '' },
+    { name: `Premier Auto Body ${city}`, url: '' },
+    { name: `Certified Collision ${city}`, url: '' }
+  ];
+
+  const org = await upsertOrganizationFromInput({
+    shop_name: shopName,
+    website_url: websiteUrl,
+    city_or_zip: city,
+    vertical: 'collision'
+  });
 
   const existing = await prisma.client.findFirst({
     where: { ownerEmail: demoEmail },
@@ -164,6 +179,20 @@ async function seedDemoClient() {
   });
 
   if (existing) {
+    await prisma.scan.updateMany({
+      where: { clientId: existing.id, organizationId: null },
+      data: { organizationId: org.id }
+    });
+
+    await seedDashboardFromScan({
+      organizationId: org.id,
+      shopName,
+      websiteUrl,
+      city,
+      keywords: defaultKeywords.map((row) => ({ keyword: row.keyword })),
+      competitors: defaultCompetitors
+    });
+
     await createMetricSnapshot(existing.id);
     revalidatePath('/admin');
     revalidatePath(`/admin/client/${existing.id}`);
@@ -183,7 +212,7 @@ async function seedDemoClient() {
       portalPasswordHash: hashPortalPassword(demoPassword),
       keywords: {
         createMany: {
-          data: buildDefaultKeywords(city, ['subaru', 'ford', 'gm'])
+          data: defaultKeywords
         }
       }
     }
@@ -206,7 +235,8 @@ async function seedDemoClient() {
       rawChecksJson: '{}',
       thirtyDayPlanJson: '[]',
       status: 'client',
-      clientId: client.id
+      clientId: client.id,
+      organizationId: org.id
     }
   });
 
@@ -216,6 +246,14 @@ async function seedDemoClient() {
   });
 
   await createMetricSnapshot(client.id);
+  await seedDashboardFromScan({
+    organizationId: org.id,
+    shopName,
+    websiteUrl,
+    city,
+    keywords: defaultKeywords.map((row) => ({ keyword: row.keyword })),
+    competitors: defaultCompetitors
+  });
 
   revalidatePath('/admin');
   revalidatePath(`/admin/client/${client.id}`);
