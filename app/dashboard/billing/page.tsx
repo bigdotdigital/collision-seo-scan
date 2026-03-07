@@ -3,11 +3,13 @@ import { requireDashboardContext } from '@/lib/dashboard-auth';
 import { PageHeader } from '@/components/page-header';
 import { BillingCard } from '@/components/billing-card';
 import { getStripeCustomerPortalUrl } from '@/lib/stripe';
+import { BillingActions } from '@/components/billing-actions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardBillingPage() {
   const ctx = await requireDashboardContext();
+  const bookCallUrl = process.env.CALENDLY_LINK || 'https://calendly.com/bigdotdigital/30min';
 
   const [subscription, invoices] = await Promise.all([
     prisma.subscription.findUnique({
@@ -24,7 +26,13 @@ export default async function DashboardBillingPage() {
     <div>
       <PageHeader
         title="Billing"
-        subtitle="Stripe-backed billing scaffolding. Customer Portal handles plan and payment management."
+        subtitle="Choose self-serve trial or book a setup call. We can onboard and tailor your dashboard either way."
+      />
+
+      <BillingActions
+        hasSubscription={Boolean(subscription)}
+        portalUrl={getStripeCustomerPortalUrl(subscription?.stripeCustomerId)}
+        bookCallUrl={bookCallUrl}
       />
 
       <BillingCard

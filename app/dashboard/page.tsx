@@ -148,6 +148,28 @@ export default async function DashboardOverviewPage() {
         </article>
       </div>
 
+      <article className="card mt-4 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">
+              Need help customizing your dashboard?
+            </h2>
+            <p className="mt-1 text-sm text-slate-700">
+              $49/month includes a free setup call and monthly SEO consult calls with Big Dot to
+              tailor this dashboard to your exact needs.
+            </p>
+          </div>
+          <a
+            href={process.env.CALENDLY_LINK || 'https://calendly.com/bigdotdigital/30min'}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+          >
+            Book a call with Big Dot
+          </a>
+        </div>
+      </article>
+
       <div className="mt-4">
         <KeywordTable rows={keywordRows} />
       </div>
