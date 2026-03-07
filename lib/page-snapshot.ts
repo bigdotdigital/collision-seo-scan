@@ -39,7 +39,11 @@ export async function capturePageSnapshot(url: string): Promise<PageSnapshotCapt
       ) => Promise<any>;
       const mod = await runtimeImport('playwright');
       chromium = mod.chromium;
-    } catch {
+    } catch (error) {
+      console.warn('[snapshot:capture:playwright-import-failed]', {
+        url,
+        error: error instanceof Error ? error.message : 'unknown_import_error'
+      });
       return fallback;
     }
     if (!chromium) return fallback;
@@ -98,7 +102,11 @@ export async function capturePageSnapshot(url: string): Promise<PageSnapshotCapt
     } finally {
       await browser.close().catch(() => undefined);
     }
-  } catch {
+  } catch (error) {
+    console.warn('[snapshot:capture:failed]', {
+      url,
+      error: error instanceof Error ? error.message : 'unknown_capture_error'
+    });
     return fallback;
   }
 }
