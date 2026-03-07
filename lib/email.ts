@@ -51,6 +51,11 @@ function resolveFromAddress(): string {
   );
 }
 
+function resolveReplyToAddress(): string | undefined {
+  const value = process.env.REPLY_TO_EMAIL?.trim();
+  return value ? value : undefined;
+}
+
 async function sendWithResend(input: {
   to: string;
   subject: string;
@@ -67,7 +72,8 @@ async function sendWithResend(input: {
       to: input.to,
       subject: input.subject,
       html: input.html,
-      text: input.text
+      text: input.text,
+      replyTo: resolveReplyToAddress()
     });
 
     if (result.error) {
@@ -108,7 +114,8 @@ async function sendWithSmtp(input: {
       to: input.to,
       subject: input.subject,
       text: input.text,
-      html: input.html
+      html: input.html,
+      replyTo: resolveReplyToAddress()
     });
 
     return { sent: true };
