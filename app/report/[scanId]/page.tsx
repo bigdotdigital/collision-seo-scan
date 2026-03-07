@@ -534,7 +534,15 @@ export default async function ReportPage({ params }: { params: { scanId: string 
     if (scanRecord.phone) p.set('phone', scanRecord.phone);
     return `/teardown-intake?${p.toString()}`;
   })();
-  const teardownMonitoringUrl = `${teardownIntakeUrl}&intent=monitoring`;
+  const monitoringLandingUrl = (() => {
+    const p = new URLSearchParams();
+    p.set('scanId', scanRecord.id);
+    if (dbScan?.organizationId) p.set('orgId', dbScan.organizationId);
+    if (scanRecord.email) p.set('email', scanRecord.email);
+    if (scanRecord.shopName) p.set('shop', scanRecord.shopName);
+    if (scanRecord.city) p.set('city', scanRecord.city);
+    return `/monitoring?${p.toString()}`;
+  })();
   const reviewGap = payload?.reviewGap || vm.reviewGap;
   const mapPack = payload?.mapPack || vm.mapPack;
   const sourceConfidence = payload?.sources || {
@@ -1378,8 +1386,8 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         <ReportShareActions reportUrl={reportUrl} />
 
         <div className="mt-4">
-          <Link href={teardownMonitoringUrl} className="btn-variant-secondary px-4 py-2 text-sm">
-            Prefer monitoring? Start weekly plan intake
+          <Link href={monitoringLandingUrl} className="btn-variant-secondary px-4 py-2 text-sm">
+            Prefer monitoring? Start free trial (no call required)
           </Link>
         </div>
 

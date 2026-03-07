@@ -1,8 +1,16 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthedClient, getDashboardSession } from '@/lib/client-auth';
+import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
+
+const publicCheckoutSchema = z.object({
+  orgId: z.string().optional(),
+  scanId: z.string().optional(),
+  email: z.string().email().optional(),
+  name: z.string().min(1).max(120).optional()
+});
 
 type StripeResponse = {
   id?: string;
@@ -62,7 +70,7 @@ async function resolveOrgContext() {
   return { orgId: scan.organizationId, email: client.ownerEmail || null };
 }
 
-export async function POST() {
+export async function POST(req: Request) {
   try {
     const priceId = process.env.STRIPE_PRICE_MONTHLY_ID || '';
     const stripeKey = process.env.STRIPE_SECRET_KEY || '';
@@ -73,9 +81,32 @@ export async function POST() {
       );
     }
 
-    const ctx = await resolveOrgContext();
+    const sessionCtx = await resolveOrgContext();
+    const reqBody = (await req.json().catch(() => ({}))) as unknown;
+
+    const input = publicCheckoutSchema.safeParse(reqBody);
+    const publicData = input.success ? input.data : {};
+
+    let ctx = sessionCtx;
     if (!ctx) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      let orgId = publicData.orgId || '';
+      if (publicData.scanId) {
+        const scan = await prisma.scan.findUnique({
+          where: { id: publicData.scanId },
+          select: { organizationId: true, email: true, shopName: true }
+        });
+        if (!scan?.organizationId) {
+          return NextResponse.json({ error: 'Invalid scan context for trial checkout.' }, { status: 400 });
+        }
+        if (orgId && orgId !== scan.organizationId) {
+          return NextResponse.json({ error: 'Mismatched org context.' }, { status: 400 });
+        }
+        orgId = scan.organizationId;
+      }
+      if (!orgId) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      ctx = { orgId, email: publicData.email || null };
     }
 
     const org = await prisma.organization.findUnique({
@@ -93,7 +124,7 @@ export async function POST() {
     let customerId = org.stripeCustomerId || '';
     if (!customerId) {
       const customerForm = new URLSearchParams();
-      customerForm.set('name', org.name || 'Shop SEO Scan Client');
+      customerForm.set('name', publicData.name || org.name || 'Shop SEO Scan Client');
       if (ctx.email) customerForm.set('email', ctx.email);
       customerForm.set('metadata[org_id]', org.id);
       const customer = await stripePost('customers', customerForm);
@@ -118,6 +149,7 @@ export async function POST() {
     form.set('subscription_data[trial_period_days]', '30');
     form.set('subscription_data[metadata][plan_tier]', 'monitor');
     form.set('subscription_data[metadata][org_id]', org.id);
+    if (publicData.scanId) form.set('subscription_data[metadata][scan_id]', publicData.scanId);
     form.set('allow_promotion_codes', 'true');
     form.set('success_url', withBase('/dashboard/billing?checkout=success'));
     form.set('cancel_url', withBase('/dashboard/billing?checkout=cancel'));
