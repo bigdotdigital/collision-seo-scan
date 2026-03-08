@@ -48,6 +48,7 @@ export default async function DashboardOnboardingPage() {
         <article className="card p-6">
           <h2 className="text-2xl font-semibold text-white">1) Shop details</h2>
           <form action={saveLocationDetails} className="mt-4 space-y-3">
+            <input type="hidden" name="nextPath" value="/dashboard/onboarding" />
             <input
               name="name"
               defaultValue={location?.name || org?.name || ''}
@@ -96,6 +97,7 @@ export default async function DashboardOnboardingPage() {
           <div>
             <h2 className="text-2xl font-semibold text-white">2) Keywords</h2>
             <form action={addTrackedKeyword} className="mt-3 flex gap-2">
+              <input type="hidden" name="nextPath" value="/dashboard/onboarding" />
               <input
                 name="term"
                 className="flex-1 rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
@@ -111,6 +113,7 @@ export default async function DashboardOnboardingPage() {
           <div>
             <h2 className="text-2xl font-semibold text-white">3) Competitor</h2>
             <form action={addTrackedCompetitor} className="mt-3 grid grid-cols-[1fr_1fr_auto] gap-2">
+              <input type="hidden" name="nextPath" value="/dashboard/onboarding" />
               <input
                 name="name"
                 className="rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"

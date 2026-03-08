@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
 
@@ -27,6 +28,7 @@ export async function saveLocationDetails(formData: FormData) {
   const state = String(formData.get('state') || '').trim();
   const websiteUrl = String(formData.get('websiteUrl') || '').trim();
   const gbpUrl = String(formData.get('gbpUrl') || '').trim();
+  const nextPath = String(formData.get('nextPath') || '').trim();
 
   const location = await getOrCreatePrimaryLocation(ctx.orgId);
 
@@ -54,12 +56,17 @@ export async function saveLocationDetails(formData: FormData) {
   });
 
   revalidatePath('/dashboard/settings');
+  revalidatePath('/dashboard/onboarding');
   revalidatePath('/dashboard');
+  if (nextPath.startsWith('/dashboard/')) {
+    redirect(nextPath);
+  }
 }
 
 export async function addTrackedKeyword(formData: FormData) {
   const ctx = await requireDashboardContext();
   const term = String(formData.get('term') || '').trim().toLowerCase();
+  const nextPath = String(formData.get('nextPath') || '').trim();
   if (!term) return;
 
   const location = await getOrCreatePrimaryLocation(ctx.orgId);
@@ -85,14 +92,19 @@ export async function addTrackedKeyword(formData: FormData) {
   });
 
   revalidatePath('/dashboard/settings');
+  revalidatePath('/dashboard/onboarding');
   revalidatePath('/dashboard/rankings');
   revalidatePath('/dashboard');
+  if (nextPath.startsWith('/dashboard/')) {
+    redirect(nextPath);
+  }
 }
 
 export async function addTrackedCompetitor(formData: FormData) {
   const ctx = await requireDashboardContext();
   const name = String(formData.get('name') || '').trim();
   const websiteUrl = String(formData.get('websiteUrl') || '').trim();
+  const nextPath = String(formData.get('nextPath') || '').trim();
   if (!name) return;
 
   const location = await getOrCreatePrimaryLocation(ctx.orgId);
@@ -124,6 +136,10 @@ export async function addTrackedCompetitor(formData: FormData) {
   }
 
   revalidatePath('/dashboard/settings');
+  revalidatePath('/dashboard/onboarding');
   revalidatePath('/dashboard/competitors');
   revalidatePath('/dashboard');
+  if (nextPath.startsWith('/dashboard/')) {
+    redirect(nextPath);
+  }
 }
