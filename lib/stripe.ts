@@ -27,6 +27,8 @@ export async function syncSubscriptionFromEvent(event: StripeWebhookEvent) {
   const object = event.data?.object || {};
   const customerId = String(object.customer || '');
   const subscriptionId = String(object.id || object.subscription || '');
+  const isSubscriptionEvent = event.type.startsWith('customer.subscription.');
+  const isInvoiceEvent = event.type.startsWith('invoice.');
 
   if (!customerId) {
     return { ok: false as const, reason: 'missing_customer' as const };
@@ -43,42 +45,90 @@ export async function syncSubscriptionFromEvent(event: StripeWebhookEvent) {
   });
   if (!org) return { ok: false as const, reason: 'org_not_found' as const };
 
-  const status = String(object.status || 'trialing');
-  const planTier = String((object as { metadata?: { plan_tier?: string } }).metadata?.plan_tier || 'monitor');
-  const currentPeriodStart = fromUnix((object as { current_period_start?: unknown }).current_period_start);
-  const currentPeriodEnd = fromUnix((object as { current_period_end?: unknown }).current_period_end);
-  const trialEndsAt = fromUnix((object as { trial_end?: unknown }).trial_end);
-  const cancelAtPeriodEnd = Boolean(
-    (object as { cancel_at_period_end?: unknown }).cancel_at_period_end || false
-  );
+  if (isSubscriptionEvent) {
+    const status = String(object.status || 'trialing');
+    const planTier = String(
+      (object as { metadata?: { plan_tier?: string } }).metadata?.plan_tier || 'monitor'
+    );
+    const currentPeriodStart = fromUnix((object as { current_period_start?: unknown }).current_period_start);
+    const currentPeriodEnd = fromUnix((object as { current_period_end?: unknown }).current_period_end);
+    const trialEndsAt = fromUnix((object as { trial_end?: unknown }).trial_end);
+    const cancelAtPeriodEnd = Boolean(
+      (object as { cancel_at_period_end?: unknown }).cancel_at_period_end || false
+    );
 
-  await prisma.subscription.upsert({
-    where: { orgId: org.id },
-    update: {
-      stripeCustomerId: customerId,
-      stripeSubscriptionId: subscriptionId || undefined,
-      status,
-      planTier,
-      currentPeriodStart,
-      currentPeriodEnd,
-      trialEndsAt,
-      cancelAtPeriodEnd
-    },
-    create: {
-      orgId: org.id,
-      stripeCustomerId: customerId,
-      stripeSubscriptionId: subscriptionId || undefined,
-      status,
-      planTier,
-      currentPeriodStart,
-      currentPeriodEnd,
-      trialEndsAt,
-      cancelAtPeriodEnd
-    }
-  });
+    await prisma.subscription.upsert({
+      where: { orgId: org.id },
+      update: {
+        stripeCustomerId: customerId,
+        stripeSubscriptionId: subscriptionId || undefined,
+        status,
+        planTier,
+        currentPeriodStart,
+        currentPeriodEnd,
+        trialEndsAt,
+        cancelAtPeriodEnd
+      },
+      create: {
+        orgId: org.id,
+        stripeCustomerId: customerId,
+        stripeSubscriptionId: subscriptionId || undefined,
+        status,
+        planTier,
+        currentPeriodStart,
+        currentPeriodEnd,
+        trialEndsAt,
+        cancelAtPeriodEnd
+      }
+    });
 
-  if (event.type.startsWith('invoice.')) {
+    await prisma.organization.update({
+      where: { id: org.id },
+      data: {
+        stripeCustomerId: customerId,
+        stripeSubscriptionId: subscriptionId || undefined,
+        planTier
+      }
+    });
+  }
+
+  if (isInvoiceEvent) {
     const invoiceId = String((object as { id?: unknown }).id || '');
+    const invoiceSubscriptionId = String((object as { subscription?: unknown }).subscription || subscriptionId || '');
+    const linePeriodStart = fromUnix(
+      (object as { lines?: { data?: Array<{ period?: { start?: unknown } }> } }).lines?.data?.[0]?.period?.start
+    );
+    const linePeriodEnd = fromUnix(
+      (object as { lines?: { data?: Array<{ period?: { end?: unknown } }> } }).lines?.data?.[0]?.period?.end
+    );
+
+    if (invoiceSubscriptionId || linePeriodStart || linePeriodEnd) {
+      await prisma.subscription.upsert({
+        where: { orgId: org.id },
+        update: {
+          stripeCustomerId: customerId || undefined,
+          stripeSubscriptionId: invoiceSubscriptionId || undefined,
+          currentPeriodStart: linePeriodStart || undefined,
+          currentPeriodEnd: linePeriodEnd || undefined
+        },
+        create: {
+          orgId: org.id,
+          stripeCustomerId: customerId || undefined,
+          stripeSubscriptionId: invoiceSubscriptionId || undefined,
+          currentPeriodStart: linePeriodStart || undefined,
+          currentPeriodEnd: linePeriodEnd || undefined
+        }
+      });
+
+      await prisma.organization.update({
+        where: { id: org.id },
+        data: {
+          stripeCustomerId: customerId || undefined,
+          stripeSubscriptionId: invoiceSubscriptionId || undefined
+        }
+      });
+    }
+
     if (invoiceId) {
       const amountCents = Number(
         (object as { amount_paid?: unknown; amount_due?: unknown }).amount_paid ||
@@ -119,15 +169,6 @@ export async function syncSubscriptionFromEvent(event: StripeWebhookEvent) {
       });
     }
   }
-
-  await prisma.organization.update({
-    where: { id: org.id },
-    data: {
-      stripeCustomerId: customerId,
-      stripeSubscriptionId: subscriptionId || undefined,
-      planTier
-    }
-  });
 
   return { ok: true as const, orgId: org.id };
 }
