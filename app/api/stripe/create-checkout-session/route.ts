@@ -7,7 +7,7 @@ import {
   setDashboardSession,
   verifyPortalPassword
 } from '@/lib/client-auth';
-import { getStripeCustomerPortalUrl } from '@/lib/stripe';
+import { createStripePortalSession } from '@/lib/stripe';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -306,10 +306,18 @@ export async function POST(req: Request) {
       select: { status: true }
     });
     if (existingSub && ['trialing', 'active', 'past_due', 'incomplete'].includes(existingSub.status)) {
+      const portalSession = org.stripeCustomerId
+        ? await createStripePortalSession({
+            customerId: org.stripeCustomerId,
+            returnPath: '/dashboard/billing'
+          })
+        : null;
       return NextResponse.json(
         {
           error: 'This organization already has billing set up. Use Manage Billing instead.',
-          portalUrl: getStripeCustomerPortalUrl(org.stripeCustomerId)
+          portalUrl: portalSession?.ok
+            ? portalSession.url
+            : '/api/stripe/create-portal-session?returnTo=/dashboard/billing'
         },
         { status: 409 }
       );

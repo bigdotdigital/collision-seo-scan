@@ -23,6 +23,38 @@ export function getStripeCustomerPortalUrl(customerId?: string | null): string {
   return u.toString();
 }
 
+export async function createStripePortalSession(args: {
+  customerId: string;
+  returnPath?: string;
+}): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const stripeKey = process.env.STRIPE_SECRET_KEY || '';
+  const base = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+  if (!stripeKey) return { ok: false, error: 'Stripe is not configured yet.' };
+  if (!args.customerId) return { ok: false, error: 'Missing Stripe customer.' };
+
+  const returnUrl = `${base}${args.returnPath || '/dashboard/billing'}`;
+  const form = new URLSearchParams();
+  form.set('customer', args.customerId);
+  form.set('return_url', returnUrl);
+
+  const res = await fetch('https://api.stripe.com/v1/billing_portal/sessions', {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${stripeKey}`,
+      'content-type': 'application/x-www-form-urlencoded'
+    },
+    body: form.toString(),
+    cache: 'no-store'
+  });
+
+  const data = (await res.json().catch(() => null)) as { url?: string; error?: { message?: string } } | null;
+  if (!res.ok || !data?.url) {
+    return { ok: false, error: data?.error?.message || 'Unable to open billing portal.' };
+  }
+
+  return { ok: true, url: data.url };
+}
+
 export async function syncSubscriptionFromEvent(event: StripeWebhookEvent) {
   const object = event.data?.object || {};
   const customerId = String(object.customer || '');

@@ -1,7 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
 import { PageHeader } from '@/components/page-header';
-import { getStripeCustomerPortalUrl } from '@/lib/stripe';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +20,7 @@ export default async function DashboardBillingPage() {
 
   const plan = subscription?.planTier || 'monitor';
   const status = subscription?.status || 'trialing';
-  const portalUrl = getStripeCustomerPortalUrl(subscription?.stripeCustomerId);
+  const portalUrl = '/api/stripe/create-portal-session?returnTo=/dashboard/billing';
   const displayInvoices =
     status === 'trialing'
       ? invoices
@@ -49,8 +48,6 @@ export default async function DashboardBillingPage() {
             </div>
             <a
               href={portalUrl}
-              target="_blank"
-              rel="noreferrer"
               className="dashboard-button"
             >
               Manage Billing
