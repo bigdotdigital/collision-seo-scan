@@ -21,6 +21,7 @@ export function MonitoringTrialForm({
 }: MonitoringTrialFormProps) {
   const [email, setEmail] = useState(defaultEmail || '');
   const [name, setName] = useState(defaultName || '');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,13 +36,18 @@ export function MonitoringTrialForm({
           scanId,
           orgId,
           email: email || undefined,
-          name: name || undefined
+          name: name || undefined,
+          password: password || undefined
         })
       });
 
       const data = (await res.json().catch(() => null)) as
-        | { url?: string; error?: string }
+        | { url?: string; error?: string; portalUrl?: string }
         | null;
+      if (res.status === 409 && data?.portalUrl) {
+        window.location.href = data.portalUrl;
+        return;
+      }
       if (!res.ok || !data?.url) {
         setError(data?.error || 'Could not start checkout. Book a call and we will set it up.');
         return;
@@ -74,6 +80,19 @@ export function MonitoringTrialForm({
           onChange={(e) => setEmail(e.target.value)}
           placeholder="diana@example.com"
           type="email"
+          required
+        />
+      </div>
+      <div className="monitor-input-group">
+        <label className="monitor-label">Create password</label>
+        <input
+          className="monitor-input"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="At least 8 characters"
+          type="password"
+          minLength={8}
+          required
         />
       </div>
 

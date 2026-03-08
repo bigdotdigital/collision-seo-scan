@@ -22,6 +22,18 @@ export default async function DashboardBillingPage() {
   const plan = subscription?.planTier || 'monitor';
   const status = subscription?.status || 'trialing';
   const portalUrl = getStripeCustomerPortalUrl(subscription?.stripeCustomerId);
+  const displayInvoices =
+    status === 'trialing'
+      ? invoices
+          .sort((a, b) => b.invoiceDate.getTime() - a.invoiceDate.getTime())
+          .filter((invoice, idx, arr) => {
+            if (idx === 0) return true;
+            const first = arr[0];
+            const sameDay =
+              first.invoiceDate.toDateString() === invoice.invoiceDate.toDateString();
+            return !(sameDay && first.amountCents === invoice.amountCents && first.status === invoice.status);
+          })
+      : invoices;
 
   return (
     <div>
@@ -83,14 +95,14 @@ export default async function DashboardBillingPage() {
             </tr>
           </thead>
           <tbody>
-            {invoices.length === 0 ? (
+            {displayInvoices.length === 0 ? (
               <tr>
                 <td colSpan={5} className="py-5 text-white/60">
                   No synced invoices yet.
                 </td>
               </tr>
             ) : (
-              invoices.map((invoice) => (
+              displayInvoices.map((invoice) => (
                 <tr key={invoice.id} className="border-b border-white/8 text-white/80">
                   <td className="py-4 text-lg font-mono">{invoice.stripeInvoiceId || invoice.id}</td>
                   <td className="py-4">{invoice.invoiceDate.toLocaleDateString()}</td>

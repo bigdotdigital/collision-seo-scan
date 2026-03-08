@@ -20,6 +20,42 @@ export async function loginClient(
     return { ok: false, message: 'Email and password are required.' };
   }
 
+  const user = await prisma.user.findUnique({
+    where: { email },
+    include: {
+      memberships: {
+        where: { status: 'active' },
+        orderBy: { createdAt: 'asc' },
+        take: 1
+      }
+    }
+  });
+
+  if (user && verifyPortalPassword(password, user.passwordHash)) {
+    const membership = user.memberships[0];
+    if (!membership) {
+      return {
+        ok: false,
+        message: 'No active organization found for this account.'
+      };
+    }
+
+    const linkedClient = await prisma.client.findFirst({
+      where: { ownerEmail: email, isActive: true },
+      select: { id: true }
+    });
+
+    setDashboardSession({
+      userId: user.id,
+      orgId: membership.orgId,
+      membershipRole: membership.role,
+      clientId: linkedClient?.id || undefined
+    });
+
+    revalidatePath('/dashboard');
+    return { ok: true };
+  }
+
   const client = await prisma.client.findFirst({
     where: { ownerEmail: email, isActive: true },
     include: {
@@ -35,7 +71,7 @@ export async function loginClient(
   if (!client || !client.portalPasswordHash) {
     return {
       ok: false,
-      message: 'Portal access not ready. Ask support for your invite credentials.'
+      message: 'Invalid credentials.'
     };
   }
 

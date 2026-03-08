@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
 import { PageHeader } from '@/components/page-header';
+import { addTrackedCompetitor, addTrackedKeyword, saveLocationDetails } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +20,7 @@ function toggle(enabled: boolean) {
 export default async function DashboardSettingsPage() {
   const ctx = await requireDashboardContext();
 
-  const [org, location, keywordCount, competitorCount, prefs, members] = await Promise.all([
+  const [org, location, keywordCount, competitorCount, prefs, members, keywords, competitors] = await Promise.all([
     prisma.organization.findUnique({
       where: { id: ctx.orgId },
       select: { name: true, websiteUrl: true, city: true, state: true, phone: true }
@@ -41,6 +42,18 @@ export default async function DashboardSettingsPage() {
       where: { orgId: ctx.orgId },
       take: 5,
       include: { user: { select: { email: true, name: true } } }
+    }),
+    prisma.trackedKeyword.findMany({
+      where: { orgId: ctx.orgId, isActive: true },
+      orderBy: { createdAt: 'asc' },
+      take: 12,
+      select: { id: true, term: true }
+    }),
+    prisma.trackedCompetitor.findMany({
+      where: { orgId: ctx.orgId, isActive: true },
+      orderBy: { createdAt: 'asc' },
+      take: 8,
+      select: { id: true, name: true, websiteUrl: true }
     })
   ]);
 
@@ -66,35 +79,83 @@ export default async function DashboardSettingsPage() {
             <h2 className="text-[30px] font-semibold text-white">Location Details</h2>
             <p className="mt-1 text-sm text-white/60">Configure the primary business entity being monitored.</p>
 
-            <div className="mt-4 space-y-3">
+            <form action={saveLocationDetails} className="mt-4 space-y-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.14em] text-white/45">Business name</p>
-                <div className="mt-1 rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white">
-                  {location?.name || org?.name || 'Not set'}
-                </div>
+                <input
+                  name="name"
+                  defaultValue={location?.name || org?.name || ''}
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
+                  placeholder="Your shop name"
+                />
               </div>
               <div>
                 <p className="text-xs uppercase tracking-[0.14em] text-white/45">Street address</p>
-                <div className="mt-1 rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white">
-                  {location?.address || 'Not set'}
+                <input
+                  name="address"
+                  defaultValue={location?.address || ''}
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
+                  placeholder="Street address"
+                />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.14em] text-white/45">City</p>
+                  <input
+                    name="city"
+                    defaultValue={location?.city || org?.city || ''}
+                    className="mt-1 w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
+                    placeholder="City"
+                  />
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.14em] text-white/45">State</p>
+                  <input
+                    name="state"
+                    defaultValue={location?.state || org?.state || ''}
+                    className="mt-1 w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
+                    placeholder="State"
+                  />
                 </div>
               </div>
               <div>
-                <p className="text-xs uppercase tracking-[0.14em] text-white/45">Google business profile URL</p>
-                <div className="mt-1 rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white/85">
-                  {location?.gbpUrl || 'Not set'}
-                </div>
+                <p className="text-xs uppercase tracking-[0.14em] text-white/45">Website URL</p>
+                <input
+                  name="websiteUrl"
+                  defaultValue={location?.websiteUrl || org?.websiteUrl || ''}
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
+                  placeholder="https://yourshop.com"
+                />
               </div>
-            </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.14em] text-white/45">Google business profile URL</p>
+                <input
+                  name="gbpUrl"
+                  defaultValue={location?.gbpUrl || ''}
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
+                  placeholder="https://business.google.com/..."
+                />
+              </div>
+              <button className="dashboard-button mt-2" type="submit">
+                Save location
+              </button>
+            </form>
           </article>
 
           <article className="card p-6">
             <h2 className="text-[30px] font-semibold text-white">Keywords & Search Terms</h2>
             <p className="mt-1 text-sm text-white/60">Manage search phrases tracked across Google Maps and Search.</p>
-            <div className="mt-3 flex gap-2">
-              <div className="flex-1 rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white/50">Add new keyword...</div>
-              <button className="dashboard-button">Add</button>
-            </div>
+            <form action={addTrackedKeyword} className="mt-3 flex gap-2">
+              <input
+                name="term"
+                className="flex-1 rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
+                placeholder="Add keyword (e.g. collision repair near me)"
+                required
+              />
+              <button className="dashboard-button" type="submit">
+                Add
+              </button>
+            </form>
             <div className="mt-3 flex flex-wrap gap-2">
               <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-sm text-white/75">{keywordCount} tracked keywords</span>
               <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-sm text-white/75">{competitorCount} tracked competitors</span>
@@ -102,6 +163,50 @@ export default async function DashboardSettingsPage() {
                 <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-sm text-white/75">{location.city}, {location.state}</span>
               ) : null}
             </div>
+            {keywords.length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {keywords.map((k) => (
+                  <span key={k.id} className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-sm text-white/85">
+                    {k.term}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-white/55">No keywords yet. Add your top money terms first.</p>
+            )}
+          </article>
+
+          <article className="card p-6">
+            <h2 className="text-[30px] font-semibold text-white">Competitor Tracking</h2>
+            <p className="mt-1 text-sm text-white/60">Track nearby independent shops you want to outrank.</p>
+            <form action={addTrackedCompetitor} className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+              <input
+                name="name"
+                className="rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
+                placeholder="Competitor name"
+                required
+              />
+              <input
+                name="websiteUrl"
+                className="rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
+                placeholder="https://competitor.com (optional)"
+              />
+              <button className="dashboard-button" type="submit">
+                Add
+              </button>
+            </form>
+            {competitors.length > 0 ? (
+              <div className="mt-3 space-y-2">
+                {competitors.map((c) => (
+                  <div key={c.id} className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+                    <p className="text-white">{c.name}</p>
+                    <p className="text-xs text-white/55">{c.websiteUrl || 'No URL saved'}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-white/55">No competitors added yet.</p>
+            )}
           </article>
         </div>
 
