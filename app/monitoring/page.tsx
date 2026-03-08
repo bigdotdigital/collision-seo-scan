@@ -24,40 +24,82 @@ export default function MonitoringLandingPage({
   const supportEmail = process.env.REPLY_TO_EMAIL || 'bigdotdigital@gmail.com';
 
   return (
-    <main className="container-shell pb-20 pt-12">
-      <section className="mx-auto max-w-4xl space-y-6">
-        <article className="card p-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">
-            Big Dot Monitoring
-          </p>
-          <h1 className="mt-2 text-3xl font-bold text-slate-900">
-            Launch your SEO monitoring dashboard in minutes
-          </h1>
-          <p className="mt-2 text-sm text-slate-700">
-            {shop} in {city}: start self-serve for $49/month with a 30-day free trial. No call
-            required. If you want strategy support, setup calls are always available.
-          </p>
-          <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-slate-700">
-            <li>Weekly rankings + competitor movement</li>
-            <li>Priority task feed focused on call-generating fixes</li>
-            <li>Free setup call + optional monthly SEO consults included</li>
-          </ul>
-        </article>
+    <main className="monitor-page">
+      <section className="monitor-container">
+        <div className="monitor-layout">
+          <div className="monitor-left-col">
+            <header className="monitor-header">
+              <span className="monitor-logo-dot" />
+              <span className="monitor-logo-text">Big Dot Monitoring</span>
+            </header>
 
-        <MonitoringTrialForm
-          scanId={scanId || undefined}
-          orgId={orgId || undefined}
-          defaultEmail={email || undefined}
-          defaultName={shop !== 'Your Shop' ? shop : undefined}
-          calendlyUrl={calendlyUrl}
-          supportEmail={supportEmail}
-        />
+            <section>
+              <h1 className="monitor-h1">Launch your SEO monitoring dashboard in minutes</h1>
+              <p className="monitor-copy">
+                {shop} in {city}. No Zoom required. Start on your own, then email us for dashboard
+                customizations or feedback.
+              </p>
+            </section>
 
-        <div className="text-sm text-slate-600">
-          Already have an account?{' '}
-          <Link href="/login" className="font-semibold text-teal-700 underline">
-            Login to dashboard
-          </Link>
+            <section className="monitor-card-lime">
+              <div>
+                <span className="monitor-pill-tag">30-day free trial</span>
+                <p className="monitor-price-large">
+                  $49<span className="monitor-price-sub">/mo</span>
+                </p>
+              </div>
+              <span className="monitor-plus-badge" aria-hidden>
+                +
+              </span>
+            </section>
+
+            <section className="monitor-card">
+              <h2 className="monitor-h2">Everything included</h2>
+              <article className="monitor-list-item">
+                <span className="monitor-icon-box">↗</span>
+                <div>
+                  <p className="monitor-item-title">Rankings and movement</p>
+                  <p className="monitor-item-sub">Weekly updates</p>
+                </div>
+              </article>
+              <article className="monitor-list-item">
+                <span className="monitor-icon-box">✓</span>
+                <div>
+                  <p className="monitor-item-title">Competitor watch</p>
+                  <p className="monitor-item-sub">See who outranks you and what changed</p>
+                </div>
+              </article>
+              <article className="monitor-list-item">
+                <span className="monitor-icon-box">◎</span>
+                <div>
+                  <p className="monitor-item-title">Website monitoring</p>
+                  <p className="monitor-item-sub">Alerts for SEO, speed, and conversion changes</p>
+                </div>
+              </article>
+            </section>
+          </div>
+
+          <div className="monitor-right-col">
+            <MonitoringTrialForm
+              scanId={scanId || undefined}
+              orgId={orgId || undefined}
+              defaultEmail={email || undefined}
+              defaultName={shop !== 'Your Shop' ? shop : undefined}
+              calendlyUrl={calendlyUrl}
+              supportEmail={supportEmail}
+            />
+
+            <p className="monitor-support-line">
+              Free setup call + monthly SEO consults included if you want hands-on help.
+            </p>
+
+            <p className="monitor-bottom-link">
+              Already have an account?{' '}
+              <Link href="/login">
+                <strong>Login to dashboard</strong>
+              </Link>
+            </p>
+          </div>
         </div>
       </section>
     </main>

@@ -55,57 +55,46 @@ export function MonitoringTrialForm({
   }
 
   return (
-    <article className="card p-6">
-      <h2 className="text-lg font-bold text-slate-900">$49/mo monitoring (30-day free trial)</h2>
-      <p className="mt-1 text-sm text-slate-600">
-        No Zoom required. Start on your own, then email us for dashboard customizations or feedback.
-      </p>
-
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        <label className="text-sm">
-          <span className="mb-1 block font-medium text-slate-700">Name (optional)</span>
-          <input
-            className="w-full rounded-md border border-slate-300 px-3 py-2"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Your name"
-          />
-        </label>
-        <label className="text-sm">
-          <span className="mb-1 block font-medium text-slate-700">Email for billing receipts</span>
-          <input
-            className="w-full rounded-md border border-slate-300 px-3 py-2"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@shop.com"
-            type="email"
-          />
-        </label>
+    <article className="monitor-card">
+      <h2 className="monitor-h2">Get started</h2>
+      <div className="monitor-input-group">
+        <label className="monitor-label">Name (optional)</label>
+        <input
+          className="monitor-input"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Diana Kemmer"
+        />
+      </div>
+      <div className="monitor-input-group">
+        <label className="monitor-label">Email address</label>
+        <input
+          className="monitor-input"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="diana@example.com"
+          type="email"
+        />
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        <button
-          onClick={startTrial}
-          disabled={loading}
-          className="inline-flex rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-        >
-          {loading ? 'Starting trial...' : 'Start free trial'}
-        </button>
-        <a
-          href={calendlyUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-900"
-        >
-          Book optional setup call
-        </a>
-        <a
-          href={`mailto:${supportEmail}?subject=${encodeURIComponent('Dashboard customization help')}`}
-          className="inline-flex rounded-md border border-slate-300 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-900"
-        >
-          Email support
-        </a>
-      </div>
+      <div className="monitor-dashed-divider" />
+
+      <button onClick={startTrial} disabled={loading} className="monitor-btn-primary">
+        <span>{loading ? 'Starting free trial...' : 'Start free trial'}</span>
+        <span className="monitor-btn-icon" aria-hidden>
+          →
+        </span>
+      </button>
+
+      <a href={calendlyUrl} target="_blank" rel="noreferrer" className="monitor-link-secondary">
+        Book optional setup call
+      </a>
+      <a
+        href={`mailto:${supportEmail}?subject=${encodeURIComponent('Dashboard customization help')}`}
+        className="monitor-link-secondary"
+      >
+        Questions? Email support
+      </a>
 
       {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
     </article>

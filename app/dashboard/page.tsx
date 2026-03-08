@@ -6,11 +6,13 @@ import { TrendChartCard } from '@/components/trend-chart-card';
 import { CompetitorComparisonCard } from '@/components/competitor-comparison-card';
 import { AlertCard } from '@/components/alert-card';
 import { KeywordTable } from '@/components/keyword-table';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardOverviewPage() {
   const ctx = await requireDashboardContext();
+  const bookCallUrl = process.env.CALENDLY_LINK || 'https://calendly.com/bigdotdigital/30min';
 
   const [latestSnapshot, activeKeywordCount, activeCompetitorCount, unreadAlerts, recentAlerts, keywords] =
     await Promise.all([
@@ -62,15 +64,47 @@ export default async function DashboardOverviewPage() {
     <div>
       <PageHeader
         title="Overview"
-        subtitle="10-second read on visibility status, movement, and competitive pressure."
+        subtitle="Fast read on ranking momentum, competitor pressure, and what to fix first."
         eyebrow="Monitoring Command"
       />
+
+      {activeKeywordCount === 0 || activeCompetitorCount === 0 ? (
+        <article className="card mb-4 p-5">
+          <h2 className="text-base font-semibold text-slate-900">Finish setup to unlock live insights</h2>
+          <p className="mt-1 text-sm text-slate-700">
+            Add your first tracked keywords and competitors, then we&apos;ll start weekly movement
+            snapshots and alerts.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              href="/dashboard/rankings"
+              className="inline-flex rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900"
+            >
+              Setup keyword tracking
+            </Link>
+            <Link
+              href="/dashboard/competitors"
+              className="inline-flex rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900"
+            >
+              Setup competitor watch
+            </Link>
+            <a
+              href={bookCallUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+            >
+              Book setup call
+            </a>
+          </div>
+        </article>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Latest Snapshot"
           value={latestSnapshot ? new Date(latestSnapshot.snapshotDate).toLocaleDateString() : 'No data'}
-          hint="Weekly collection job will populate this."
+          hint="Updates each weekly monitoring run."
           trend={[41, 43, 44, 46, 49]}
         />
         <StatCard
@@ -99,7 +133,7 @@ export default async function DashboardOverviewPage() {
       <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <TrendChartCard
           title="Visibility Trend"
-          subtitle="Append-only snapshot baseline; trend UI is wired and ready for live provider data."
+          subtitle="Weekly baseline of ranking visibility movement over time."
           points={[53, 55, 54, 58, 60, 59, 61]}
         />
         <div className="space-y-3">
@@ -109,7 +143,7 @@ export default async function DashboardOverviewPage() {
           </article>
           {recentAlerts.length === 0 ? (
             <article className="card rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-600">
-              No alerts yet. Alert engine scaffold is ready.
+              No alerts yet. This is normal until initial snapshots are collected.
             </article>
           ) : (
             recentAlerts.map((alert) => (
@@ -138,12 +172,12 @@ export default async function DashboardOverviewPage() {
           ]}
         />
         <article className="card p-5">
-          <h2 className="text-base font-semibold text-slate-900">GBP Health (Scaffold)</h2>
+          <h2 className="text-base font-semibold text-slate-900">GBP Health</h2>
           <p className="mt-1 text-sm text-slate-600">
-            GBP scoring is intentionally placeholder until provider wiring is complete.
+            Local profile health signals are shown once Google Business Profile syncing is connected.
           </p>
           <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-            No half-real score shown. Connect live GBP signal source in integration phase.
+            Connect GBP to track review velocity, category accuracy, and listing completeness.
           </div>
         </article>
       </div>
