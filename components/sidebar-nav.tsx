@@ -19,6 +19,7 @@ const MONITORING_ITEMS: SidebarItem[] = [
 ];
 
 const ACCOUNT_ITEMS: SidebarItem[] = [
+  { href: '/dashboard/onboarding', label: 'Onboarding' },
   { href: '/dashboard/billing', label: 'Billing' },
   { href: '/dashboard/settings', label: 'Settings' }
 ];

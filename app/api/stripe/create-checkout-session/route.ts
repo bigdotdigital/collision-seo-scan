@@ -8,6 +8,7 @@ import {
   verifyPortalPassword
 } from '@/lib/client-auth';
 import { createStripePortalSession } from '@/lib/stripe';
+import { seedDashboardFromScan } from '@/lib/dashboard-prefill';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -235,22 +236,54 @@ export async function POST(req: Request) {
     const input = publicCheckoutSchema.safeParse(reqBody);
     const publicData = input.success ? input.data : {};
 
-    let ctx = sessionCtx;
-    if (!ctx) {
-      let orgId = publicData.orgId || '';
-      if (publicData.scanId) {
-        const scan = await prisma.scan.findUnique({
-          where: { id: publicData.scanId },
-          select: { organizationId: true, email: true, shopName: true }
-        });
-        if (!scan?.organizationId) {
-          return NextResponse.json({ error: 'Invalid scan context for trial checkout.' }, { status: 400 });
+    let requestedOrgId = '';
+    let requestedScan:
+      | {
+          organizationId: string | null;
+          email: string | null;
+          shopName: string;
+          websiteUrl: string;
+          city: string;
+          moneyKeywordsJson: string;
+          competitorsJson: string;
         }
-        if (orgId && orgId !== scan.organizationId) {
-          return NextResponse.json({ error: 'Mismatched org context.' }, { status: 400 });
+      | null = null;
+
+    if (publicData.scanId) {
+      requestedScan = await prisma.scan.findUnique({
+        where: { id: publicData.scanId },
+        select: {
+          organizationId: true,
+          email: true,
+          shopName: true,
+          websiteUrl: true,
+          city: true,
+          moneyKeywordsJson: true,
+          competitorsJson: true
         }
-        orgId = scan.organizationId;
+      });
+      if (!requestedScan?.organizationId) {
+        return NextResponse.json({ error: 'Invalid scan context for trial checkout.' }, { status: 400 });
       }
+      if (requestedOrgId && requestedOrgId !== requestedScan.organizationId) {
+        return NextResponse.json({ error: 'Mismatched org context.' }, { status: 400 });
+      }
+      requestedOrgId = requestedScan.organizationId;
+    }
+    if (!requestedOrgId && publicData.orgId && sessionCtx?.orgId === publicData.orgId) {
+      requestedOrgId = publicData.orgId;
+    }
+
+    let ctx = sessionCtx;
+    if (requestedOrgId) {
+      ctx = {
+        orgId: requestedOrgId,
+        email: publicData.email || sessionCtx?.email || requestedScan?.email || null
+      };
+    }
+
+    if (!ctx) {
+      let orgId = requestedOrgId;
       if (!orgId) {
         if (!publicData.email || !publicData.password) {
           return NextResponse.json(
@@ -274,6 +307,17 @@ export async function POST(req: Request) {
       ctx = { orgId, email: publicData.email || null };
     }
 
+    if (
+      requestedOrgId &&
+      sessionCtx?.orgId !== requestedOrgId &&
+      (!publicData.email || !publicData.password)
+    ) {
+      return NextResponse.json(
+        { error: 'Confirm your email + password to continue with this scan workspace.' },
+        { status: 401 }
+      );
+    }
+
     if (publicData.email && publicData.password && ctx?.orgId) {
       const linked = await ensureUserMembershipForOrg({
         orgId: ctx.orgId,
@@ -287,6 +331,54 @@ export async function POST(req: Request) {
           { status: 401 }
         );
       }
+    }
+
+    if (requestedScan && requestedScan.organizationId === ctx.orgId) {
+      const seededKeywords = (() => {
+        try {
+          const parsed = JSON.parse(requestedScan.moneyKeywordsJson || '[]');
+          if (!Array.isArray(parsed)) return [];
+          return parsed
+            .map((row) => ({ keyword: typeof row?.keyword === 'string' ? row.keyword : '' }))
+            .filter((row) => row.keyword);
+        } catch {
+          return [];
+        }
+      })();
+      const seededCompetitors = (() => {
+        try {
+          const parsed = JSON.parse(requestedScan.competitorsJson || '[]');
+          if (!Array.isArray(parsed)) return [];
+          return parsed
+            .map((row) => ({
+              name: typeof row?.name === 'string' ? row.name : '',
+              url: typeof row?.url === 'string' ? row.url : ''
+            }))
+            .filter((row) => row.name);
+        } catch {
+          return [];
+        }
+      })();
+      await seedDashboardFromScan({
+        organizationId: ctx.orgId,
+        shopName: requestedScan.shopName || '',
+        websiteUrl: requestedScan.websiteUrl || '',
+        city: requestedScan.city || '',
+        keywords: seededKeywords,
+        competitors: seededCompetitors
+      });
+
+      await prisma.organization.update({
+        where: { id: ctx.orgId },
+        data: {
+          name:
+            requestedScan.shopName && requestedScan.shopName.trim().length > 0
+              ? requestedScan.shopName.trim()
+              : undefined,
+          city: requestedScan.city || undefined,
+          websiteUrl: requestedScan.websiteUrl || undefined
+        }
+      });
     }
 
     const org = await prisma.organization.findUnique({
@@ -353,7 +445,7 @@ export async function POST(req: Request) {
     form.set('subscription_data[metadata][org_id]', org.id);
     if (publicData.scanId) form.set('subscription_data[metadata][scan_id]', publicData.scanId);
     form.set('allow_promotion_codes', 'true');
-    form.set('success_url', withBase('/dashboard/billing?checkout=success'));
+    form.set('success_url', withBase('/dashboard/onboarding?checkout=success'));
     form.set('cancel_url', withBase('/dashboard/billing?checkout=cancel'));
 
     const session = await stripePost('checkout/sessions', form);
