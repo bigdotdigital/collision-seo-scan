@@ -13,7 +13,49 @@ import { LogoutButton } from './logout-button';
 
 export const dynamic = 'force-dynamic';
 
-export default async function AdminPage() {
+const TEST_EMAIL_PATTERNS = [
+  'alxklngr@gmail.com',
+  'demo@collisionseoscan.local',
+  '@example.com',
+  '@collisionseoscan.local'
+];
+
+const TEST_SHOP_PATTERNS = [
+  'werkheiser',
+  'ace auto hail',
+  'aceautohail',
+  '5280autohail',
+  '5280 auto hail',
+  'demo'
+];
+
+const TEST_DOMAIN_PATTERNS = ['werkheisercollision.com', 'aceautohailrepair.com', '5280autohailrepair.com', 'example.com'];
+
+function includesAny(value: string, patterns: string[]) {
+  const n = value.toLowerCase();
+  return patterns.some((p) => n.includes(p));
+}
+
+function isLikelyTestScan(scan: {
+  shopName: string;
+  email: string | null;
+  websiteUrl: string;
+}) {
+  const email = (scan.email || '').toLowerCase();
+  const shop = (scan.shopName || '').toLowerCase();
+  const website = (scan.websiteUrl || '').toLowerCase();
+  return (
+    includesAny(email, TEST_EMAIL_PATTERNS) ||
+    includesAny(shop, TEST_SHOP_PATTERNS) ||
+    includesAny(website, TEST_DOMAIN_PATTERNS)
+  );
+}
+
+export default async function AdminPage({
+  searchParams
+}: {
+  searchParams?: { view?: string };
+}) {
   if (!(process.env.ADMIN_PASSWORD || '').trim()) {
     return (
       <main className="container-shell py-12">
@@ -48,6 +90,10 @@ export default async function AdminPage() {
     })
   ]);
 
+  const showRealOnly = searchParams?.view === 'real';
+  const realScans = scans.filter((scan) => !isLikelyTestScan(scan));
+  const displayedScans = showRealOnly ? realScans : scans;
+
   return (
     <main className="container-shell py-10">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -73,6 +119,38 @@ export default async function AdminPage() {
         </div>
       </div>
 
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm">
+        <p className="text-slate-700">
+          Showing <span className="font-semibold">{displayedScans.length}</span> scans
+          {showRealOnly ? (
+            <>
+              {' '}
+              (<span className="font-semibold">{realScans.length}</span> likely real / net-new)
+            </>
+          ) : null}
+        </p>
+        <div className="flex items-center gap-2">
+          <Link
+            href={showRealOnly ? '/admin' : '/admin?view=real'}
+            className={`rounded-md border px-3 py-1.5 text-xs font-semibold ${
+              showRealOnly
+                ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                : 'border-slate-300 bg-white text-slate-700'
+            }`}
+          >
+            {showRealOnly ? 'Showing real leads only' : 'Real leads only'}
+          </Link>
+          {showRealOnly ? (
+            <Link
+              href="/admin"
+              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700"
+            >
+              Show all scans
+            </Link>
+          ) : null}
+        </div>
+      </div>
+
       <div className="card overflow-x-auto">
         <div className="border-b border-slate-200 p-4">
           <h2 className="text-lg font-bold">Scans</h2>
@@ -92,7 +170,7 @@ export default async function AdminPage() {
             </tr>
           </thead>
           <tbody>
-            {scans.map((scan) => (
+            {displayedScans.map((scan) => (
               <tr key={scan.id} className="border-t border-slate-200 align-top">
                 <td className="px-3 py-2">{formatDateTime(scan.createdAt)}</td>
                 <td className="px-3 py-2">{scan.shopName}</td>
@@ -148,6 +226,13 @@ export default async function AdminPage() {
                 </td>
               </tr>
             ))}
+            {displayedScans.length === 0 ? (
+              <tr>
+                <td colSpan={9} className="px-3 py-5 text-center text-sm text-slate-600">
+                  No scans match this filter yet.
+                </td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
       </div>
