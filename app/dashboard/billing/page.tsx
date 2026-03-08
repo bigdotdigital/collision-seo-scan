@@ -1,15 +1,12 @@
 import { prisma } from '@/lib/prisma';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
 import { PageHeader } from '@/components/page-header';
-import { BillingCard } from '@/components/billing-card';
 import { getStripeCustomerPortalUrl } from '@/lib/stripe';
-import { BillingActions } from '@/components/billing-actions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardBillingPage() {
   const ctx = await requireDashboardContext();
-  const bookCallUrl = process.env.CALENDLY_LINK || 'https://calendly.com/bigdotdigital/30min';
 
   const [subscription, invoices] = await Promise.all([
     prisma.subscription.findUnique({
@@ -22,44 +19,101 @@ export default async function DashboardBillingPage() {
     })
   ]);
 
+  const plan = subscription?.planTier || 'monitor';
+  const status = subscription?.status || 'trialing';
+  const portalUrl = getStripeCustomerPortalUrl(subscription?.stripeCustomerId);
+
   return (
     <div>
-      <PageHeader
-        title="Billing"
-        subtitle="Choose self-serve trial or book a setup call. We can onboard and tailor your dashboard either way."
-      />
+      <PageHeader title="Plans & Billing" subtitle="" eyebrow="Organization Settings" />
 
-      <BillingActions
-        hasSubscription={Boolean(subscription)}
-        portalUrl={getStripeCustomerPortalUrl(subscription?.stripeCustomerId)}
-        bookCallUrl={bookCallUrl}
-      />
+      <div className="mb-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <article className="card p-6">
+          <p className="text-xs uppercase tracking-[0.16em] text-white/45">Current subscription</p>
+          <div className="mt-4 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-5xl font-semibold text-white">{plan === 'monitor' ? 'Monitor Plan' : plan}</p>
+              <p className="mt-2 text-2xl text-white/65">$49.00 <span className="text-base">/ month</span></p>
+            </div>
+            <a
+              href={portalUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="dashboard-button"
+            >
+              Manage Billing
+            </a>
+          </div>
 
-      <BillingCard
-        plan={subscription?.planTier || 'monitor'}
-        status={subscription?.status || 'trialing'}
-        trialEndsAt={subscription?.trialEndsAt?.toLocaleDateString() || null}
-        nextBillingDate={subscription?.currentPeriodEnd?.toLocaleDateString() || null}
-        portalUrl={getStripeCustomerPortalUrl(subscription?.stripeCustomerId)}
-      />
+          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            <div>
+              <p className="text-xs uppercase tracking-[0.14em] text-white/45">Next billing date</p>
+              <p className="mt-1 text-3xl text-white">
+                {subscription?.currentPeriodEnd?.toLocaleDateString() || 'Pending'}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-[0.14em] text-white/45">Status</p>
+              <p className="mt-1 text-3xl capitalize text-white">{status}</p>
+            </div>
+          </div>
+        </article>
 
-      <article className="card mt-4 overflow-hidden">
-        <div className="border-b border-slate-200 px-5 py-4">
-          <h2 className="text-base font-semibold text-slate-900">Invoice History</h2>
-        </div>
-        <div className="divide-y divide-slate-200">
-          {invoices.length === 0 ? (
-            <p className="px-5 py-4 text-sm text-slate-500">No synced invoices yet.</p>
-          ) : (
-            invoices.map((invoice) => (
-              <div key={invoice.id} className="flex items-center justify-between px-5 py-3 text-sm">
-                <span>{invoice.invoiceDate.toLocaleDateString()}</span>
-                <span>{(invoice.amountCents / 100).toFixed(2)} USD</span>
-                <span className="capitalize text-slate-600">{invoice.status}</span>
-              </div>
-            ))
-          )}
-        </div>
+        <article className="card p-6">
+          <p className="text-xs uppercase tracking-[0.16em] text-[#ff8a93]">Available upgrade</p>
+          <p className="mt-3 text-5xl font-semibold text-white">Pro Agency</p>
+          <p className="mt-2 text-sm text-white/65">Unlock daily refreshes and white-label reporting.</p>
+          <p className="mt-8 text-5xl font-semibold text-white">$199 <span className="text-lg text-white/65">/ mo</span></p>
+          <button className="mt-6 w-full rounded-xl bg-[#ff4d5b] px-4 py-3 text-sm font-semibold text-white">
+            Upgrade to Pro
+          </button>
+        </article>
+      </div>
+
+      <article className="card overflow-hidden p-6">
+        <p className="mb-4 text-xs uppercase tracking-[0.16em] text-white/45">Invoice history</p>
+        <table className="w-full min-w-[760px] text-sm">
+          <thead>
+            <tr className="border-b border-white/10 text-left text-xs uppercase tracking-[0.14em] text-white/45">
+              <th className="py-3">Invoice ID</th>
+              <th className="py-3">Date</th>
+              <th className="py-3">Amount</th>
+              <th className="py-3">Status</th>
+              <th className="py-3 text-right">Download</th>
+            </tr>
+          </thead>
+          <tbody>
+            {invoices.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="py-5 text-white/60">
+                  No synced invoices yet.
+                </td>
+              </tr>
+            ) : (
+              invoices.map((invoice) => (
+                <tr key={invoice.id} className="border-b border-white/8 text-white/80">
+                  <td className="py-4 text-lg font-mono">{invoice.stripeInvoiceId || invoice.id}</td>
+                  <td className="py-4">{invoice.invoiceDate.toLocaleDateString()}</td>
+                  <td className="py-4">${(invoice.amountCents / 100).toFixed(2)}</td>
+                  <td className="py-4">
+                    <span className="rounded-full border border-white/15 bg-black/20 px-2 py-1 text-xs uppercase tracking-wide">
+                      {invoice.status}
+                    </span>
+                  </td>
+                  <td className="py-4 text-right">
+                    {invoice.pdfUrl ? (
+                      <a href={invoice.pdfUrl} target="_blank" rel="noreferrer" className="text-[#ff8a93]">
+                        PDF
+                      </a>
+                    ) : (
+                      <span className="text-white/35">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </article>
     </div>
   );

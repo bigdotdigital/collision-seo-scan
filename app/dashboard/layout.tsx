@@ -11,25 +11,21 @@ export default async function DashboardLayout({ children }: { children: React.Re
   });
 
   return (
-    <main className="container-shell py-6">
-      <div className="mb-6 rounded-2xl border border-slate-200 bg-white/80 px-5 py-4 shadow-sm">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">Big Dot Monitoring</p>
-            <h1 className="text-2xl font-bold text-slate-900">{org?.name || 'Organization'}</h1>
-            <p className="text-sm text-slate-600">{org?.city || 'Location pending'}</p>
-          </div>
-          <form action={logoutClient}>
-            <button className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium">
-              Logout
-            </button>
-          </form>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-[260px_minmax(0,1fr)]">
+    <main className="dashboard-shell">
+      <div className="dashboard-grid">
         <SidebarNav />
-        <section className="min-w-0">{children}</section>
+        <section className="dashboard-main min-w-0">
+          <div className="mb-6 flex items-center justify-between border-b border-white/10 pb-4">
+            <div>
+              <p className="dashboard-eyebrow">Collision Repair SEO / {org?.city || 'Location'}</p>
+              <h1 className="text-3xl font-semibold tracking-tight text-white">{org?.name || 'Organization'}</h1>
+            </div>
+            <form action={logoutClient}>
+              <button className="dashboard-button">Logout</button>
+            </form>
+          </div>
+          {children}
+        </section>
       </div>
     </main>
   );
