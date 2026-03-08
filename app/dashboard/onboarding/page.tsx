@@ -1,11 +1,14 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
-import { addTrackedCompetitor, addTrackedKeyword, saveLocationDetails } from '@/app/dashboard/settings/actions';
 
 export const dynamic = 'force-dynamic';
 
-export default async function DashboardOnboardingPage() {
+export default async function DashboardOnboardingPage({
+  searchParams
+}: {
+  searchParams?: { updated?: string; error?: string };
+}) {
   const ctx = await requireDashboardContext();
 
   const [org, location, keywordCount, competitorCount] = await Promise.all([
@@ -22,6 +25,9 @@ export default async function DashboardOnboardingPage() {
   ]);
 
   const ready = keywordCount >= 3 && competitorCount >= 1 && Boolean(location?.websiteUrl || org?.websiteUrl);
+  const updated = searchParams?.updated || '';
+  const hasError = searchParams?.error === '1';
+  const calendly = process.env.CALENDLY_LINK || 'https://calendly.com/bigdotdigital/30min';
 
   return (
     <div className="space-y-4">
@@ -42,13 +48,19 @@ export default async function DashboardOnboardingPage() {
             Website: {location?.websiteUrl || org?.websiteUrl ? 'Added' : 'Missing'}
           </span>
         </div>
+        {updated ? (
+          <p className={`mt-3 text-sm ${hasError ? 'text-red-300' : 'text-emerald-300'}`}>
+            {hasError
+              ? `Could not save ${updated}. Please check fields and try again.`
+              : `${updated.charAt(0).toUpperCase() + updated.slice(1)} saved.`}
+          </p>
+        ) : null}
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
         <article className="card p-6">
           <h2 className="text-2xl font-semibold text-white">1) Shop details</h2>
-          <form action={saveLocationDetails} className="mt-4 space-y-3">
-            <input type="hidden" name="nextPath" value="/dashboard/onboarding" />
+          <form action="/api/dashboard/onboarding?type=location" method="post" className="mt-4 space-y-3">
             <input
               name="name"
               defaultValue={location?.name || org?.name || ''}
@@ -96,8 +108,7 @@ export default async function DashboardOnboardingPage() {
         <article className="card p-6 space-y-4">
           <div>
             <h2 className="text-2xl font-semibold text-white">2) Keywords</h2>
-            <form action={addTrackedKeyword} className="mt-3 flex gap-2">
-              <input type="hidden" name="nextPath" value="/dashboard/onboarding" />
+            <form action="/api/dashboard/onboarding?type=keyword" method="post" className="mt-3 flex gap-2">
               <input
                 name="term"
                 className="flex-1 rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
@@ -112,8 +123,7 @@ export default async function DashboardOnboardingPage() {
 
           <div>
             <h2 className="text-2xl font-semibold text-white">3) Competitor</h2>
-            <form action={addTrackedCompetitor} className="mt-3 grid grid-cols-[1fr_1fr_auto] gap-2">
-              <input type="hidden" name="nextPath" value="/dashboard/onboarding" />
+            <form action="/api/dashboard/onboarding?type=competitor" method="post" className="mt-3 grid grid-cols-[1fr_1fr_auto] gap-2">
               <input
                 name="name"
                 className="rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
@@ -140,12 +150,22 @@ export default async function DashboardOnboardingPage() {
               ? 'Great, your workspace is ready.'
               : 'Complete website + 3 keywords + 1 competitor to finish onboarding.'}
           </p>
-          <Link
-            href={ready ? '/dashboard' : '/dashboard/settings'}
-            className="rounded-xl bg-[#ff4d5b] px-4 py-2 text-sm font-semibold text-white"
-          >
-            {ready ? 'Go to dashboard' : 'Open full settings'}
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href={calendly}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-xl border border-white/20 bg-black/20 px-4 py-2 text-sm font-semibold text-white"
+            >
+              Book setup call
+            </a>
+            <Link
+              href={ready ? '/dashboard' : '/dashboard/settings'}
+              className="rounded-xl bg-[#ff4d5b] px-4 py-2 text-sm font-semibold text-white"
+            >
+              {ready ? 'Go to dashboard' : 'Open full settings'}
+            </Link>
+          </div>
         </div>
       </section>
     </div>
