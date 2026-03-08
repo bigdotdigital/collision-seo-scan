@@ -691,6 +691,13 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         Sources: PageSpeed `{sourceConfidence.pagespeed}` • SERP `{sourceConfidence.serp}` • AI summary `{sourceConfidence.aiSummary}` • Keywords `{sourceConfidence.keywords}`
       </section>
 
+      {sourceConfidence.aiSummary !== 'live' ? (
+        <section className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Some narrative insights are AI-modeled because one or more data providers were unavailable on this run.
+          Measured metrics shown in this report remain source-backed.
+        </section>
+      ) : null}
+
       <section className="variant-results-grid mb-6">
         <article className="variant-score-card">
           <div className="variant-score-ring" style={{ '--score-deg': `${Math.round((scoreTotal / 100) * 360)}deg` } as Record<string, string>}>

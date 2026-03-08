@@ -668,8 +668,17 @@ const generateAiSummary = async (
   shopName: string,
   city: string,
   total: number,
-  issues: Array<{ title: string; why: string; fix: string }>
-): Promise<{ text: string; provider: 'mistral' | 'openai' | 'fallback' }> => {
+  issues: Array<{ title: string; why: string; fix: string }>,
+  options: {
+    hasLivePageSpeed: boolean;
+    serpSource: 'live' | 'cached' | 'fallback';
+    hasLiveKeywordMetrics: boolean;
+  }
+): Promise<{
+  text: string;
+  provider: 'mistral' | 'openai' | 'fallback';
+  sourceConfidence: 'live' | 'modeled' | 'fallback';
+}> => {
   const extractOpenAiText = (data: unknown): string | null => {
     const row = (data || {}) as Record<string, unknown>;
     if (typeof row.output_text === 'string' && row.output_text.trim()) {
@@ -690,14 +699,24 @@ const generateAiSummary = async (
     return null;
   };
 
+  const metricsAvailability = [
+    `PageSpeed metrics: ${options.hasLivePageSpeed ? 'available' : 'not measured this run'}`,
+    `SERP competitor data: ${options.serpSource}`,
+    `Keyword volume/CPC data: ${options.hasLiveKeywordMetrics ? 'available' : 'modeled estimates only'}`
+  ].join('\n');
+
   const prompt = `You are a blunt local SEO strategist. Write 6-10 sentences for a collision shop scan.
 Shop: ${shopName || 'Unknown'}
 City: ${city}
 Score: ${total}
+Data availability:
+${metricsAvailability}
 Issues: ${issues.map((i, idx) => `${idx + 1}. ${i.title} | ${i.why} | ${i.fix}`).join('\n')}
 Required format:
 - Mention exactly 2 wins.
 - Mention exactly 3 biggest leaks.
+- Do not invent numeric metrics or rankings that are not explicitly provided.
+- If speed metrics are unavailable, say "speed details were not measured this run."
 - End with the phrase "Fastest 30-day plan".`;
 
   const mistralKey = process.env.MISTRAL_API_KEY;
@@ -731,7 +750,13 @@ Required format:
 
       const data = await resp.json().catch(() => null);
       const text = data?.choices?.[0]?.message?.content?.trim();
-      if (resp.ok && text) return { text, provider: 'mistral' };
+      if (resp.ok && text) {
+        const sourceConfidence =
+          options.hasLivePageSpeed && options.serpSource !== 'fallback' && options.hasLiveKeywordMetrics
+            ? 'live'
+            : 'modeled';
+        return { text, provider: 'mistral', sourceConfidence };
+      }
     } catch {
       // continue to fallback providers
     }
@@ -756,7 +781,13 @@ Required format:
 
       const data = await resp.json().catch(() => null);
       const text = extractOpenAiText(data);
-      if (resp.ok && text) return { text, provider: 'openai' };
+      if (resp.ok && text) {
+        const sourceConfidence =
+          options.hasLivePageSpeed && options.serpSource !== 'fallback' && options.hasLiveKeywordMetrics
+            ? 'live'
+            : 'modeled';
+        return { text, provider: 'openai', sourceConfidence };
+      }
       if (!resp.ok) {
         const errorMessage =
           (data as { error?: { message?: string } } | null)?.error?.message || 'unknown_error';
@@ -772,7 +803,8 @@ Required format:
 
   return {
     text: generateSummaryFallback(shopName, city, total, issues),
-    provider: 'fallback'
+    provider: 'fallback',
+    sourceConfidence: 'fallback'
   };
 };
 
@@ -869,7 +901,12 @@ export const runScan = async (
     competitors,
     userSignalNames: signals.detected.map((s) => s.signal_name)
   });
-  const aiSummaryResult = await generateAiSummary(shopName, city, scores.total, scores.issues);
+  const hasLiveKeywordMetrics = moneyKeywords.some((k) => k.source === 'api');
+  const aiSummaryResult = await generateAiSummary(shopName, city, scores.total, scores.issues, {
+    hasLivePageSpeed: pagespeed?.status === 'ok',
+    serpSource: competitorResult.source,
+    hasLiveKeywordMetrics
+  });
   const aiSummary = aiSummaryResult.text;
   console.info(
     `AI_PROVIDER=${aiSummaryResult.provider} city=${city.toLowerCase().trim()} shop=${(shopName || 'unknown').toLowerCase().replace(/\\s+/g, '-')}`
@@ -894,8 +931,8 @@ export const runScan = async (
     scanDurationMs: Date.now() - startedAt,
     sources: {
       serp: competitorResult.source,
-      aiSummary: aiSummaryResult.provider === 'fallback' ? 'fallback' : 'live',
-      keywords: moneyKeywords.some((k) => k.source === 'api') ? 'live' : 'modeled'
+      aiSummary: aiSummaryResult.sourceConfidence,
+      keywords: hasLiveKeywordMetrics ? 'live' : 'modeled'
     },
     moneyKeywords,
     competitors,

@@ -180,7 +180,7 @@ export type ScanResult = {
   scanDurationMs: number;
   sources: {
     serp: 'live' | 'cached' | 'fallback';
-    aiSummary: 'live' | 'fallback';
+    aiSummary: 'live' | 'modeled' | 'fallback';
     keywords: 'live' | 'modeled';
   };
   moneyKeywords: MoneyKeyword[];
