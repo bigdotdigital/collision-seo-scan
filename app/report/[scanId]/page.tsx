@@ -784,7 +784,9 @@ export default async function ReportPage({ params }: { params: { scanId: string 
             <p className="report-scan-axis">
               {scannerPreview.captureSource === 'live'
                 ? 'Live page snapshot • scanner overlay active'
-                : 'Abstract scanner fallback • snapshot unavailable'}
+                : scannerPreview.screenshotUrl
+                  ? 'Fallback page snapshot • scanner overlay active'
+                  : 'Abstract scanner fallback • snapshot unavailable'}
             </p>
           </div>
         </article>

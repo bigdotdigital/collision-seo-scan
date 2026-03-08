@@ -15,8 +15,19 @@ export type PageSnapshotCapture = {
 };
 
 export async function capturePageSnapshot(url: string): Promise<PageSnapshotCapture> {
+  const fallbackPreviewUrl = (() => {
+    try {
+      const normalized = new URL(url).toString();
+      return `https://image.thum.io/get/width/1440/crop/900/noanimate/${encodeURIComponent(
+        normalized
+      )}`;
+    } catch {
+      return null;
+    }
+  })();
+
   const fallback: PageSnapshotCapture = {
-    screenshotUrl: null,
+    screenshotUrl: fallbackPreviewUrl,
     captureSource: 'fallback',
     metadata: {
       title: null,
