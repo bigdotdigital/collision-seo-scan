@@ -726,6 +726,14 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         </div>
       </section>
 
+      <section className="report-arch-hero mb-6">
+        <p className="report-arch-kicker">LOCAL SEO DIAGNOSTIC</p>
+        <h2 className="report-arch-title">Visibility Analysis</h2>
+        <p className="report-arch-copy">
+          Shop-owner view: what is working, what is costing estimate calls, and what to fix first.
+        </p>
+      </section>
+
       <section className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-12">
         <div className="report-score-panel lg:col-span-4">
           <ScoreRing score={scoreTotal} />
@@ -740,6 +748,38 @@ export default async function ReportPage({ params }: { params: { scanId: string 
               <p className="report-grade-hint">{card.hint}</p>
             </article>
           ))}
+        </div>
+      </section>
+
+      <section className="report-arch-section mb-6">
+        <div className="report-arch-section-head">
+          <h3 className="report-arch-section-title">Start Here</h3>
+          <span className="report-arch-meta">Most important first</span>
+        </div>
+        <div className="report-arch-grid3">
+          <article className="report-arch-cell">
+            <p className="report-arch-label">Current Health</p>
+            <p className="report-arch-big">{scoreTotal}</p>
+            <p className="report-arch-sub">{scoreCondition}</p>
+          </article>
+          <article className="report-arch-cell">
+            <p className="report-arch-label">Top Priority</p>
+            <ol className="report-arch-list">
+              {ownerTopFixes.slice(0, 2).map((fix, idx) => (
+                <li key={fix.title}>
+                  <span className="report-arch-index">{idx + 1}</span>
+                  <span>{fix.title}</span>
+                </li>
+              ))}
+            </ol>
+          </article>
+          <article className="report-arch-cell">
+            <p className="report-arch-label">Estimated Opportunity</p>
+            <p className="report-arch-big">${vm.opportunity.revenueOpportunity.toLocaleString()}</p>
+            <p className="report-arch-sub">
+              {vm.opportunity.missedLeads.toLocaleString()} missed leads/month (modeled)
+            </p>
+          </article>
         </div>
       </section>
 
@@ -806,6 +846,33 @@ export default async function ReportPage({ params }: { params: { scanId: string 
             </div>
           </div>
         </article>
+      </section>
+
+      <section className="report-arch-section mb-6">
+        <div className="report-arch-section-head">
+          <h3 className="report-arch-section-title">Market Context</h3>
+          <span className="report-arch-meta">Your shop vs local rivals</span>
+        </div>
+        <div className="report-arch-table-wrap">
+          <table className="variant-table">
+            <thead>
+              <tr>
+                <th>Shop</th>
+                <th>Score</th>
+                <th>Reviews</th>
+              </tr>
+            </thead>
+            <tbody>
+              {competitorRows.map((row) => (
+                <tr key={`market-${row.name}`}>
+                  <td>{row.name}</td>
+                  <td>{row.score}</td>
+                  <td>{row.reviews}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className="report-scan-stage mb-6 grid gap-4 lg:grid-cols-12">
