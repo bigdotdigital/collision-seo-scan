@@ -447,6 +447,7 @@ export default async function DashboardOverviewPage() {
             {[
               { label: 'PageSpeed', data: providerStatus.pagespeed },
               { label: 'SERP', data: providerStatus.serp },
+              { label: 'Map Pack', data: providerStatus.mapPack },
               { label: 'AI Summary', data: providerStatus.aiSummary },
               { label: 'Snapshot', data: providerStatus.snapshot },
               { label: 'Google Places', data: providerStatus.googlePlaces }

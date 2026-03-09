@@ -205,6 +205,7 @@ export async function POST(req: Request) {
       pageFetchMeta: result.pageFetchMeta,
       scanDurationMs: result.scanDurationMs,
       competitors: result.competitors,
+      mapPack: result.mapPack,
       scannerPreview,
       googlePlace: googlePlaceResult.profile || undefined,
       sources: {
@@ -212,7 +213,7 @@ export async function POST(req: Request) {
         serp: result.sources.serp,
         aiSummary: result.sources.aiSummary,
         reviews: googlePlaceResult.source === 'live' ? 'live' : 'modeled',
-        mapPack: googlePlaceResult.source === 'live' ? 'live' : result.sources.serp === 'fallback' ? 'fallback' : 'modeled',
+        mapPack: result.sources.mapPack,
         competitors: result.sources.serp,
         keywords: result.sources.keywords
       },
@@ -256,6 +257,15 @@ export async function POST(req: Request) {
         googlePlaces: {
           status: googlePlaceResult.source,
           detail: googlePlaceResult.detail
+        },
+        mapPack: {
+          status: result.sources.mapPack,
+          detail:
+            result.sources.mapPack === 'live'
+              ? 'Live local map-pack rankings captured for target queries.'
+              : result.sources.mapPack === 'cached'
+                ? 'Recent local map-pack ranking snapshot reused from cache.'
+                : 'Fallback map-pack placeholders used because live map data was unavailable.'
         }
       }
     });

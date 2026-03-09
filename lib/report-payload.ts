@@ -3,6 +3,7 @@ import type {
   CollisionSignal,
   Competitor,
   CompetitorAdvantage,
+  MapPackResult,
   NationalBenchmarkResult,
   PageFetchMeta,
   PrioritizedFix,
@@ -96,6 +97,10 @@ export type ReportPayload = {
       status: SourceConfidence | 'error';
       detail?: string;
     };
+    mapPack?: {
+      status: SourceConfidence | 'error';
+      detail?: string;
+    };
   };
 };
 
@@ -171,7 +176,17 @@ export function buildReportPayload(input: {
   googlePlace?: ReportPayload['googlePlace'];
   sources: ReportPayload['sources'];
   providerStatus?: ReportPayload['providerStatus'];
+  mapPack?: MapPackResult;
 }): ReportPayload {
+  const fallbackMapPack = buildMapPackPayload(input.city, input.shopName, input.competitors);
+  const resolvedMapPack = input.mapPack
+    ? {
+        info: input.mapPack.info,
+        likelySignals: input.mapPack.likelySignals,
+        queries: input.mapPack.queries
+      }
+    : fallbackMapPack;
+
   return {
     version: 'v1',
     generatedAt: new Date().toISOString(),
@@ -187,7 +202,7 @@ export function buildReportPayload(input: {
     pageFetchMeta: input.pageFetchMeta,
     scanDurationMs: input.scanDurationMs,
     reviewGap: buildReviewGapPayload(),
-    mapPack: buildMapPackPayload(input.city, input.shopName, input.competitors),
+    mapPack: resolvedMapPack,
     scannerPreview: input.scannerPreview,
     googlePlace: input.googlePlace,
     sources: input.sources,

@@ -5,6 +5,7 @@ import { clamp, normalizeSpace, textContainsAny } from '@/lib/utils';
 import type {
   Competitor,
   CompetitorAdvantage,
+  MapPackResult,
   PageFetchMeta,
   MoneyKeyword,
   ScanChecks,
@@ -69,6 +70,13 @@ const NON_SHOP_TITLE_HINTS = [
   'reviews for',
   'wiki',
   'reddit'
+];
+
+const MAP_PACK_QUERY_TEMPLATES = [
+  'collision repair {city}',
+  'auto body shop {city}',
+  'bumper repair {city}',
+  'hail damage repair {city}'
 ];
 
 const phoneRegex = /\+?1?[\s.-]?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/;
@@ -304,6 +312,159 @@ const getCompetitors = async (
   ];
   console.info(`SERP_STATUS=fallback city=${cityKey} count=${fallbackRows.length}`);
   return { competitors: fallbackRows, source: 'fallback' };
+};
+
+const normalizeMapResultName = (value: unknown): string | null => {
+  if (typeof value !== 'string') return null;
+  const trimmed = normalizeSpace(value);
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const canonicalName = (value: string): string =>
+  value.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+const buildFallbackMapPack = (city: string, shopName: string, competitors: Competitor[]): MapPackResult => {
+  const c = city.trim().toLowerCase();
+  const rank1 = competitors[0]?.name || `Leading ${city} collision shop`;
+  const rank2 = competitors[1]?.name || `Top-rated ${city} auto body brand`;
+  const rank3 = competitors[2]?.name || `High-visibility ${city} repair competitor`;
+
+  return {
+    source: 'fallback',
+    info: 'Map pack ranks were unavailable in this run and will be pulled on teardown.',
+    likelySignals: [
+      'Review velocity and star rating advantage',
+      'Tighter service + location category match',
+      'Stronger city service pages and internal linking',
+      'More prominent estimate CTA and conversion flow'
+    ],
+    queries: MAP_PACK_QUERY_TEMPLATES.map((template, idx) => ({
+      query: template.replace('{city}', c),
+      rank1,
+      rank2,
+      rank3,
+      yourRank: idx === 0 ? `${shopName} (likely #4-#7)` : `${shopName} (outside top 3)`
+    }))
+  };
+};
+
+const extractCachedMapPack = (input: unknown): MapPackResult | null => {
+  if (!input || typeof input !== 'object') return null;
+  const row = input as Record<string, unknown>;
+  const pack = row.mapPack;
+  if (!pack || typeof pack !== 'object') return null;
+  const typed = pack as Record<string, unknown>;
+  if (!Array.isArray(typed.queries) || typed.queries.length === 0) return null;
+
+  const queries = typed.queries
+    .map((q) => q as Record<string, unknown>)
+    .map((q) => ({
+      query: typeof q.query === 'string' ? q.query : '',
+      rank1: typeof q.rank1 === 'string' ? q.rank1 : 'n/a',
+      rank2: typeof q.rank2 === 'string' ? q.rank2 : 'n/a',
+      rank3: typeof q.rank3 === 'string' ? q.rank3 : 'n/a',
+      yourRank: typeof q.yourRank === 'string' ? q.yourRank : 'n/a'
+    }))
+    .filter((q) => q.query.length > 0);
+
+  if (queries.length === 0) return null;
+  return {
+    source: 'cached',
+    info:
+      typeof typed.info === 'string'
+        ? typed.info
+        : 'Map pack ranks are from a recent cached scan for this market.',
+    likelySignals: Array.isArray(typed.likelySignals)
+      ? typed.likelySignals.filter((x): x is string => typeof x === 'string').slice(0, 6)
+      : [],
+    queries
+  };
+};
+
+const getMapPack = async (
+  city: string,
+  shopName: string,
+  competitors: Competitor[]
+): Promise<MapPackResult> => {
+  const cityKey = city.trim().toLowerCase();
+  const cacheCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  try {
+    const recent = await prisma.scan.findFirst({
+      where: {
+        city: { equals: city, mode: 'insensitive' },
+        createdAt: { gte: cacheCutoff }
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { rawChecksJson: true }
+    });
+    if (recent?.rawChecksJson) {
+      const parsed = JSON.parse(recent.rawChecksJson);
+      const cached = extractCachedMapPack(parsed);
+      if (cached) {
+        console.info(`MAP_PACK_STATUS=cache city=${cityKey} count=${cached.queries.length}`);
+        return cached;
+      }
+    }
+  } catch {
+    // Cache read should never block scan flow.
+  }
+
+  const serpKey = process.env.SERP_API_KEY;
+  if (!serpKey) return buildFallbackMapPack(city, shopName, competitors);
+
+  const shopNameKey = canonicalName(shopName);
+  const fallback = buildFallbackMapPack(city, shopName, competitors);
+
+  try {
+    const rows = await Promise.all(
+      MAP_PACK_QUERY_TEMPLATES.map(async (template) => {
+        const query = template.replace('{city}', cityKey);
+        const endpoint =
+          `https://serpapi.com/search.json?engine=google_maps&q=${encodeURIComponent(query)}` +
+          `&api_key=${encodeURIComponent(serpKey)}`;
+        const res = await timeoutFetch(endpoint, 10_000);
+        const json = await res.json();
+        const localResults = Array.isArray(json?.local_results) ? json.local_results : [];
+        const names = localResults
+          .map((entry: Record<string, unknown>) => normalizeMapResultName(entry.title || entry.name))
+          .filter((value: string | null): value is string => Boolean(value));
+
+        const rank1 = names[0] || fallback.queries[0].rank1;
+        const rank2 = names[1] || fallback.queries[0].rank2;
+        const rank3 = names[2] || fallback.queries[0].rank3;
+
+        const foundIndex = names.findIndex((n: string) => {
+          const key = canonicalName(n);
+          return key.includes(shopNameKey) || shopNameKey.includes(key);
+        });
+
+        const yourRank =
+          foundIndex >= 0
+            ? `#${foundIndex + 1}`
+            : names.length > 0
+              ? `outside top ${Math.min(names.length, 20)}`
+              : 'not found';
+
+        return { query, rank1, rank2, rank3, yourRank };
+      })
+    );
+
+    if (rows.some((row) => row.rank1 && row.rank1 !== 'n/a')) {
+      console.info(`MAP_PACK_STATUS=live city=${cityKey} count=${rows.length}`);
+      return {
+        source: 'live',
+        info: 'Live map pack ranks pulled from current local search results.',
+        likelySignals: fallback.likelySignals,
+        queries: rows
+      };
+    }
+  } catch {
+    // fall through to fallback
+  }
+
+  console.info(`MAP_PACK_STATUS=fallback city=${cityKey}`);
+  return fallback;
 };
 
 const hashKeyword = (value: string): number => {
@@ -896,6 +1057,7 @@ export const runScan = async (
     runNationalCollisionBenchmark(checks)
   ]);
   const competitors = competitorResult.competitors;
+  const mapPackResult = await getMapPack(city, shopName, competitors);
   const competitorAdvantages: CompetitorAdvantage[] = await buildCompetitorComparison({
     city,
     competitors,
@@ -931,11 +1093,13 @@ export const runScan = async (
     scanDurationMs: Date.now() - startedAt,
     sources: {
       serp: competitorResult.source,
+      mapPack: mapPackResult.source,
       aiSummary: aiSummaryResult.sourceConfidence,
       keywords: hasLiveKeywordMetrics ? 'live' : 'modeled'
     },
     moneyKeywords,
     competitors,
+    mapPack: mapPackResult,
     aiSummary,
     thirtyDayPlan
   };

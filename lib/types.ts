@@ -156,6 +156,21 @@ export type PageFetchMeta = {
   ok: boolean;
 };
 
+export type MapPackQueryResult = {
+  query: string;
+  rank1: string;
+  rank2: string;
+  rank3: string;
+  yourRank: string;
+};
+
+export type MapPackResult = {
+  info: string;
+  likelySignals: string[];
+  queries: MapPackQueryResult[];
+  source: 'live' | 'cached' | 'fallback';
+};
+
 export type ScoreResult = {
   total: number;
   website: number;
@@ -180,11 +195,13 @@ export type ScanResult = {
   scanDurationMs: number;
   sources: {
     serp: 'live' | 'cached' | 'fallback';
+    mapPack: 'live' | 'cached' | 'fallback';
     aiSummary: 'live' | 'modeled' | 'fallback';
     keywords: 'live' | 'modeled';
   };
   moneyKeywords: MoneyKeyword[];
   competitors: Competitor[];
+  mapPack: MapPackResult;
   aiSummary?: string;
   thirtyDayPlan: ThirtyDayPlanItem[];
 };

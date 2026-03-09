@@ -1189,12 +1189,17 @@ export default async function ReportPage({ params }: { params: { scanId: string 
 
       <section className="mt-6 card print-break-avoid p-6">
         <h2 className="text-xl font-bold">Map Rankings for Collision Searches</h2>
+        {sourceConfidence.mapPack !== 'live' && sourceConfidence.mapPack !== 'cached' ? (
+          <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            Live map-pack data was unavailable for this run.
+          </p>
+        ) : null}
         <p className="mt-1 text-sm text-slate-600">
-          {sourceConfidence.mapPack === 'live'
+          {sourceConfidence.mapPack === 'live' || sourceConfidence.mapPack === 'cached'
             ? mapPack.info
             : 'Map pack ranks were unavailable in this run and will be pulled during teardown.'}
         </p>
-        {sourceConfidence.mapPack === 'live' ? (
+        {sourceConfidence.mapPack === 'live' || sourceConfidence.mapPack === 'cached' ? (
           <div className="mt-4 space-y-3">
             {mapPack.queries.map((row) => (
               <article key={row.query} className="rounded-lg border border-slate-200 p-4">
