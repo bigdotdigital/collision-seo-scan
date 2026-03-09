@@ -1,11 +1,26 @@
 import { prisma } from '@/lib/prisma';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
 import { PageHeader } from '@/components/page-header';
+import { reconcileStripeStateForOrg } from '@/lib/stripe';
 
 export const dynamic = 'force-dynamic';
 
-export default async function DashboardBillingPage() {
+export default async function DashboardBillingPage({
+  searchParams
+}: {
+  searchParams?: { checkout?: string };
+}) {
   const ctx = await requireDashboardContext();
+
+  const org = await prisma.organization.findUnique({
+    where: { id: ctx.orgId },
+    select: { stripeCustomerId: true, stripeSubscriptionId: true }
+  });
+
+  // Webhooks can lag briefly; reconcile directly on key billing transitions.
+  if (org?.stripeCustomerId && (searchParams?.checkout === 'success' || !org.stripeSubscriptionId)) {
+    await reconcileStripeStateForOrg(ctx.orgId).catch(() => undefined);
+  }
 
   const [subscription, invoices] = await Promise.all([
     prisma.subscription.findUnique({
@@ -21,6 +36,7 @@ export default async function DashboardBillingPage() {
   const plan = subscription?.planTier || 'monitor';
   const status = subscription?.status || 'trialing';
   const portalUrl = '/api/stripe/create-portal-session?returnTo=/dashboard/billing';
+  const bookCallUrl = process.env.CALENDLY_LINK || 'https://calendly.com/bigdotdigital/30min';
   const displayInvoices =
     status === 'trialing'
       ? invoices
@@ -73,9 +89,14 @@ export default async function DashboardBillingPage() {
           <p className="mt-3 text-5xl font-semibold text-white">Pro Agency</p>
           <p className="mt-2 text-sm text-white/65">Unlock daily refreshes and white-label reporting.</p>
           <p className="mt-8 text-5xl font-semibold text-white">$199 <span className="text-lg text-white/65">/ mo</span></p>
-          <button className="mt-6 w-full rounded-xl bg-[#ff4d5b] px-4 py-3 text-sm font-semibold text-white">
+          <a
+            href={bookCallUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-6 block w-full rounded-xl bg-[#ff4d5b] px-4 py-3 text-center text-sm font-semibold text-white"
+          >
             Upgrade to Pro
-          </button>
+          </a>
         </article>
       </div>
 

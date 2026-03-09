@@ -8,6 +8,7 @@ import type {
   PrioritizedFix,
   ScanChecks
 } from '@/lib/types';
+import type { GooglePlaceProfile } from '@/lib/google-places';
 
 export type SourceConfidence = 'live' | 'cached' | 'modeled' | 'fallback';
 
@@ -63,6 +64,7 @@ export type ReportPayload = {
       wordCount: number | null;
     };
   };
+  googlePlace?: GooglePlaceProfile;
   sources: {
     pagespeed: SourceConfidence;
     serp: SourceConfidence;
@@ -71,6 +73,29 @@ export type ReportPayload = {
     mapPack: SourceConfidence;
     competitors: SourceConfidence;
     keywords: SourceConfidence;
+  };
+  providerStatus?: {
+    pagespeed: {
+      status: SourceConfidence | 'error';
+      detail?: string;
+    };
+    serp: {
+      status: SourceConfidence | 'error';
+      detail?: string;
+    };
+    aiSummary: {
+      status: SourceConfidence | 'error';
+      provider?: string;
+      detail?: string;
+    };
+    snapshot: {
+      status: SourceConfidence | 'error';
+      detail?: string;
+    };
+    googlePlaces?: {
+      status: SourceConfidence | 'error';
+      detail?: string;
+    };
   };
 };
 
@@ -143,7 +168,9 @@ export function buildReportPayload(input: {
   competitors: Competitor[];
   nationalBenchmark?: NationalBenchmarkResult;
   scannerPreview?: ReportPayload['scannerPreview'];
+  googlePlace?: ReportPayload['googlePlace'];
   sources: ReportPayload['sources'];
+  providerStatus?: ReportPayload['providerStatus'];
 }): ReportPayload {
   return {
     version: 'v1',
@@ -162,7 +189,9 @@ export function buildReportPayload(input: {
     reviewGap: buildReviewGapPayload(),
     mapPack: buildMapPackPayload(input.city, input.shopName, input.competitors),
     scannerPreview: input.scannerPreview,
-    sources: input.sources
+    googlePlace: input.googlePlace,
+    sources: input.sources,
+    providerStatus: input.providerStatus
   };
 }
 

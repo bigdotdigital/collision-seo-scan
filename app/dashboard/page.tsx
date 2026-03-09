@@ -10,7 +10,7 @@ import type { CategoryKey, Issue, PrioritizedFix } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
-type SourceConfidence = 'live' | 'cached' | 'modeled' | 'fallback' | 'unknown';
+type SourceConfidence = 'live' | 'cached' | 'modeled' | 'fallback' | 'error' | 'unknown';
 
 type TaskRow = {
   title: string;
@@ -78,6 +78,7 @@ function confidenceTone(source: SourceConfidence) {
   if (source === 'live') return 'bg-[#ff4d5b]/15 text-[#ff8a93] border-[#ff4d5b]/45';
   if (source === 'cached') return 'bg-white/10 text-white border-white/20';
   if (source === 'modeled') return 'bg-[#ff9a5c]/12 text-[#ffb388] border-[#ff9a5c]/45';
+  if (source === 'error') return 'bg-red-100 text-red-700 border-red-300';
   if (source === 'fallback') return 'bg-black/30 text-white/70 border-white/15';
   return 'bg-black/30 text-white/70 border-white/15';
 }
@@ -218,6 +219,7 @@ export default async function DashboardOverviewPage() {
     competitors: reportPayload?.sources.competitors || 'unknown',
     keywords: reportPayload?.sources.keywords || 'unknown'
   } as const;
+  const providerStatus = reportPayload?.providerStatus || null;
 
   const categories = reportPayload?.categoryScores
     ? [
@@ -425,6 +427,53 @@ export default async function DashboardOverviewPage() {
             Snapshot: {humanTime(latestSnapshot?.createdAt)}
           </div>
         </article>
+      </section>
+
+      <section className="mb-4 card p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">Data pipeline health</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Live status from the most recent scan pipeline execution.
+            </p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
+            Last scan: {humanTime(latestScan?.createdAt)}
+          </span>
+        </div>
+
+        {providerStatus ? (
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {[
+              { label: 'PageSpeed', data: providerStatus.pagespeed },
+              { label: 'SERP', data: providerStatus.serp },
+              { label: 'AI Summary', data: providerStatus.aiSummary },
+              { label: 'Snapshot', data: providerStatus.snapshot },
+              { label: 'Google Places', data: providerStatus.googlePlaces }
+            ].map((item) => (
+              <article key={item.label} className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-slate-900">{item.label}</p>
+                  <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold uppercase ${confidenceTone((item.data?.status || 'unknown') as SourceConfidence)}`}>
+                    {item.data?.status || 'unknown'}
+                  </span>
+                </div>
+                {'provider' in (item.data || {}) && (item.data as { provider?: string }).provider ? (
+                  <p className="mt-1 text-xs text-slate-500">
+                    Provider: {(item.data as { provider?: string }).provider}
+                  </p>
+                ) : null}
+                <p className="mt-2 text-sm text-slate-600">
+                  {item.data?.detail || 'No details available for this provider run.'}
+                </p>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
+            No pipeline health data yet. Run a fresh scan to populate provider diagnostics.
+          </div>
+        )}
       </section>
 
       <section className="mb-4 grid gap-4 md:grid-cols-2">

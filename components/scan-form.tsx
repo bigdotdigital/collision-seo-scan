@@ -67,7 +67,7 @@ export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalS
 
       await wait(850);
 
-      router.push(`/report/${json.scanId}`);
+      router.push(typeof json?.nextUrl === 'string' && json.nextUrl ? json.nextUrl : `/report/${json.scanId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unexpected error');
       setScanComplete(false);

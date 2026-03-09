@@ -204,3 +204,68 @@ export async function syncSubscriptionFromEvent(event: StripeWebhookEvent) {
 
   return { ok: true as const, orgId: org.id };
 }
+
+async function stripeGet(path: string): Promise<Record<string, unknown> | null> {
+  const key = process.env.STRIPE_SECRET_KEY || '';
+  if (!key) return null;
+  const res = await fetch(`https://api.stripe.com/v1/${path}`, {
+    method: 'GET',
+    headers: {
+      authorization: `Bearer ${key}`
+    },
+    cache: 'no-store'
+  });
+  if (!res.ok) return null;
+  return (await res.json().catch(() => null)) as Record<string, unknown> | null;
+}
+
+export async function reconcileStripeStateForOrg(orgId: string) {
+  const org = await prisma.organization.findUnique({
+    where: { id: orgId },
+    select: { id: true, stripeCustomerId: true, stripeSubscriptionId: true }
+  });
+  if (!org?.stripeCustomerId) {
+    return { ok: false as const, reason: 'missing_customer' as const };
+  }
+
+  let syncedSubscription = false;
+  let invoiceCount = 0;
+
+  const subList = await stripeGet(
+    `subscriptions?customer=${encodeURIComponent(org.stripeCustomerId)}&status=all&limit=3`
+  );
+  const subscriptions = Array.isArray(subList?.data)
+    ? (subList?.data as Array<Record<string, unknown>>)
+    : [];
+  const selectedSubscription =
+    subscriptions.find((row) => String(row.id || '') === (org.stripeSubscriptionId || '')) ||
+    subscriptions[0];
+  if (selectedSubscription) {
+    await syncSubscriptionFromEvent({
+      type: 'customer.subscription.updated',
+      data: { object: selectedSubscription }
+    });
+    syncedSubscription = true;
+  }
+
+  const invoiceList = await stripeGet(
+    `invoices?customer=${encodeURIComponent(org.stripeCustomerId)}&limit=12`
+  );
+  const invoices = Array.isArray(invoiceList?.data)
+    ? (invoiceList?.data as Array<Record<string, unknown>>)
+    : [];
+  for (const invoice of invoices) {
+    await syncSubscriptionFromEvent({
+      type: 'invoice.payment_succeeded',
+      data: { object: invoice }
+    });
+    invoiceCount += 1;
+  }
+
+  return {
+    ok: true as const,
+    orgId,
+    syncedSubscription,
+    invoiceCount
+  };
+}

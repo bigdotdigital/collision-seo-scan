@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
 import { PageHeader } from '@/components/page-header';
@@ -48,7 +49,11 @@ export default async function DashboardCompetitorsPage() {
         title="Head-to-Head Comparison"
         subtitle="Keyword performance vs. top local rivals"
         eyebrow="Market Analysis"
-        actions={<button className="rounded-xl bg-[#ff4d5b] px-4 py-2 text-sm font-semibold text-white">+ Add Competitor</button>}
+        actions={
+          <Link href="/dashboard/onboarding" className="rounded-xl bg-[#ff4d5b] px-4 py-2 text-sm font-semibold text-white">
+            + Add Competitor
+          </Link>
+        }
       />
 
       <article className="card mb-5 overflow-hidden p-0">

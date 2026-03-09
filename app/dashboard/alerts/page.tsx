@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
 import { PageHeader } from '@/components/page-header';
+import { saveAlertPreferences } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -87,11 +88,19 @@ export default async function DashboardAlertsPage() {
 
         <aside className="card p-5">
           <h3 className="text-xs uppercase tracking-[0.16em] text-white/45">Alert settings</h3>
-          <div className="mt-4 space-y-4">
+          <form action={saveAlertPreferences} className="mt-4 space-y-4">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div>
                 <p className="text-[24px] font-medium text-white">Rank Volatility</p>
                 <p className="text-sm text-white/55">Notify on +/- {prefs?.rankDropThreshold ?? 3} position changes</p>
+                <input
+                  type="number"
+                  name="rankDropThreshold"
+                  min={1}
+                  max={20}
+                  defaultValue={prefs?.rankDropThreshold ?? 3}
+                  className="mt-2 w-24 rounded-lg border border-white/10 bg-black/30 px-2 py-1 text-xs text-white"
+                />
               </div>
               {channelToggle(true)}
             </div>
@@ -100,34 +109,69 @@ export default async function DashboardAlertsPage() {
                 <p className="text-[24px] font-medium text-white">Competitor Entry</p>
                 <p className="text-sm text-white/55">New domains in top 20 results</p>
               </div>
-              {channelToggle(Boolean(prefs?.newCompetitorEnabled))}
+              <label className="cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="newCompetitorEnabled"
+                  defaultChecked={Boolean(prefs?.newCompetitorEnabled)}
+                  className="sr-only"
+                />
+                {channelToggle(Boolean(prefs?.newCompetitorEnabled))}
+              </label>
             </div>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[24px] font-medium text-white">GBP Attribute Drift</p>
                 <p className="text-sm text-white/55">Profile health and attribute issues</p>
               </div>
-              {channelToggle(Boolean(prefs?.gbpIssueEnabled))}
+              <label className="cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="gbpIssueEnabled"
+                  defaultChecked={Boolean(prefs?.gbpIssueEnabled)}
+                  className="sr-only"
+                />
+                {channelToggle(Boolean(prefs?.gbpIssueEnabled))}
+              </label>
             </div>
-          </div>
+            <input
+              type="checkbox"
+              name="competitorMoveEnabled"
+              defaultChecked={Boolean(prefs?.competitorMoveEnabled)}
+              className="hidden"
+              readOnly
+            />
 
-          <h3 className="mt-7 text-xs uppercase tracking-[0.16em] text-white/45">Notification channels</h3>
-          <div className="mt-4 space-y-4">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div>
-                <p className="text-[24px] font-medium text-white">Email Digest</p>
-                <p className="text-sm text-white/55">{prefs?.digestFrequency || 'daily'} summary</p>
+            <h3 className="mt-7 text-xs uppercase tracking-[0.16em] text-white/45">Notification channels</h3>
+            <div className="mt-4 space-y-4">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div>
+                  <p className="text-[24px] font-medium text-white">Email Digest</p>
+                  <p className="text-sm text-white/55">{prefs?.digestFrequency || 'daily'} summary</p>
+                  <select
+                    name="digestFrequency"
+                    defaultValue={prefs?.digestFrequency || 'daily'}
+                    className="mt-2 rounded-lg border border-white/10 bg-black/30 px-2 py-1 text-xs text-white"
+                  >
+                    <option value="off">off</option>
+                    <option value="daily">daily</option>
+                    <option value="weekly">weekly</option>
+                  </select>
+                </div>
+                {channelToggle((prefs?.digestFrequency || 'daily') !== 'off')}
               </div>
-              {channelToggle((prefs?.digestFrequency || 'daily') !== 'off')}
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[24px] font-medium text-white">SMS Alerts</p>
-                <p className="text-sm text-white/55">Critical only (coming soon)</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[24px] font-medium text-white">SMS Alerts</p>
+                  <p className="text-sm text-white/55">Critical only (coming soon)</p>
+                </div>
+                {channelToggle(false)}
               </div>
-              {channelToggle(false)}
             </div>
-          </div>
+            <button className="mt-4 w-full rounded-xl bg-[#ff4d5b] px-4 py-2 text-sm font-semibold text-white" type="submit">
+              Save alert settings
+            </button>
+          </form>
         </aside>
       </div>
     </div>

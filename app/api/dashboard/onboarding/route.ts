@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getDashboardSession } from '@/lib/client-auth';
+import { normalizeWebsiteUrl, sanitizeInput } from '@/lib/security/url';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,12 +39,14 @@ export async function POST(req: Request) {
 
   try {
     if (type === 'location') {
-      const name = String(form.get('name') || '').trim();
-      const address = String(form.get('address') || '').trim();
-      const city = String(form.get('city') || '').trim();
-      const state = String(form.get('state') || '').trim();
-      const websiteUrl = String(form.get('websiteUrl') || '').trim();
-      const gbpUrl = String(form.get('gbpUrl') || '').trim();
+      const name = sanitizeInput(String(form.get('name') || ''), 120);
+      const address = sanitizeInput(String(form.get('address') || ''), 180);
+      const city = sanitizeInput(String(form.get('city') || ''), 80);
+      const state = sanitizeInput(String(form.get('state') || ''), 40);
+      const websiteUrlInput = sanitizeInput(String(form.get('websiteUrl') || ''), 240);
+      const gbpUrlInput = sanitizeInput(String(form.get('gbpUrl') || ''), 240);
+      const websiteUrl = websiteUrlInput ? normalizeWebsiteUrl(websiteUrlInput) : null;
+      const gbpUrl = gbpUrlInput ? normalizeWebsiteUrl(gbpUrlInput) : null;
 
       const location = await getOrCreatePrimaryLocation(session.orgId);
 
@@ -74,7 +77,7 @@ export async function POST(req: Request) {
     }
 
     if (type === 'keyword') {
-      const term = String(form.get('term') || '').trim().toLowerCase();
+      const term = sanitizeInput(String(form.get('term') || ''), 120).toLowerCase();
       if (!term) return toRedirect(req, 'keyword', false);
       const location = await getOrCreatePrimaryLocation(session.orgId);
       await prisma.trackedKeyword.upsert({
@@ -100,8 +103,9 @@ export async function POST(req: Request) {
     }
 
     if (type === 'competitor') {
-      const name = String(form.get('name') || '').trim();
-      const websiteUrl = String(form.get('websiteUrl') || '').trim();
+      const name = sanitizeInput(String(form.get('name') || ''), 120);
+      const websiteUrlInput = sanitizeInput(String(form.get('websiteUrl') || ''), 240);
+      const websiteUrl = websiteUrlInput ? normalizeWebsiteUrl(websiteUrlInput) : null;
       if (!name) return toRedirect(req, 'competitor', false);
       const location = await getOrCreatePrimaryLocation(session.orgId);
 

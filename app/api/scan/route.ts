@@ -13,6 +13,7 @@ import { logEnvWarningsOnce } from '@/lib/env-check';
 import { checkScanRateLimit } from '@/lib/security/rate-limit';
 import { buildReportPayload } from '@/lib/report-payload';
 import { capturePageSnapshot } from '@/lib/page-snapshot';
+import { fetchGooglePlaceProfile } from '@/lib/google-places';
 import {
   assertPublicHostname,
   normalizeWebsiteUrl,
@@ -138,6 +139,11 @@ export async function POST(req: Request) {
     }
 
     const pagespeedLive = await runPageSpeed(websiteUrl);
+    const googlePlaceResult = await fetchGooglePlaceProfile({
+      shopName: normalizedShop,
+      city: normalizedCity,
+      websiteUrl
+    });
     const result = await runScan(
       websiteUrl,
       normalizedCity,
@@ -200,14 +206,57 @@ export async function POST(req: Request) {
       scanDurationMs: result.scanDurationMs,
       competitors: result.competitors,
       scannerPreview,
+      googlePlace: googlePlaceResult.profile || undefined,
       sources: {
         pagespeed: pageSpeedStatus,
         serp: result.sources.serp,
         aiSummary: result.sources.aiSummary,
-        reviews: 'modeled',
-        mapPack: result.sources.serp === 'fallback' ? 'fallback' : 'modeled',
+        reviews: googlePlaceResult.source === 'live' ? 'live' : 'modeled',
+        mapPack: googlePlaceResult.source === 'live' ? 'live' : result.sources.serp === 'fallback' ? 'fallback' : 'modeled',
         competitors: result.sources.serp,
         keywords: result.sources.keywords
+      },
+      providerStatus: {
+        pagespeed: {
+          status: pageSpeedStatus,
+          detail:
+            pageSpeedStatus === 'live'
+              ? 'Live PageSpeed measurement completed.'
+              : pageSpeedStatus === 'cached'
+                ? 'Using recent cached PageSpeed result due to temporary provider limits.'
+                : 'Modeled performance from scan checks because live PageSpeed was unavailable.'
+        },
+        serp: {
+          status: result.sources.serp,
+          detail:
+            result.sources.serp === 'live'
+              ? 'Live local search competitor extraction.'
+              : result.sources.serp === 'cached'
+                ? 'Cached local competitor set reused for this market.'
+                : 'Fallback competitor set used because live SERP query failed.'
+        },
+        aiSummary: {
+          status: result.sources.aiSummary,
+          detail:
+            result.sources.aiSummary === 'live'
+              ? 'Narrative built from live source-backed metrics.'
+              : result.sources.aiSummary === 'modeled'
+                ? 'Narrative includes modeled estimates due to partial provider availability.'
+                : 'Fallback narrative used due to AI provider outage.'
+        },
+        snapshot: {
+          status: scannerPreview.captureSource,
+          detail:
+            scannerPreview.captureSource === 'live'
+              ? 'Live rendered screenshot captured successfully.'
+              : scannerPreview.screenshotUrl
+                ? 'Fallback preview image used for scanner backdrop.'
+                : 'No preview image available; abstract scanner view shown.'
+        },
+        googlePlaces: {
+          status: googlePlaceResult.source,
+          detail: googlePlaceResult.detail
+        }
       }
     });
 
@@ -217,9 +266,16 @@ export async function POST(req: Request) {
       const org = await upsertOrganizationFromInput({
         shop_name: normalizedShop,
         website_url: websiteUrl,
-        phone: normalizedPhone || null,
+        phone: normalizedPhone || googlePlaceResult.profile?.nationalPhoneNumber || null,
         city_or_zip: normalizedCity,
-        vertical: input.vertical
+        vertical: input.vertical,
+        googlePlaceId: googlePlaceResult.profile?.placeId || undefined,
+        address: googlePlaceResult.profile?.formattedAddress || undefined,
+        city: googlePlaceResult.profile?.city || undefined,
+        state: googlePlaceResult.profile?.state || undefined,
+        lat: googlePlaceResult.profile?.lat || undefined,
+        lng: googlePlaceResult.profile?.lng || undefined,
+        primaryCategory: googlePlaceResult.profile?.primaryTypeDisplayName || undefined
       });
 
       const seedScan = await createScanRecord(
@@ -282,6 +338,19 @@ export async function POST(req: Request) {
             categories: ['performance', 'seo', 'best-practices', 'accessibility']
           },
           response: pagespeed
+        }),
+        storeRawProviderResponse({
+          scanId: scan.id,
+          organizationId: org.id,
+          provider: 'google_places',
+          endpoint: 'places.searchText',
+          cacheKey: `google_places:${normalizedCity.toLowerCase()}:${normalizedShop.toLowerCase()}`,
+          request: {
+            shopName: normalizedShop,
+            city: normalizedCity,
+            websiteUrl
+          },
+          response: googlePlaceResult
         })
       ]);
 
@@ -346,6 +415,8 @@ export async function POST(req: Request) {
       }
 
       const reportUrl = `${origin}/report/${scan.id}`;
+      const reportPath = `/report/${scan.id}`;
+      const monitoringPath = `/monitoring?scanId=${encodeURIComponent(scan.id)}&orgId=${encodeURIComponent(org.id)}`;
 
       let emailResult: { sent: boolean; reason?: string } = {
         sent: false,
@@ -378,7 +449,9 @@ export async function POST(req: Request) {
       return NextResponse.json({
         ok: true,
         scanId: scan.id,
-        reportUrl: `/report/${scan.id}`,
+        reportUrl: reportPath,
+        nextUrl: reportPath,
+        monitoringUrl: monitoringPath,
         score: scoreV01.visibilityScore,
         emailSent: emailResult.sent,
         emailReason: emailResult.reason || null,
@@ -431,6 +504,8 @@ export async function POST(req: Request) {
         ok: true,
         scanId,
         reportUrl: `/report/${scanId}`,
+        nextUrl: `/report/${scanId}`,
+        monitoringUrl: `/monitoring?scanId=${encodeURIComponent(scanId)}`,
         score: pagespeed.performanceScore ?? result.scores.website,
         emailSent: Boolean(normalizedEmail),
         emailReason: normalizedEmail ? null : 'No email provided',

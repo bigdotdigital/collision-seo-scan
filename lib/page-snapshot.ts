@@ -1,4 +1,4 @@
-import { assertPublicHostname } from '@/lib/security/url';
+import { assertPublicHostname, normalizeWebsiteUrl } from '@/lib/security/url';
 
 export type PageSnapshotCapture = {
   screenshotUrl: string | null;
@@ -15,12 +15,13 @@ export type PageSnapshotCapture = {
 };
 
 export async function capturePageSnapshot(url: string): Promise<PageSnapshotCapture> {
+  const normalizedUrl = normalizeWebsiteUrl(url);
+
   const fallbackPreviewUrl = (() => {
     try {
-      const normalized = new URL(url).toString();
-      return `https://image.thum.io/get/width/1440/crop/900/noanimate/${encodeURIComponent(
-        normalized
-      )}`;
+      if (!normalizedUrl) return null;
+      // Keep the URL readable in the path so thum.io can reliably resolve it.
+      return `https://image.thum.io/get/width/1440/crop/900/noanimate/${normalizedUrl}`;
     } catch {
       return null;
     }
@@ -41,7 +42,9 @@ export async function capturePageSnapshot(url: string): Promise<PageSnapshotCapt
   };
 
   try {
-    await assertPublicHostname(url);
+    if (!normalizedUrl) return fallback;
+
+    await assertPublicHostname(normalizedUrl);
 
     let chromium: { launch: (opts: Record<string, unknown>) => Promise<any> } | null = null;
     try {
@@ -72,10 +75,33 @@ export async function capturePageSnapshot(url: string): Promise<PageSnapshotCapt
       });
 
       const started = Date.now();
-      const response = await page.goto(url, {
+      let response = await page.goto(normalizedUrl, {
         waitUntil: 'domcontentloaded',
         timeout: 15000
       });
+      const firstStatus = response?.status?.() ?? null;
+      if (firstStatus === 403 || firstStatus === 404) {
+        const retryUrl = (() => {
+          try {
+            const parsed = new URL(normalizedUrl);
+            const nakedHost = parsed.hostname.replace(/^www\./, '');
+            if (parsed.hostname === nakedHost) {
+              parsed.hostname = `www.${nakedHost}`;
+            } else {
+              parsed.hostname = nakedHost;
+            }
+            return parsed.toString();
+          } catch {
+            return null;
+          }
+        })();
+        if (retryUrl) {
+          response = await page.goto(retryUrl, {
+            waitUntil: 'domcontentloaded',
+            timeout: 15000
+          });
+        }
+      }
       await page.waitForTimeout(1200);
       const responseTimeMs = Date.now() - started;
 
@@ -103,7 +129,7 @@ export async function capturePageSnapshot(url: string): Promise<PageSnapshotCapt
         metadata: {
           title: pageMeta.title,
           metaDescription: pageMeta.metaDescription,
-          url: page.url() || url,
+          url: page.url() || normalizedUrl,
           statusCode: response?.status?.() ?? null,
           responseTimeMs,
           fileSizeBytes: Number(response?.headers?.()['content-length'] || 0) || null,

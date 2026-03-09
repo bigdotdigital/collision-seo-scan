@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
 import { PageHeader } from '@/components/page-header';
@@ -62,7 +63,11 @@ export default async function DashboardSettingsPage() {
       <PageHeader
         title="Account Settings"
         subtitle="System preferences"
-        actions={<button className="rounded-xl bg-[#ff4d5b] px-4 py-2 text-sm font-semibold text-white">Save Changes</button>}
+        actions={
+          <Link href="/dashboard/onboarding" className="rounded-xl bg-[#ff4d5b] px-4 py-2 text-sm font-semibold text-white">
+            Open onboarding
+          </Link>
+        }
       />
 
       <div className="mb-4 flex gap-6 border-b border-white/10 pb-3 text-sm">
@@ -252,9 +257,12 @@ export default async function DashboardSettingsPage() {
                 ))
               )}
             </div>
-            <button className="mt-3 w-full rounded-xl border border-white/15 bg-black/20 px-4 py-2 text-sm text-white">
+            <a
+              href="mailto:bigdotdigital@gmail.com?subject=Dashboard%20team%20invite%20request"
+              className="mt-3 block w-full rounded-xl border border-white/15 bg-black/20 px-4 py-2 text-center text-sm text-white"
+            >
               + Invite User
-            </button>
+            </a>
           </article>
         </div>
       </div>

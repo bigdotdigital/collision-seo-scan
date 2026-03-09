@@ -32,6 +32,19 @@ function isValidScanId(id: string): boolean {
   return UUID_RE.test(id) || CUID_RE.test(id);
 }
 
+function buildFallbackPreviewUrl(rawUrl: string | null | undefined): string | null {
+  if (!rawUrl) return null;
+  const normalized = rawUrl.trim();
+  if (!normalized) return null;
+  const candidate = /^https?:\/\//i.test(normalized) ? normalized : `https://${normalized}`;
+  try {
+    const parsed = new URL(candidate);
+    return `https://image.thum.io/get/width/1440/crop/900/noanimate/${parsed.toString()}`;
+  } catch {
+    return null;
+  }
+}
+
 function severityClass(severity: string) {
   const normalized = severity.toLowerCase();
   if (normalized === 'high') return 'bg-red-100 text-red-700';
@@ -554,6 +567,8 @@ export default async function ReportPage({ params }: { params: { scanId: string 
     competitors: 'fallback',
     keywords: 'modeled'
   };
+  const providerStatus = payload?.providerStatus || null;
+  const googlePlace = payload?.googlePlace;
   const fallbackFetch =
     pageMeta.find((row) => row.url === scanRecord.url) ||
     pageMeta.find((row) => {
@@ -564,7 +579,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       }
     });
   const scannerPreview = payload?.scannerPreview || {
-    screenshotUrl: null,
+    screenshotUrl: buildFallbackPreviewUrl(scanRecord.url),
     captureSource: 'fallback' as const,
       metadata: {
       title: payload?.checks?.title || scanRecord.shopName || null,
@@ -583,6 +598,8 @@ export default async function ReportPage({ params }: { params: { scanId: string 
             : null
     }
   };
+  const scannerPreviewUrl =
+    scannerPreview.screenshotUrl || buildFallbackPreviewUrl(scannerPreview.metadata.url || scanRecord.url);
   const scannerSteps = [
     { label: 'Capturing homepage snapshot', state: 'verified' as const },
     { label: 'Checking mobile responsiveness', state: 'verified' as const },
@@ -690,6 +707,11 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       <section className="mb-6 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-700">
         Sources: PageSpeed `{sourceConfidence.pagespeed}` • SERP `{sourceConfidence.serp}` • AI summary `{sourceConfidence.aiSummary}` • Keywords `{sourceConfidence.keywords}`
       </section>
+      {providerStatus ? (
+        <section className="mb-6 rounded-lg border border-slate-200 bg-white px-4 py-3 text-xs text-slate-700">
+          Provider status: PageSpeed `{providerStatus.pagespeed.status}` • SERP `{providerStatus.serp.status}` • AI `{providerStatus.aiSummary.status}` • Snapshot `{providerStatus.snapshot.status}`
+        </section>
+      ) : null}
 
       {sourceConfidence.aiSummary !== 'live' ? (
         <section className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -760,9 +782,9 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       <section className="report-scan-stage mb-6 grid gap-4 lg:grid-cols-12">
         <article className="report-scan-canvas-wrap lg:col-span-8">
           <div className="report-scan-canvas">
-            {scannerPreview.screenshotUrl ? (
+            {scannerPreviewUrl ? (
               <img
-                src={scannerPreview.screenshotUrl}
+                src={scannerPreviewUrl}
                 alt="Captured page preview"
                 className="report-scan-bg"
               />
@@ -784,7 +806,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
             <p className="report-scan-axis">
               {scannerPreview.captureSource === 'live'
                 ? 'Live page snapshot • scanner overlay active'
-                : scannerPreview.screenshotUrl
+                : scannerPreviewUrl
                   ? 'Fallback page snapshot • scanner overlay active'
                   : 'Abstract scanner fallback • snapshot unavailable'}
             </p>
@@ -848,6 +870,25 @@ export default async function ReportPage({ params }: { params: { scanId: string 
               <p><span className="font-semibold text-white">Response:</span> {scannerPreview.metadata.responseTimeMs != null ? `${scannerPreview.metadata.responseTimeMs}ms` : 'n/a'}</p>
               <p><span className="font-semibold text-white">Size:</span> {scannerPreview.metadata.fileSizeBytes != null ? `${Math.round(scannerPreview.metadata.fileSizeBytes / 1024)} KB` : 'n/a'}</p>
               <p><span className="font-semibold text-white">Words:</span> {scannerPreview.metadata.wordCount ?? 'n/a'}</p>
+              {googlePlace?.rating != null ? (
+                <p>
+                  <span className="font-semibold text-white">Google Rating:</span>{' '}
+                  {googlePlace.rating.toFixed(1)} ({googlePlace.userRatingCount ?? 0} reviews)
+                </p>
+              ) : null}
+              {googlePlace?.googleMapsUri ? (
+                <p>
+                  <span className="font-semibold text-white">Maps:</span>{' '}
+                  <a
+                    href={googlePlace.googleMapsUri}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[#ff8a93] underline-offset-2 hover:underline"
+                  >
+                    Open profile
+                  </a>
+                </p>
+              ) : null}
             </div>
             <a
               href={scanRecord.url}

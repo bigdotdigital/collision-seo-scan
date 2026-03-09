@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
 import { PageHeader } from '@/components/page-header';
@@ -29,7 +30,11 @@ export default async function ReportsPage() {
       <PageHeader
         title="Reports & Scan History"
         subtitle="Monthly and on-demand scans"
-        actions={<button className="rounded-xl bg-[#ff4d5b] px-4 py-2 text-sm font-semibold text-white">Generate New Report</button>}
+        actions={
+          <Link href="/scan" className="rounded-xl bg-[#ff4d5b] px-4 py-2 text-sm font-semibold text-white">
+            Generate New Report
+          </Link>
+        }
       />
 
       <article className="card mb-5 p-5">

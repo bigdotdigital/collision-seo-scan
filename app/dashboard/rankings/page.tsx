@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
 import { PageHeader } from '@/components/page-header';
@@ -69,8 +70,12 @@ export default async function DashboardRankingsPage() {
           ))}
         </div>
         <div className="flex gap-2">
-          <button className="dashboard-button">Export CSV</button>
-          <button className="rounded-xl bg-[#ff4d5b] px-4 py-2 text-sm font-semibold text-white">+ Add Keyword</button>
+          <a className="dashboard-button" href="/api/dashboard/keywords/export">
+            Export CSV
+          </a>
+          <Link href="/dashboard/onboarding" className="rounded-xl bg-[#ff4d5b] px-4 py-2 text-sm font-semibold text-white">
+            + Add Keyword
+          </Link>
         </div>
       </div>
 
