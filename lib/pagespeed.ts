@@ -157,10 +157,24 @@ export async function runPageSpeed(url: string): Promise<PageSpeedResult> {
       : null;
 
     const candidates = Object.entries(audits)
-      .filter(([, audit]) => {
+      .filter(([id, audit]) => {
         const mode = audit?.scoreDisplayMode;
         const score = audit?.score;
-        if (mode === 'notApplicable') return false;
+        const detailsType = typeof audit?.details?.type === 'string' ? audit.details.type : null;
+        const inPreferred = PREFERRED_AUDITS.includes(id as (typeof PREFERRED_AUDITS)[number]);
+
+        // Keep diagnostics focused on actionable speed/technical opportunities.
+        if (
+          mode === 'notApplicable' ||
+          mode === 'manual' ||
+          mode === 'informative' ||
+          mode === 'error'
+        ) {
+          return false;
+        }
+
+        if (!inPreferred && detailsType !== 'opportunity') return false;
+
         return score === null || score === undefined || score < 0.9;
       })
       .map(([id, audit]) => {

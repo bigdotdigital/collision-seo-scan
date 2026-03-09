@@ -39,10 +39,35 @@ function buildFallbackPreviewUrl(rawUrl: string | null | undefined): string | nu
   const candidate = /^https?:\/\//i.test(normalized) ? normalized : `https://${normalized}`;
   try {
     const parsed = new URL(candidate);
-    return `https://image.thum.io/get/width/1440/crop/900/noanimate/${parsed.toString()}`;
+    return `https://s.wordpress.com/mshots/v1/${encodeURIComponent(parsed.toString())}?w=1600`;
   } catch {
     return null;
   }
+}
+
+function isSyntheticPathProbe(url: string): boolean {
+  try {
+    const path = new URL(url).pathname.replace(/\/+$/, '').toLowerCase();
+    return path === '/contact' || path === '/estimate' || path === '/services' || path === '/certifications';
+  } catch {
+    return false;
+  }
+}
+
+function sanitizeExecutiveSummary(summary: string | null | undefined, score: number): string | null {
+  const raw = (summary || '').trim();
+  if (!raw) return null;
+
+  // If the narrative score contradicts the measured report score, discard it.
+  const numeric = raw.match(/\b(\d{2,3})\b/g)?.map((n) => Number(n)).filter((n) => Number.isFinite(n)) || [];
+  const likelyScore = numeric.find((n) => n >= 0 && n <= 100);
+  if (typeof likelyScore === 'number' && Math.abs(likelyScore - score) >= 8) return null;
+
+  return raw;
+}
+
+function isUnavailableCompetitorLine(text: string): boolean {
+  return /competitor page fetch unavailable/i.test(text);
 }
 
 function severityClass(severity: string) {
@@ -538,6 +563,17 @@ export default async function ReportPage({ params }: { params: { scanId: string 
   };
 
   const vm = buildReportViewModel(reportData);
+  const filteredCompetitorAdvantages = competitorAdvantages
+    .map((row) => ({
+      ...row,
+      advantages: row.advantages.filter((line) => !isUnavailableCompetitorLine(line))
+    }))
+    .filter((row) => row.advantages.length > 0);
+
+  const competitorDisplayRows = filteredCompetitorAdvantages.length > 0 ? filteredCompetitorAdvantages : [];
+  const crawlEvidenceRows = pageMeta.filter(
+    (row) => !(row.status >= 400 && isSyntheticPathProbe(row.url))
+  );
   const teardownIntakeUrl = (() => {
     const p = new URLSearchParams();
     p.set('scanId', scanRecord.id);
@@ -567,17 +603,22 @@ export default async function ReportPage({ params }: { params: { scanId: string 
     competitors: 'fallback',
     keywords: 'modeled'
   };
-  const providerStatus = payload?.providerStatus || null;
   const googlePlace = payload?.googlePlace;
-  const fallbackFetch =
-    pageMeta.find((row) => row.url === scanRecord.url) ||
-    pageMeta.find((row) => {
+  const fallbackFetch = (() => {
+    const preferred = pageMeta.find((row) => {
       try {
-        return new URL(row.url).hostname === new URL(scanRecord.url).hostname;
+        const target = new URL(scanRecord.url);
+        const probe = new URL(row.url);
+        const targetPath = target.pathname.replace(/\/+$/, '') || '/';
+        const probePath = probe.pathname.replace(/\/+$/, '') || '/';
+        return probe.hostname === target.hostname && probePath === targetPath && row.status >= 200 && row.status < 400;
       } catch {
         return false;
       }
     });
+    if (preferred) return preferred;
+    return pageMeta.find((row) => row.status >= 200 && row.status < 400) || pageMeta[0];
+  })();
   const scannerPreview = payload?.scannerPreview || {
     screenshotUrl: buildFallbackPreviewUrl(scanRecord.url),
     captureSource: 'fallback' as const,
@@ -612,8 +653,12 @@ export default async function ReportPage({ params }: { params: { scanId: string 
     { label: 'Comparing competitor positioning', state: 'verified' as const },
     { label: 'Building action plan', state: 'analyzing' as const }
   ];
-  const executiveSummary = (scanRecord.aiSummary || '').trim()
-    ? scanRecord.aiSummary || ''
+  const trustedAiSummary =
+    sourceConfidence.aiSummary === 'live'
+      ? sanitizeExecutiveSummary(scanRecord.aiSummary, scoreTotal)
+      : null;
+  const executiveSummary = trustedAiSummary
+    ? trustedAiSummary
     : buildExecutiveSummaryFallback({
         shopName: scanRecord.shopName,
         city: scanRecord.city,
@@ -700,23 +745,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
 
       {vm.dataStatusBanner ? (
         <section className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          {vm.dataStatusBanner}
-        </section>
-      ) : null}
-
-      <section className="mb-6 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-700">
-        Sources: PageSpeed `{sourceConfidence.pagespeed}` • SERP `{sourceConfidence.serp}` • AI summary `{sourceConfidence.aiSummary}` • Keywords `{sourceConfidence.keywords}`
-      </section>
-      {providerStatus ? (
-        <section className="mb-6 rounded-lg border border-slate-200 bg-white px-4 py-3 text-xs text-slate-700">
-          Provider status: PageSpeed `{providerStatus.pagespeed.status}` • SERP `{providerStatus.serp.status}` • AI `{providerStatus.aiSummary.status}` • Snapshot `{providerStatus.snapshot.status}`
-        </section>
-      ) : null}
-
-      {sourceConfidence.aiSummary !== 'live' ? (
-        <section className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Some narrative insights are AI-modeled because one or more data providers were unavailable on this run.
-          Measured metrics shown in this report remain source-backed.
+          {vm.dataStatusBanner} We only show measured data as primary; estimated items are clearly marked.
         </section>
       ) : null}
 
@@ -974,17 +1003,19 @@ export default async function ReportPage({ params }: { params: { scanId: string 
           </article>
           <article className="rounded border border-slate-200 bg-slate-50 p-3">
             <p className="text-xs uppercase tracking-wide text-slate-500">Competitor comparison</p>
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
-              {(competitorAdvantages.length > 0 ? competitorAdvantages : vm.competitors)
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
+              {(competitorDisplayRows.length > 0 ? competitorDisplayRows : vm.competitors)
                 .slice(0, 2)
-                .map((row, idx) => (
-                  <li key={row.name + idx}>
-                    {'advantages' in row ? row.advantages[0] || row.name : row.whyWinning}
-                  </li>
-                ))}
-            </ul>
-          </article>
-        </div>
+                .map((row, idx) =>
+                  'advantages' in row ? (
+                    <li key={row.name + idx}>{row.advantages[0] || row.name}</li>
+                  ) : (
+                    <li key={row.name + idx}>{row.whyWinning}</li>
+                  )
+                )}
+              </ul>
+            </article>
+          </div>
       </section>
         </div>
       </details>
@@ -1091,25 +1122,31 @@ export default async function ReportPage({ params }: { params: { scanId: string 
 
       <section className="mt-6 card print-break-avoid p-6">
         <h2 className="text-xl font-bold">Map Rankings for Collision Searches</h2>
-        <p className="mt-1 text-sm text-slate-600">{mapPack.info}</p>
-        <div className="mt-4 space-y-3">
-          {mapPack.queries.map((row) => (
-            <article key={row.query} className="rounded-lg border border-slate-200 p-4">
-              <p className="font-semibold text-slate-900">{row.query}</p>
-              <div className="mt-2 grid gap-2 text-sm md:grid-cols-2">
-                <div className="rounded bg-slate-50 p-3">
-                  <p>Rank 1: {row.rank1}</p>
-                  <p>Rank 2: {row.rank2}</p>
-                  <p>Rank 3: {row.rank3}</p>
+        <p className="mt-1 text-sm text-slate-600">
+          {sourceConfidence.mapPack === 'live'
+            ? mapPack.info
+            : 'Map pack ranks were unavailable in this run and will be pulled during teardown.'}
+        </p>
+        {sourceConfidence.mapPack === 'live' ? (
+          <div className="mt-4 space-y-3">
+            {mapPack.queries.map((row) => (
+              <article key={row.query} className="rounded-lg border border-slate-200 p-4">
+                <p className="font-semibold text-slate-900">{row.query}</p>
+                <div className="mt-2 grid gap-2 text-sm md:grid-cols-2">
+                  <div className="rounded bg-slate-50 p-3">
+                    <p>Rank 1: {row.rank1}</p>
+                    <p>Rank 2: {row.rank2}</p>
+                    <p>Rank 3: {row.rank3}</p>
+                  </div>
+                  <div className="rounded bg-slate-50 p-3">
+                    <p className="font-medium">Your position</p>
+                    <p>{row.yourRank}</p>
+                  </div>
                 </div>
-                <div className="rounded bg-slate-50 p-3">
-                  <p className="font-medium">Your position</p>
-                  <p>{row.yourRank}</p>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
+              </article>
+            ))}
+          </div>
+        ) : null}
         <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-slate-700">
           {mapPack.likelySignals.map((signal) => (
             <li key={signal}>{signal}</li>
@@ -1257,8 +1294,13 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         <p className="mt-1 text-sm text-slate-600">
           Lightweight comparison of top competitors vs your current signal coverage.
         </p>
+        {sourceConfidence.competitors !== 'live' ? (
+          <p className="mt-2 text-xs text-slate-500">
+            Live competitor crawl was unavailable for this run; showing best-available benchmark view.
+          </p>
+        ) : null}
         <div className="mt-4 space-y-3">
-          {(competitorAdvantages.length > 0 ? competitorAdvantages : vm.competitors).map((row, idx) => (
+          {(competitorDisplayRows.length > 0 ? competitorDisplayRows : vm.competitors).map((row, idx) => (
             <article key={row.name + idx} className="rounded-lg border border-slate-200 p-4">
               <p className="font-semibold text-slate-900">{row.name}</p>
               {'advantages' in row ? (
@@ -1287,10 +1329,10 @@ export default async function ReportPage({ params }: { params: { scanId: string 
           Pages analyzed and fetch status used to compute this scan.
         </p>
         <div className="mt-4 grid gap-2">
-          {pageMeta.length === 0 ? (
+          {crawlEvidenceRows.length === 0 ? (
             <p className="text-sm text-slate-600">No page metadata captured in this run.</p>
           ) : (
-            pageMeta.slice(0, 8).map((row) => (
+            crawlEvidenceRows.slice(0, 8).map((row) => (
               <article key={`${row.url}-${row.status}`} className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
                 <p className="font-medium text-slate-900">{row.url}</p>
                 <p className="text-xs text-slate-600">
