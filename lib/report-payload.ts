@@ -14,11 +14,11 @@ import type { GooglePlaceProfile } from '@/lib/google-places';
 export type SourceConfidence = 'live' | 'cached' | 'modeled' | 'fallback';
 
 export type ReviewGapPayload = {
-  shopRating: number;
-  shopReviews: number;
-  competitorRating: number;
-  competitorReviews: number;
-  reviewGap: number;
+  shopRating: number | null;
+  shopReviews: number | null;
+  competitorRating: number | null;
+  competitorReviews: number | null;
+  reviewGap: number | null;
   impact: 'High' | 'Med' | 'Low';
 };
 
@@ -50,8 +50,8 @@ export type ReportPayload = {
   missingPages: string[];
   pageFetchMeta: PageFetchMeta[];
   scanDurationMs: number;
-  reviewGap: ReviewGapPayload;
-  mapPack: MapPackPayload;
+  reviewGap: ReviewGapPayload | null;
+  mapPack: MapPackPayload | null;
   scannerPreview?: {
     screenshotUrl: string | null;
     captureSource: SourceConfidence;
@@ -104,57 +104,10 @@ export type ReportPayload = {
   };
 };
 
-const REVIEW_DEFAULTS = {
-  shopRating: 0,
-  shopReviews: 0,
-  competitorRating: 0,
-  competitorReviews: 0
-};
-
 function impactLabel(gap: number): 'High' | 'Med' | 'Low' {
   if (gap >= 180) return 'High';
   if (gap >= 70) return 'Med';
   return 'Low';
-}
-
-function buildReviewGapPayload(): ReviewGapPayload {
-  const gap = REVIEW_DEFAULTS.competitorReviews - REVIEW_DEFAULTS.shopReviews;
-  return {
-    ...REVIEW_DEFAULTS,
-    reviewGap: gap,
-    impact: impactLabel(gap)
-  };
-}
-
-function buildMapPackPayload(city: string, shopName: string, competitors: Competitor[]): MapPackPayload {
-  const c = city.toLowerCase();
-  const rank1 = competitors[0]?.name || `Leading ${city} collision shop`;
-  const rank2 = competitors[1]?.name || `Top-rated ${city} auto body brand`;
-  const rank3 = competitors[2]?.name || `High-visibility ${city} repair competitor`;
-
-  const queries: MapPackQueryPayload[] = [
-    `collision repair ${c}`,
-    `auto body shop ${c}`,
-    `bumper repair ${c}`,
-    `hail damage repair ${c}`
-  ].map((query, idx) => ({
-    query,
-    rank1,
-    rank2,
-    rank3,
-    yourRank: idx === 0 ? `${shopName} (likely #4-#7)` : `${shopName} (outside top 3)`
-  }));
-
-  return {
-    info: 'Map pack ranks will be pulled on your teardown - we will show exactly who is outranking you and why.',
-    likelySignals: [
-      'Review velocity and star rating advantage',
-      'Tighter service + location category match',
-      'Stronger city service pages and internal linking',
-      'More prominent estimate CTA and conversion flow'
-    ],
-    queries
-  };
 }
 
 export function buildReportPayload(input: {
@@ -178,14 +131,13 @@ export function buildReportPayload(input: {
   providerStatus?: ReportPayload['providerStatus'];
   mapPack?: MapPackResult;
 }): ReportPayload {
-  const fallbackMapPack = buildMapPackPayload(input.city, input.shopName, input.competitors);
   const resolvedMapPack = input.mapPack
     ? {
         info: input.mapPack.info,
         likelySignals: input.mapPack.likelySignals,
         queries: input.mapPack.queries
       }
-    : fallbackMapPack;
+    : null;
 
   return {
     version: 'v1',
@@ -201,7 +153,7 @@ export function buildReportPayload(input: {
     missingPages: input.missingPages,
     pageFetchMeta: input.pageFetchMeta,
     scanDurationMs: input.scanDurationMs,
-    reviewGap: buildReviewGapPayload(),
+    reviewGap: null,
     mapPack: resolvedMapPack,
     scannerPreview: input.scannerPreview,
     googlePlace: input.googlePlace,

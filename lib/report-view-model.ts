@@ -30,11 +30,11 @@ export interface ReportData {
 }
 
 type ReviewGap = {
-  shopRating: number;
-  shopReviews: number;
-  competitorRating: number;
-  competitorReviews: number;
-  reviewGap: number;
+  shopRating: number | null;
+  shopReviews: number | null;
+  competitorRating: number | null;
+  competitorReviews: number | null;
+  reviewGap: number | null;
   impact: 'High' | 'Med' | 'Low';
   isEstimated: boolean;
 };
@@ -65,7 +65,7 @@ type CompetitorView = {
 export type ReportViewModel = {
   dataStatusBanner: string | null;
   opportunity: ReturnType<typeof estimateOpportunity>;
-  reviewGap: ReviewGap;
+  reviewGap: ReviewGap | null;
   mapPack: {
     queries: MapPackQuery[];
     info: string;
@@ -75,13 +75,6 @@ export type ReportViewModel = {
   competitors: CompetitorView[];
   calendlyTrackedUrl: string;
   ctaBullets: string[];
-};
-
-const REVIEW_DEFAULTS = {
-  shopRating: 0,
-  shopReviews: 0,
-  competitorRating: 0,
-  competitorReviews: 0
 };
 
 const MAP_QUERY_TEMPLATES = [
@@ -146,19 +139,19 @@ function keywordViewModel(items: MoneyKeyword[]): { rows: KeywordView[]; estimat
   return { rows, estimatedAny };
 }
 
-function competitorViewModel(city: string, items: Competitor[], reviews: ReviewGap): CompetitorView[] {
+function competitorViewModel(city: string, items: Competitor[], reviews: ReviewGap | null): CompetitorView[] {
   const names = items.map((c) => c.name).slice(0, 3);
   if (names.length === 0) return [];
 
   return names.map((name, idx) => ({
     name,
     whyWinning: WHY_WINNING[idx % WHY_WINNING.length],
-    rating: idx === 0 ? reviews.competitorRating : undefined,
-    reviews: idx === 0 ? reviews.competitorReviews : undefined
+    rating: idx === 0 ? (reviews?.competitorRating ?? undefined) : undefined,
+    reviews: idx === 0 ? (reviews?.competitorReviews ?? undefined) : undefined
   }));
 }
 
-function reviewGapView(data: ReportData): ReviewGap {
+function reviewGapView(data: ReportData): ReviewGap | null {
   const liveShopRating = data.rawChecks?.reviews?.rating;
   const liveShopReviews = data.rawChecks?.reviews?.reviews;
   const liveCompetitorRating = data.rawChecks?.competitorReviews?.rating;
@@ -170,11 +163,12 @@ function reviewGapView(data: ReportData): ReviewGap {
     typeof liveCompetitorRating === 'number' &&
     typeof liveCompetitorReviews === 'number';
 
-  const shopRating = hasLive ? liveShopRating : REVIEW_DEFAULTS.shopRating;
-  const shopReviews = hasLive ? liveShopReviews : REVIEW_DEFAULTS.shopReviews;
-  const competitorRating = hasLive ? liveCompetitorRating : REVIEW_DEFAULTS.competitorRating;
-  const competitorReviews = hasLive ? liveCompetitorReviews : REVIEW_DEFAULTS.competitorReviews;
+  if (!hasLive) return null;
 
+  const shopRating = liveShopRating;
+  const shopReviews = liveShopReviews;
+  const competitorRating = liveCompetitorRating;
+  const competitorReviews = liveCompetitorReviews;
   const gap = competitorReviews - shopReviews;
 
   return {
@@ -217,7 +211,7 @@ export function buildReportViewModel(reportData: ReportData): ReportViewModel {
     city: reportData.city
   });
 
-  const estimatedAny = reviewGap.isEstimated || keyword.estimatedAny;
+  const estimatedAny = !reviewGap || reviewGap.isEstimated || keyword.estimatedAny;
 
   return {
     dataStatusBanner: estimatedAny

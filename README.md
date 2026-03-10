@@ -61,6 +61,16 @@ npx prisma db push
 npm run dev
 ```
 
+## Development Workflow
+- Use [CTO_REVIEW_WORKFLOW.md](/Users/alexklinger/Desktop/big dot portfolio/CTO_REVIEW_WORKFLOW.md) when you want an external model such as Mistral to act as reviewer/CTO.
+- Recommended split:
+  - external model = architecture/review/findings
+  - builder in this repo = implementation/testing/shipping
+- Review real files, diffs, screenshots, and logs instead of vague summaries.
+- Keep one implementation source of truth in this repo.
+
+Care is in the mainframe somewhere, even when the stack is loud.
+
 ## Scripts
 - `npm run dev`
 - `npm run build`

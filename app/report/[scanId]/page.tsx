@@ -114,6 +114,21 @@ function impactClass(impact: 'high' | 'med' | 'low') {
   return 'bg-slate-200 text-slate-700';
 }
 
+function sourcePill(
+  state: 'live' | 'cached' | 'modeled' | 'fallback' | 'unavailable'
+): { label: string; className: string } {
+  if (state === 'live') {
+    return { label: 'Live', className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' };
+  }
+  if (state === 'cached') {
+    return { label: 'Cached', className: 'border-sky-500/30 bg-sky-500/10 text-sky-300' };
+  }
+  if (state === 'modeled') {
+    return { label: 'Modeled', className: 'border-amber-500/30 bg-amber-500/10 text-amber-200' };
+  }
+  return { label: 'Unavailable', className: 'border-white/15 bg-white/5 text-white/60' };
+}
+
 function normalizeImpact(value: unknown): 'high' | 'med' | 'low' {
   if (value === 'high' || value === 'med' || value === 'low') return value;
   return 'low';
@@ -198,6 +213,42 @@ function normalizeKeywords(input: unknown): MoneyKeyword[] {
   return rows.slice(0, 20);
 }
 
+function sanitizeKeywordsForSignals(
+  input: MoneyKeyword[],
+  city: string,
+  raw: Record<string, unknown>
+): MoneyKeyword[] {
+  const checks = (raw.checks as Record<string, unknown> | undefined) || {};
+  const oemSignals = Array.isArray(checks.oemSignals)
+    ? checks.oemSignals.filter((v): v is string => typeof v === 'string').map((v) => v.toLowerCase())
+    : [];
+  const fleetSignals = Array.isArray(checks.fleetSignals)
+    ? checks.fleetSignals.filter((v): v is string => typeof v === 'string').map((v) => v.toLowerCase())
+    : [];
+
+  const filtered = input.filter((item) => {
+    if (item.source === 'api') return true;
+    const keyword = item.keyword.toLowerCase();
+    if (/(subaru|ford|gm|gmc|chevrolet|cadillac|nissan|infiniti)/i.test(keyword) && oemSignals.length === 0) {
+      return false;
+    }
+    if (/(sprinter|promaster|transit)/i.test(keyword) && fleetSignals.length === 0) {
+      return false;
+    }
+    return true;
+  });
+
+  if (filtered.length > 0) return filtered;
+
+  return [
+    { keyword: `collision repair ${city.toLowerCase()}`, source: 'modeled' },
+    { keyword: `auto body shop ${city.toLowerCase()}`, source: 'modeled' },
+    { keyword: `bumper repair ${city.toLowerCase()}`, source: 'modeled' },
+    { keyword: `hail damage repair ${city.toLowerCase()}`, source: 'modeled' },
+    { keyword: `auto body estimate ${city.toLowerCase()}`, source: 'modeled' }
+  ];
+}
+
 function normalizeCompetitors(input: unknown, city: string): Competitor[] {
   if (!Array.isArray(input)) return [];
   const blockedHost = [
@@ -218,7 +269,7 @@ function normalizeCompetitors(input: unknown, city: string): Competitor[] {
       const name =
         typeof row?.name === 'string' && row.name.trim()
           ? row.name
-          : `Leading ${city} collision shop #${idx + 1}`;
+          : `Competitor ${idx + 1}`;
       const url = typeof row?.url === 'string' ? row.url : undefined;
       const host = (() => {
         try {
@@ -439,10 +490,17 @@ export default async function ReportPage({ params }: { params: { scanId: string 
   const issues = normalizeIssues(
     dbScan ? parseJson<unknown>(dbScan.issuesJson, scanRecord.issues) : scanRecord.issues
   );
-  const keywords = normalizeKeywords(
-    dbScan
-      ? parseJson<unknown>(dbScan.moneyKeywordsJson, scanRecord.moneyKeywords)
-      : scanRecord.moneyKeywords
+  const raw = dbScan
+    ? parseJson<Record<string, unknown>>(dbScan.rawChecksJson, scanRecord.rawChecks || {})
+    : scanRecord.rawChecks || {};
+  const keywords = sanitizeKeywordsForSignals(
+    normalizeKeywords(
+      dbScan
+        ? parseJson<unknown>(dbScan.moneyKeywordsJson, scanRecord.moneyKeywords)
+        : scanRecord.moneyKeywords
+    ),
+    scanRecord.city,
+    raw
   );
   const competitors = normalizeCompetitors(
     snapshot
@@ -462,9 +520,6 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       ? parseJson<unknown>(dbScan.thirtyDayPlanJson, scanRecord.thirtyDayPlan)
       : scanRecord.thirtyDayPlan
   );
-  const raw = dbScan
-    ? parseJson<Record<string, unknown>>(dbScan.rawChecksJson, scanRecord.rawChecks || {})
-    : scanRecord.rawChecks || {};
   const payload = parseReportPayload(raw);
 
   const scoreTotal = scanRecord.scoreTotal ?? snapshot?.visibilityScore ?? 0;
@@ -635,8 +690,8 @@ export default async function ReportPage({ params }: { params: { scanId: string 
     if (scanRecord.city) p.set('city', scanRecord.city);
     return `/monitoring?${p.toString()}`;
   })();
-  const reviewGap = payload?.reviewGap || vm.reviewGap;
-  const mapPack = payload?.mapPack || vm.mapPack;
+  const reviewGap = payload?.reviewGap ?? vm.reviewGap;
+  const mapPack = payload?.mapPack ?? vm.mapPack;
   const sourceConfidence = payload?.sources || {
     pagespeed: 'fallback',
     serp: 'fallback',
@@ -656,15 +711,18 @@ export default async function ReportPage({ params }: { params: { scanId: string 
     sourceConfidence.keywords === 'live' || sourceConfidence.keywords === 'cached';
   const googlePlace = payload?.googlePlace;
   const reviewGapLooksSynthetic =
+    !!reviewGap &&
     reviewGap.shopRating === 4.6 &&
     reviewGap.shopReviews === 132 &&
     reviewGap.competitorRating === 4.8 &&
     reviewGap.competitorReviews === 420;
   const reviewGapConflictsWithGooglePlace =
+    !!reviewGap &&
     typeof googlePlace?.rating === 'number' &&
+    typeof reviewGap.shopRating === 'number' &&
     Math.abs(reviewGap.shopRating - googlePlace.rating) >= 0.2;
   const hasUsableReviewGap =
-    hasLiveReviewData && !reviewGapLooksSynthetic && !reviewGapConflictsWithGooglePlace;
+    !!reviewGap && hasLiveReviewData && !reviewGapLooksSynthetic && !reviewGapConflictsWithGooglePlace;
   const ownGoogleReviewLabel =
     typeof googlePlace?.rating === 'number' ? `${googlePlace.rating.toFixed(1)} ★` : null;
   const hasPlaceholderCompetitors = competitors.some((row) => isPlaceholderCompetitorName(row.name));
@@ -681,6 +739,25 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         /(likely #|outside top|position unavailable|not found)/i.test(row.yourRank)
     );
   const hasUsableMapPackData = hasLiveMapPackData && !hasPlaceholderMapPackRows;
+  const reviewSource = sourcePill(
+    hasUsableReviewGap
+      ? (sourceConfidence.reviews as 'live' | 'cached')
+      : ownGoogleReviewLabel
+        ? 'modeled'
+        : 'unavailable'
+  );
+  const competitorSource = sourcePill(
+    hasUsableCompetitorData ? (sourceConfidence.competitors as 'live' | 'cached') : 'unavailable'
+  );
+  const mapPackSource = sourcePill(
+    hasUsableMapPackData ? (sourceConfidence.mapPack as 'live' | 'cached') : 'unavailable'
+  );
+  const keywordSource = sourcePill(
+    hasLiveKeywordData ? (sourceConfidence.keywords as 'live' | 'cached') : 'modeled'
+  );
+  const opportunitySource = sourcePill(
+    hasLiveKeywordData ? (sourceConfidence.keywords as 'live' | 'cached') : 'modeled'
+  );
   const fallbackFetch = (() => {
     const preferred = pageMeta.find((row) => {
       try {
@@ -766,12 +843,22 @@ export default async function ReportPage({ params }: { params: { scanId: string 
           {
             name: 'Your Shop',
             score: scoreTotal,
-            reviews: ownGoogleReviewLabel ?? (hasUsableReviewGap ? `${reviewGap.shopRating.toFixed(1)} ★` : '—')
+            reviews:
+              ownGoogleReviewLabel ??
+              (hasUsableReviewGap && reviewGap && typeof reviewGap.shopRating === 'number'
+                ? `${reviewGap.shopRating.toFixed(1)} ★`
+                : '—')
           },
           ...vm.competitors.slice(0, 2).map((comp, idx) => ({
             name: comp.name,
             score: Math.max(48, scoreTotal - (idx + 1) * 8),
-            reviews: hasUsableReviewGap && idx === 0 ? `${reviewGap.competitorRating.toFixed(1)} ★` : '—'
+            reviews:
+              hasUsableReviewGap &&
+              reviewGap &&
+              idx === 0 &&
+              typeof reviewGap.competitorRating === 'number'
+                ? `${reviewGap.competitorRating.toFixed(1)} ★`
+                : '—'
           }))
         ]
       : [];
@@ -1258,7 +1345,12 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       </details>
 
       <section className="mt-6 card print-break-avoid p-6">
-        <h2 className="text-xl font-bold">Review Strength vs Local Rivals</h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-xl font-bold">Review Strength vs Local Rivals</h2>
+          <span className={`rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${reviewSource.className}`}>
+            {reviewSource.label}
+          </span>
+        </div>
         <p className="mt-1 text-sm text-slate-600">
           Snapshot of review strength versus top local competitor.
         </p>
@@ -1267,19 +1359,23 @@ export default async function ReportPage({ params }: { params: { scanId: string 
             <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs uppercase tracking-wide text-slate-500">Your shop</p>
               <p className="mt-1 text-lg font-semibold">
-                {reviewGap.shopRating.toFixed(1)} stars • {reviewGap.shopReviews} reviews
+                {typeof reviewGap?.shopRating === 'number' ? reviewGap.shopRating.toFixed(1) : 'n/a'} stars •{' '}
+                {typeof reviewGap?.shopReviews === 'number' ? reviewGap.shopReviews : 'n/a'} reviews
               </p>
             </article>
             <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs uppercase tracking-wide text-slate-500">Top competitor</p>
               <p className="mt-1 text-lg font-semibold">
-                {reviewGap.competitorRating.toFixed(1)} stars • {reviewGap.competitorReviews} reviews
+                {typeof reviewGap?.competitorRating === 'number' ? reviewGap.competitorRating.toFixed(1) : 'n/a'} stars •{' '}
+                {typeof reviewGap?.competitorReviews === 'number' ? reviewGap.competitorReviews : 'n/a'} reviews
               </p>
             </article>
             <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs uppercase tracking-wide text-slate-500">Review gap</p>
-              <p className="mt-1 text-lg font-semibold">{reviewGap.reviewGap} reviews</p>
-              <p className="text-sm text-slate-700">Impact: {reviewGap.impact}</p>
+              <p className="mt-1 text-lg font-semibold">
+                {typeof reviewGap?.reviewGap === 'number' ? reviewGap.reviewGap : 'n/a'} reviews
+              </p>
+              <p className="text-sm text-slate-700">Impact: {reviewGap?.impact || 'n/a'}</p>
             </article>
           </div>
         ) : ownGoogleReviewLabel ? (
@@ -1300,7 +1396,12 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       </section>
 
       <section className="mt-6 card print-break-avoid p-6">
-        <h2 className="text-xl font-bold">Map Rankings for Collision Searches</h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-xl font-bold">Map Rankings for Collision Searches</h2>
+          <span className={`rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${mapPackSource.className}`}>
+            {mapPackSource.label}
+          </span>
+        </div>
         {!hasUsableMapPackData ? (
           <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
             Live map-pack data was unavailable for this run.
@@ -1480,7 +1581,12 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       ) : null}
 
       <section className="mt-6 card print-break-avoid p-6">
-        <h2 className="text-xl font-bold">How Competitors Are Winning More Calls</h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-xl font-bold">How Competitors Are Winning More Calls</h2>
+          <span className={`rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${competitorSource.className}`}>
+            {competitorSource.label}
+          </span>
+        </div>
         <p className="mt-1 text-sm text-slate-600">
           Lightweight comparison of top competitors vs your current signal coverage.
         </p>
@@ -1539,7 +1645,12 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       </details>
 
       <section className="mt-6 rounded-xl border border-teal-200 bg-teal-50 print-break-avoid p-6">
-        <h2 className="text-xl font-bold text-slate-900">Estimated Opportunity</h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-xl font-bold text-slate-900">Estimated Opportunity</h2>
+          <span className={`rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${opportunitySource.className}`}>
+            {opportunitySource.label}
+          </span>
+        </div>
         <p className="mt-1 text-sm text-slate-700">
           {hasLiveKeywordData
             ? 'Estimate based on live keyword demand and visibility gaps. Not a guarantee.'
@@ -1598,7 +1709,12 @@ export default async function ReportPage({ params }: { params: { scanId: string 
 
       <section className="mt-8 grid gap-4 md:grid-cols-2">
         <div className="card print-break-avoid p-6">
-          <h2 className="text-xl font-bold">Money Keywords</h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-xl font-bold">Money Keywords</h2>
+            <span className={`rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${keywordSource.className}`}>
+              {keywordSource.label}
+            </span>
+          </div>
           {vm.keywords.length > 0 ? (
             <>
               <div className="mt-3 space-y-2">
@@ -1627,7 +1743,12 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         </div>
 
         <div className="card print-break-avoid p-6">
-          <h2 className="text-xl font-bold">Top local competitors we&apos;ll benchmark on your teardown</h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-xl font-bold">Top local competitors we&apos;ll benchmark on your teardown</h2>
+            <span className={`rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${competitorSource.className}`}>
+              {competitorSource.label}
+            </span>
+          </div>
           {hasUsableCompetitorData ? (
             <div className="mt-3 space-y-3">
               {vm.competitors.map((comp, idx) => (

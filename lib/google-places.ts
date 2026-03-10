@@ -40,29 +40,51 @@ export async function fetchGooglePlaceProfile(args: {
   }
 
   try {
-    const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-goog-api-key': apiKey,
-        'x-goog-fieldmask':
-          'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.websiteUri,places.googleMapsUri,places.nationalPhoneNumber,places.primaryTypeDisplayName'
-      },
-      body: JSON.stringify({
-        textQuery: query,
-        languageCode: 'en',
-        regionCode: 'US',
-        maxResultCount: 5
-      }),
-      cache: 'no-store'
-    });
-
-    const json = (await res.json().catch(() => null)) as
+    let res: Response | null = null;
+    let json:
       | {
           places?: Array<Record<string, unknown>>;
           error?: { message?: string };
         }
-      | null;
+      | null = null;
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-goog-api-key': apiKey,
+          'x-goog-fieldmask':
+            'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.websiteUri,places.googleMapsUri,places.nationalPhoneNumber,places.primaryTypeDisplayName'
+        },
+        body: JSON.stringify({
+          textQuery: query,
+          languageCode: 'en',
+          regionCode: 'US',
+          maxResultCount: 5
+        }),
+        cache: 'no-store'
+      });
+
+      json = (await res.json().catch(() => null)) as
+        | {
+            places?: Array<Record<string, unknown>>;
+            error?: { message?: string };
+          }
+        | null;
+
+      if (res.ok) break;
+      if (res.status < 500 && res.status !== 429) break;
+      await new Promise((resolve) => setTimeout(resolve, 250 * 2 ** attempt));
+    }
+
+    if (!res) {
+      return {
+        source: 'fallback',
+        profile: null,
+        detail: 'Google Places request could not be started.'
+      };
+    }
 
     if (!res.ok) {
       return {
@@ -143,4 +165,3 @@ export async function fetchGooglePlaceProfile(args: {
     };
   }
 }
-
