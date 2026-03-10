@@ -382,8 +382,8 @@ export async function POST(req: Request) {
       });
 
       const scoreV01 = computeScoreV01({
-        reviewCount: null,
-        reviewRating: null,
+        reviewCount: googlePlaceResult.profile?.userRatingCount ?? null,
+        reviewRating: googlePlaceResult.profile?.rating ?? null,
         rankPositions,
         hasWebsite: Boolean(websiteUrl)
       });
@@ -393,8 +393,8 @@ export async function POST(req: Request) {
         organizationId: org.id,
         visibilityScore: scoreV01.visibilityScore,
         scoringModelVersion: scoreV01.scoringModelVersion,
-        reviewCount: null,
-        reviewRating: null,
+        reviewCount: googlePlaceResult.profile?.userRatingCount ?? null,
+        reviewRating: googlePlaceResult.profile?.rating ?? null,
         keywordsChecked: result.moneyKeywords.map((k) => k.keyword),
         rankPositions,
         topCompetitors: result.competitors,

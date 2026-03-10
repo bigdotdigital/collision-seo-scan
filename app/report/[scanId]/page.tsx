@@ -522,7 +522,9 @@ export default async function ReportPage({ params }: { params: { scanId: string 
   );
   const payload = parseReportPayload(raw);
 
-  const scoreTotal = scanRecord.scoreTotal ?? snapshot?.visibilityScore ?? 0;
+  const payloadOverallScore =
+    typeof payload?.categoryScores?.overall === 'number' ? payload.categoryScores.overall : null;
+  const scoreTotal = payloadOverallScore ?? scanRecord.scoreTotal ?? snapshot?.visibilityScore ?? 0;
   const scoreWebsite = scanRecord.scoreWebsite ?? 0;
   const scoreLocal = scanRecord.scoreLocal ?? 0;
   const scoreIntent = scanRecord.scoreIntent ?? 0;

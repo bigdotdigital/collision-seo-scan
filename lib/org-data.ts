@@ -173,7 +173,6 @@ export async function createSnapshot(args: {
   await prisma.scan.update({
     where: { id: args.scanId },
     data: {
-      scoreTotal: args.visibilityScore,
       scoringModelVersion: args.scoringModelVersion,
       componentScoresJson: args.componentScores
         ? JSON.stringify(args.componentScores)
