@@ -603,6 +603,12 @@ export default async function ReportPage({ params }: { params: { scanId: string 
     competitors: 'fallback',
     keywords: 'modeled'
   };
+  const hasLiveCompetitorData =
+    sourceConfidence.competitors === 'live' || sourceConfidence.competitors === 'cached';
+  const hasLiveMapPackData =
+    sourceConfidence.mapPack === 'live' || sourceConfidence.mapPack === 'cached';
+  const hasLiveReviewData = sourceConfidence.reviews === 'live';
+  const hasLiveKeywordData = sourceConfidence.keywords === 'live';
   const googlePlace = payload?.googlePlace;
   const fallbackFetch = (() => {
     const preferred = pageMeta.find((row) => {
@@ -672,18 +678,20 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       timeStyle: 'short'
     }).format(new Date());
     const scoreCondition = scoreTotal >= 85 ? 'Excellent Condition' : scoreTotal >= 70 ? 'Good Condition' : 'Needs Repair';
-    const competitorRows = [
-      {
-        name: 'Your Shop',
-        score: scoreTotal,
-        reviews: `${reviewGap.shopRating.toFixed(1)} ★`
-      },
-      ...vm.competitors.slice(0, 2).map((comp, idx) => ({
-        name: comp.name,
-        score: Math.max(48, scoreTotal - (idx + 1) * 8),
-        reviews: idx === 0 ? `${reviewGap.competitorRating.toFixed(1)} ★` : 'n/a'
-      }))
-    ];
+    const competitorRows = hasLiveCompetitorData
+      ? [
+          {
+            name: 'Your Shop',
+            score: scoreTotal,
+            reviews: hasLiveReviewData ? `${reviewGap.shopRating.toFixed(1)} ★` : '—'
+          },
+          ...vm.competitors.slice(0, 2).map((comp, idx) => ({
+            name: comp.name,
+            score: Math.max(48, scoreTotal - (idx + 1) * 8),
+            reviews: hasLiveReviewData && idx === 0 ? `${reviewGap.competitorRating.toFixed(1)} ★` : '—'
+          }))
+        ]
+      : [];
 
     return (
       <main className="container-shell report-print report-diagnostic report-variant pb-24 pt-10 md:pb-10">
@@ -775,10 +783,16 @@ export default async function ReportPage({ params }: { params: { scanId: string 
           </article>
           <article className="report-arch-cell">
             <p className="report-arch-label">Estimated Opportunity</p>
-            <p className="report-arch-big">${vm.opportunity.revenueOpportunity.toLocaleString()}</p>
-            <p className="report-arch-sub">
-              {vm.opportunity.missedLeads.toLocaleString()} missed leads/month (modeled)
-            </p>
+            {hasLiveKeywordData ? (
+              <>
+                <p className="report-arch-big">${vm.opportunity.revenueOpportunity.toLocaleString()}</p>
+                <p className="report-arch-sub">
+                  {vm.opportunity.missedLeads.toLocaleString()} missed leads/month
+                </p>
+              </>
+            ) : (
+              <p className="report-arch-sub">Unavailable until live keyword demand data is captured.</p>
+            )}
           </article>
         </div>
       </section>
@@ -819,24 +833,30 @@ export default async function ReportPage({ params }: { params: { scanId: string 
 
         <article className="variant-report-card">
           <p className="variant-card-label">Local market context</p>
-          <table className="variant-table">
-            <thead>
-              <tr>
-                <th>Shop Name</th>
-                <th>Score</th>
-                <th>Reviews</th>
-              </tr>
-            </thead>
-            <tbody>
-              {competitorRows.map((row) => (
-                <tr key={row.name}>
-                  <td>{row.name}</td>
-                  <td>{row.score}</td>
-                  <td>{row.reviews}</td>
+          {hasLiveCompetitorData ? (
+            <table className="variant-table">
+              <thead>
+                <tr>
+                  <th>Shop Name</th>
+                  <th>Score</th>
+                  <th>Reviews</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {competitorRows.map((row) => (
+                  <tr key={row.name}>
+                    <td>{row.name}</td>
+                    <td>{row.score}</td>
+                    <td>{row.reviews}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="mt-3 text-sm text-white/70">
+              Live competitor market context was unavailable in this run.
+            </p>
+          )}
           <div className="variant-quick-fixes">
             <p className="variant-card-label">Quick fixes</p>
             <div className="variant-chip-row">
@@ -854,24 +874,30 @@ export default async function ReportPage({ params }: { params: { scanId: string 
           <span className="report-arch-meta">Your shop vs local rivals</span>
         </div>
         <div className="report-arch-table-wrap">
-          <table className="variant-table">
-            <thead>
-              <tr>
-                <th>Shop</th>
-                <th>Score</th>
-                <th>Reviews</th>
-              </tr>
-            </thead>
-            <tbody>
-              {competitorRows.map((row) => (
-                <tr key={`market-${row.name}`}>
-                  <td>{row.name}</td>
-                  <td>{row.score}</td>
-                  <td>{row.reviews}</td>
+          {hasLiveCompetitorData ? (
+            <table className="variant-table">
+              <thead>
+                <tr>
+                  <th>Shop</th>
+                  <th>Score</th>
+                  <th>Reviews</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {competitorRows.map((row) => (
+                  <tr key={`market-${row.name}`}>
+                    <td>{row.name}</td>
+                    <td>{row.score}</td>
+                    <td>{row.reviews}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="text-sm text-white/70">
+              Live competitor market context was unavailable in this run.
+            </p>
+          )}
         </div>
       </section>
 
@@ -1160,31 +1186,31 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         <p className="mt-1 text-sm text-slate-600">
           Snapshot of review strength versus top local competitor.
         </p>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Your shop</p>
-            <p className="mt-1 text-lg font-semibold">
-              {reviewGap.shopRating.toFixed(1)} stars • {reviewGap.shopReviews} reviews
-            </p>
-          </article>
-          <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Top competitor</p>
-            <p className="mt-1 text-lg font-semibold">
-              {reviewGap.competitorRating.toFixed(1)} stars • {reviewGap.competitorReviews} reviews
-            </p>
-          </article>
-          <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Review gap</p>
-            <p className="mt-1 text-lg font-semibold">{reviewGap.reviewGap} reviews</p>
-            <p className="text-sm text-slate-700">Impact: {reviewGap.impact}</p>
-          </article>
-        </div>
-        {sourceConfidence.reviews !== 'live' ? (
-          <div className="mt-3 space-y-1 text-xs text-slate-500">
-            <p>Google review source: {sourceConfidence.reviews}. Showing conservative estimate.</p>
-            <p>We&apos;ll pull competitor review stats on the teardown.</p>
+        {hasLiveReviewData ? (
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Your shop</p>
+              <p className="mt-1 text-lg font-semibold">
+                {reviewGap.shopRating.toFixed(1)} stars • {reviewGap.shopReviews} reviews
+              </p>
+            </article>
+            <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Top competitor</p>
+              <p className="mt-1 text-lg font-semibold">
+                {reviewGap.competitorRating.toFixed(1)} stars • {reviewGap.competitorReviews} reviews
+              </p>
+            </article>
+            <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Review gap</p>
+              <p className="mt-1 text-lg font-semibold">{reviewGap.reviewGap} reviews</p>
+              <p className="text-sm text-slate-700">Impact: {reviewGap.impact}</p>
+            </article>
           </div>
-        ) : null}
+        ) : (
+          <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            Live review comparison data was unavailable in this run.
+          </div>
+        )}
       </section>
 
       <section className="mt-6 card print-break-avoid p-6">
@@ -1195,11 +1221,11 @@ export default async function ReportPage({ params }: { params: { scanId: string 
           </p>
         ) : null}
         <p className="mt-1 text-sm text-slate-600">
-          {sourceConfidence.mapPack === 'live' || sourceConfidence.mapPack === 'cached'
+          {hasLiveMapPackData
             ? mapPack.info
             : 'Map pack ranks were unavailable in this run and will be pulled during teardown.'}
         </p>
-        {sourceConfidence.mapPack === 'live' || sourceConfidence.mapPack === 'cached' ? (
+        {hasLiveMapPackData ? (
           <div className="mt-4 space-y-3">
             {mapPack.queries.map((row) => (
               <article key={row.query} className="rounded-lg border border-slate-200 p-4">
@@ -1366,32 +1392,36 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         <p className="mt-1 text-sm text-slate-600">
           Lightweight comparison of top competitors vs your current signal coverage.
         </p>
-        {sourceConfidence.competitors !== 'live' ? (
+        {!hasLiveCompetitorData ? (
           <p className="mt-2 text-xs text-slate-500">
-            Live competitor crawl was unavailable for this run; showing best-available benchmark view.
+            Live competitor crawl was unavailable for this run.
           </p>
         ) : null}
         <div className="mt-4 space-y-3">
-          {(competitorDisplayRows.length > 0 ? competitorDisplayRows : vm.competitors).map((row, idx) => (
-            <article key={row.name + idx} className="rounded-lg border border-slate-200 p-4">
-              <p className="font-semibold text-slate-900">{row.name}</p>
-              {'advantages' in row ? (
-                <>
-                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
-                    {row.advantages.map((line) => (
-                      <li key={line}>{line}</li>
-                    ))}
-                  </ul>
-                  <p className="mt-2 text-xs text-slate-600">
-                    OEM mentions: {row.oemSignalCount} | Capabilities: {row.capabilityCount} | Estimate CTA:{' '}
-                    {row.estimateCta ? 'Yes' : 'No'}
-                  </p>
-                </>
-              ) : (
-                <p className="mt-2 text-sm text-slate-700">Why they&apos;re winning: {row.whyWinning}</p>
-              )}
-            </article>
-          ))}
+          {hasLiveCompetitorData ? (
+            (competitorDisplayRows.length > 0 ? competitorDisplayRows : vm.competitors).map((row, idx) => (
+              <article key={row.name + idx} className="rounded-lg border border-slate-200 p-4">
+                <p className="font-semibold text-slate-900">{row.name}</p>
+                {'advantages' in row ? (
+                  <>
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
+                      {row.advantages.map((line) => (
+                        <li key={line}>{line}</li>
+                      ))}
+                    </ul>
+                    <p className="mt-2 text-xs text-slate-600">
+                      OEM mentions: {row.oemSignalCount} | Capabilities: {row.capabilityCount} | Estimate CTA:{' '}
+                      {row.estimateCta ? 'Yes' : 'No'}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-2 text-sm text-slate-700">Why they&apos;re winning: {row.whyWinning}</p>
+                )}
+              </article>
+            ))
+          ) : (
+            <p className="text-sm text-slate-600">Live competitor comparison was unavailable for this run.</p>
+          )}
         </div>
       </section>
 
@@ -1416,27 +1446,29 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         </div>
       </details>
 
-      <section className="mt-6 rounded-xl border border-teal-200 bg-teal-50 print-break-avoid p-6">
-        <h2 className="text-xl font-bold text-slate-900">Estimated Opportunity (modeled)</h2>
-        <p className="mt-1 text-sm text-slate-700">
-          Modeled estimate based on local demand + visibility gaps. Not a guarantee.
-        </p>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <div className="rounded-lg bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Monthly search demand</p>
-            <p className="mt-1 text-2xl font-bold">{vm.opportunity.monthlySearchDemand.toLocaleString()}</p>
+      {hasLiveKeywordData ? (
+        <section className="mt-6 rounded-xl border border-teal-200 bg-teal-50 print-break-avoid p-6">
+          <h2 className="text-xl font-bold text-slate-900">Estimated Opportunity</h2>
+          <p className="mt-1 text-sm text-slate-700">
+            Estimate based on live keyword demand and visibility gaps. Not a guarantee.
+          </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg bg-white p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Monthly search demand</p>
+              <p className="mt-1 text-2xl font-bold">{vm.opportunity.monthlySearchDemand.toLocaleString()}</p>
+            </div>
+            <div className="rounded-lg bg-white p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Missed leads/month</p>
+              <p className="mt-1 text-2xl font-bold">{vm.opportunity.missedLeads.toLocaleString()}</p>
+            </div>
+            <div className="rounded-lg bg-white p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Revenue opportunity</p>
+              <p className="mt-1 text-2xl font-bold">${vm.opportunity.revenueOpportunity.toLocaleString()}</p>
+              <p className="text-xs text-slate-500">ARO: ${vm.opportunity.averageRepairOrder.toLocaleString()}</p>
+            </div>
           </div>
-          <div className="rounded-lg bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Missed leads/month</p>
-            <p className="mt-1 text-2xl font-bold">{vm.opportunity.missedLeads.toLocaleString()}</p>
-          </div>
-          <div className="rounded-lg bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Revenue opportunity</p>
-            <p className="mt-1 text-2xl font-bold">${vm.opportunity.revenueOpportunity.toLocaleString()}</p>
-            <p className="text-xs text-slate-500">ARO: ${vm.opportunity.averageRepairOrder.toLocaleString()}</p>
-          </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       <details className="mt-8 card print-break-avoid p-6">
         <summary className="cursor-pointer text-sm font-semibold uppercase tracking-[0.14em] text-[#c49a7a]">
@@ -1472,41 +1504,50 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       <section className="mt-8 grid gap-4 md:grid-cols-2">
         <div className="card print-break-avoid p-6">
           <h2 className="text-xl font-bold">Money Keywords</h2>
-          <div className="mt-3 space-y-2">
-            {vm.keywords.map((item) => (
-              <article key={item.keyword} className="rounded-md bg-slate-100 px-3 py-3 text-sm">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="font-semibold text-slate-900">{item.keyword}</p>
-                  {item.estimated ? (
-                    <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
-                      est.
-                    </span>
-                  ) : null}
-                </div>
-                <p className="mt-1 text-xs text-slate-700">
-                  Volume: {item.volumeLabel} | CPC: {item.cpcLabel} | Intent: {item.intent}
-                </p>
-              </article>
-            ))}
-          </div>
-          <p className="mt-3 text-xs text-slate-500">Exact volumes pulled during teardown.</p>
+          {hasLiveKeywordData ? (
+            <>
+              <div className="mt-3 space-y-2">
+                {vm.keywords.map((item) => (
+                  <article key={item.keyword} className="rounded-md bg-slate-100 px-3 py-3 text-sm">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-semibold text-slate-900">{item.keyword}</p>
+                    </div>
+                    <p className="mt-1 text-xs text-slate-700">
+                      Volume: {item.volumeLabel} | CPC: {item.cpcLabel} | Intent: {item.intent}
+                    </p>
+                  </article>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-slate-500">Live keyword demand metrics captured for this scan.</p>
+            </>
+          ) : (
+            <p className="mt-3 text-sm text-slate-600">
+              Live keyword volume/CPC data was unavailable in this run.
+            </p>
+          )}
         </div>
 
         <div className="card print-break-avoid p-6">
           <h2 className="text-xl font-bold">Top local competitors we&apos;ll benchmark on your teardown</h2>
-          <div className="mt-3 space-y-3">
-            {vm.competitors.map((comp, idx) => (
-              <article key={`${comp.name}-${idx}`} className="rounded-md border border-slate-200 p-3">
-                <p className="font-semibold">{comp.name}</p>
-                {typeof comp.rating === 'number' && typeof comp.reviews === 'number' ? (
-                  <p className="mt-1 text-xs text-slate-700">
-                    {comp.rating.toFixed(1)} stars • {comp.reviews} reviews
-                  </p>
-                ) : null}
-                <p className="mt-1 text-xs text-slate-700">Why they&apos;re winning: {comp.whyWinning}</p>
-              </article>
-            ))}
-          </div>
+          {hasLiveCompetitorData ? (
+            <div className="mt-3 space-y-3">
+              {vm.competitors.map((comp, idx) => (
+                <article key={`${comp.name}-${idx}`} className="rounded-md border border-slate-200 p-3">
+                  <p className="font-semibold">{comp.name}</p>
+                  {hasLiveReviewData && typeof comp.rating === 'number' && typeof comp.reviews === 'number' ? (
+                    <p className="mt-1 text-xs text-slate-700">
+                      {comp.rating.toFixed(1)} stars • {comp.reviews} reviews
+                    </p>
+                  ) : null}
+                  <p className="mt-1 text-xs text-slate-700">Why they&apos;re winning: {comp.whyWinning}</p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-slate-600">
+              Live competitor extraction was unavailable in this run.
+            </p>
+          )}
         </div>
       </section>
 
