@@ -18,26 +18,26 @@ export function TrendChartCard({ title, subtitle, points = [55, 57, 54, 60, 62, 
   const delta = points[points.length - 1] - points[0];
 
   return (
-    <article className="card p-5">
+    <article className="dashboard-panel">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${delta >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+        <h2 className="dashboard-section-title">{title}</h2>
+        <span className={`dashboard-status ${delta >= 0 ? 'dashboard-status-positive' : 'dashboard-status-warning'}`}>
           {delta >= 0 ? '+' : ''}
           {delta}
         </span>
       </div>
-      {subtitle ? <p className="mt-1 text-sm text-slate-600">{subtitle}</p> : null}
-      <div className="mt-4 rounded-xl border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-3">
+      {subtitle ? <p className="dashboard-body-sm mt-1">{subtitle}</p> : null}
+      <div className="dashboard-subpanel mt-4 rounded-xl p-3">
         <svg viewBox="0 0 100 100" className="h-28 w-full">
           <polyline
             fill="none"
-            stroke="#cbd5e1"
+            stroke="rgba(242, 214, 193, 0.18)"
             strokeWidth="0.6"
             points="0,90 100,90"
           />
           <polyline
             fill="none"
-            stroke="#0f766e"
+            stroke="#f87171"
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -45,7 +45,7 @@ export function TrendChartCard({ title, subtitle, points = [55, 57, 54, 60, 62, 
           />
         </svg>
       </div>
-      <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+      <div className="dashboard-caption mt-2 flex items-center justify-between">
         <span>Oldest snapshot</span>
         <span>Latest snapshot</span>
       </div>

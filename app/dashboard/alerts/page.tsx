@@ -1,32 +1,22 @@
 import { prisma } from '@/lib/prisma';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
 import { PageHeader } from '@/components/page-header';
+import { DashboardKpiCard } from '@/components/dashboard-kpi-card';
+import { AlertCard } from '@/components/alert-card';
 import { saveAlertPreferences } from './actions';
 
 export const dynamic = 'force-dynamic';
 
-const typeLabel = {
-  rank_drop: 'Significant Rank Drop Detected',
-  rank_gain: 'Rank Increase Detected',
-  competitor_moved_above: 'Competitor Moved Ahead',
-  new_competitor: 'New Local Competitor Spotted',
-  gbp_issue: 'GBP Health Issue'
-} as const;
-
-const severityTone = {
-  critical: 'border-red-400 text-red-300',
-  warning: 'border-amber-400 text-amber-300',
-  info: 'border-blue-400 text-blue-300'
-} as const;
-
 function channelToggle(enabled: boolean) {
   return (
     <span
-      className={`relative inline-flex h-6 w-10 items-center rounded-full border ${
-        enabled ? 'border-[#ff4d5b] bg-[#ff4d5b]/30' : 'border-white/15 bg-black/30'
+      className={`relative inline-flex h-6 w-11 items-center rounded-full border ${
+        enabled
+          ? 'border-[rgba(255,123,127,0.45)] bg-[rgba(255,123,127,0.24)]'
+          : 'border-[var(--dashboard-border)] bg-[rgba(255,255,255,0.06)]'
       }`}
     >
-      <span className={`h-4 w-4 rounded-full bg-white transition ${enabled ? 'ml-5' : 'ml-1'}`} />
+      <span className={`h-4 w-4 rounded-full bg-white transition ${enabled ? 'ml-6' : 'ml-1'}`} />
     </span>
   );
 }
@@ -45,69 +35,88 @@ export default async function DashboardAlertsPage() {
     })
   ]);
 
+  const unread = alerts.filter((a) => !a.isRead).length;
+  const critical = alerts.filter((a) => a.severity === 'critical').length;
+  const warnings = alerts.filter((a) => a.severity === 'warning').length;
+
   return (
-    <div>
+    <div className="dashboard-main-inner">
       <PageHeader
         title="Alerts Feed"
-        subtitle=""
+        subtitle="Stored alert records and saved preferences only. Controls below do not imply extra channels beyond what already exists."
         eyebrow="Notifications & Activity"
-        actions={<p className="text-sm text-white/60">{alerts.filter((a) => !a.isRead).length} unread alerts</p>}
+        actions={<p className="dashboard-chip">{unread} unread alerts</p>}
       />
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="space-y-3">
-          {alerts.length === 0 ? (
-            <article className="card rounded-xl border border-dashed p-4 text-sm text-white/65">
-              No alerts yet. Alerts appear after monitoring jobs complete.
-            </article>
-          ) : (
-            alerts.map((alert) => (
-              <article key={alert.id} className="card p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-4">
-                    <span
-                      className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl border text-lg ${
-                        severityTone[alert.severity]
-                      }`}
-                    >
-                      •
-                    </span>
-                    <div>
-                      <p className="text-3xl font-semibold leading-tight text-white">{typeLabel[alert.type]}</p>
-                      <p className="mt-1 text-base text-white/65">
-                        Generated from ranking and local monitoring signals.
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-sm text-white/40">{new Date(alert.createdAt).toLocaleString()}</p>
-                </div>
-              </article>
-            ))
-          )}
-        </div>
+      <section className="mb-5 grid gap-3 lg:grid-cols-4">
+        <DashboardKpiCard label="Unread" value={unread} detail="Alerts not yet marked read in the current org." tone={unread > 0 ? 'accent' : 'default'} />
+        <DashboardKpiCard label="Critical" value={critical} detail="High-severity events that may need immediate review." tone={critical > 0 ? 'warning' : 'default'} />
+        <DashboardKpiCard label="Warnings" value={warnings} detail="Non-critical shifts in rankings, competitors, or GBP state." />
+        <DashboardKpiCard
+          label="Digest cadence"
+          value={prefs?.digestFrequency || 'daily'}
+          detail="Saved digest preference from alert settings."
+        />
+      </section>
 
-        <aside className="card p-5">
-          <h3 className="text-xs uppercase tracking-[0.16em] text-white/45">Alert settings</h3>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <section className="dashboard-panel">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="dashboard-section-title">Alert timeline</h2>
+              <p className="dashboard-body-sm mt-1">This feed reflects persisted alert rows. Missing alerts mean no event was stored, not that nothing happened.</p>
+            </div>
+            <span className="dashboard-chip">Latest 30</span>
+          </div>
+
+          <div className="mt-4 space-y-3">
+            {alerts.length === 0 ? (
+              <div className="dashboard-empty-state">
+                <p className="dashboard-empty-title">No alerts yet</p>
+                <p className="dashboard-body-sm mt-1">Alerts appear after monitoring jobs complete and save an alert record.</p>
+              </div>
+            ) : (
+              alerts.map((alert) => (
+                <AlertCard
+                  key={alert.id}
+                  type={alert.type}
+                  severity={alert.severity}
+                  title="Monitoring event"
+                  subtitle="Generated from ranking, competitor, or GBP monitoring signals."
+                  when={new Date(alert.createdAt).toLocaleString()}
+                />
+              ))
+            )}
+          </div>
+        </section>
+
+        <aside className="dashboard-panel">
+          <div>
+            <h2 className="dashboard-section-title">Alert settings</h2>
+            <p className="dashboard-body-sm mt-1">These controls persist the existing alert preference model only.</p>
+          </div>
+
           <form action={saveAlertPreferences} className="mt-4 space-y-4">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <div className="dashboard-subpanel flex items-center justify-between rounded-[22px] p-4">
               <div>
-                <p className="text-[24px] font-medium text-white">Rank Volatility</p>
-                <p className="text-sm text-white/55">Notify on +/- {prefs?.rankDropThreshold ?? 3} position changes</p>
+                <p className="dashboard-section-title">Rank volatility</p>
+                <p className="dashboard-body-sm mt-1">Notify on +/- {prefs?.rankDropThreshold ?? 3} position changes.</p>
                 <input
                   type="number"
                   name="rankDropThreshold"
                   min={1}
                   max={20}
                   defaultValue={prefs?.rankDropThreshold ?? 3}
-                  className="mt-2 w-24 rounded-lg border border-white/10 bg-black/30 px-2 py-1 text-xs text-white"
+                  className="dashboard-field mt-3 max-w-[110px]"
                 />
               </div>
               {channelToggle(true)}
             </div>
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+
+            <div className="dashboard-subpanel flex items-center justify-between rounded-[22px] p-4">
               <div>
-                <p className="text-[24px] font-medium text-white">Competitor Entry</p>
-                <p className="text-sm text-white/55">New domains in top 20 results</p>
+                <p className="dashboard-section-title">Competitor entry</p>
+                <p className="dashboard-body-sm mt-1">New domains in top 20 results.</p>
               </div>
               <label className="cursor-pointer">
                 <input
@@ -119,10 +128,11 @@ export default async function DashboardAlertsPage() {
                 {channelToggle(Boolean(prefs?.newCompetitorEnabled))}
               </label>
             </div>
-            <div className="flex items-center justify-between">
+
+            <div className="dashboard-subpanel flex items-center justify-between rounded-[22px] p-4">
               <div>
-                <p className="text-[24px] font-medium text-white">GBP Attribute Drift</p>
-                <p className="text-sm text-white/55">Profile health and attribute issues</p>
+                <p className="dashboard-section-title">GBP attribute drift</p>
+                <p className="dashboard-body-sm mt-1">Profile health and attribute issues.</p>
               </div>
               <label className="cursor-pointer">
                 <input
@@ -134,6 +144,7 @@ export default async function DashboardAlertsPage() {
                 {channelToggle(Boolean(prefs?.gbpIssueEnabled))}
               </label>
             </div>
+
             <input
               type="checkbox"
               name="competitorMoveEnabled"
@@ -142,33 +153,33 @@ export default async function DashboardAlertsPage() {
               readOnly
             />
 
-            <h3 className="mt-7 text-xs uppercase tracking-[0.16em] text-white/45">Notification channels</h3>
-            <div className="mt-4 space-y-4">
-              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <div className="dashboard-subpanel rounded-[22px] p-4">
+              <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[24px] font-medium text-white">Email Digest</p>
-                  <p className="text-sm text-white/55">{prefs?.digestFrequency || 'daily'} summary</p>
-                  <select
-                    name="digestFrequency"
-                    defaultValue={prefs?.digestFrequency || 'daily'}
-                    className="mt-2 rounded-lg border border-white/10 bg-black/30 px-2 py-1 text-xs text-white"
-                  >
-                    <option value="off">off</option>
-                    <option value="daily">daily</option>
-                    <option value="weekly">weekly</option>
-                  </select>
+                  <p className="dashboard-section-title">Email digest</p>
+                  <p className="dashboard-body-sm mt-1">Existing persisted cadence only. SMS remains unchanged and not implemented.</p>
                 </div>
                 {channelToggle((prefs?.digestFrequency || 'daily') !== 'off')}
               </div>
-              <div className="flex items-center justify-between">
+              <select
+                name="digestFrequency"
+                defaultValue={prefs?.digestFrequency || 'daily'}
+                className="dashboard-select mt-3"
+              >
+                <option value="off">off</option>
+                <option value="daily">daily</option>
+                <option value="weekly">weekly</option>
+              </select>
+              <div className="mt-3 flex items-center justify-between rounded-[18px] border border-[var(--dashboard-border)] px-3 py-3">
                 <div>
-                  <p className="text-[24px] font-medium text-white">SMS Alerts</p>
-                  <p className="text-sm text-white/55">Critical only (coming soon)</p>
+                  <p className="dashboard-section-title">SMS alerts</p>
+                  <p className="dashboard-body-sm mt-1">Coming soon. No delivery backend is wired today.</p>
                 </div>
                 {channelToggle(false)}
               </div>
             </div>
-            <button className="mt-4 w-full rounded-xl bg-[#ff4d5b] px-4 py-2 text-sm font-semibold text-white" type="submit">
+
+            <button className="dashboard-button-primary w-full" type="submit">
               Save alert settings
             </button>
           </form>

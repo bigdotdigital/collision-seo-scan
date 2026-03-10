@@ -9,9 +9,9 @@ type AlertCardProps = {
 };
 
 const tone: Record<AlertSeverity, string> = {
-  info: 'bg-slate-200 text-slate-700',
-  warning: 'bg-amber-100 text-amber-700',
-  critical: 'bg-red-100 text-red-700'
+  info: 'dashboard-status dashboard-status-info',
+  warning: 'dashboard-status dashboard-status-warning',
+  critical: 'dashboard-status dashboard-status-critical'
 };
 
 const typeLabel: Record<AlertType, string> = {
@@ -24,22 +24,22 @@ const typeLabel: Record<AlertType, string> = {
 
 export function AlertCard({ type, severity, title, subtitle, when }: AlertCardProps) {
   return (
-    <article className="card p-4">
+    <article className="dashboard-panel">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-2">
-          <span className={`mt-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full text-[10px] font-bold ${tone[severity]}`}>
+          <span className={`mt-1 inline-flex h-6 min-w-6 items-center justify-center rounded-full text-[10px] font-bold ${tone[severity]}`}>
             !
           </span>
           <div>
-            <p className="text-sm font-semibold text-slate-900">{title}</p>
-            <p className="text-sm text-slate-600">{subtitle}</p>
+            <p className="dashboard-section-title">{title}</p>
+            <p className="dashboard-body-sm mt-1">{subtitle}</p>
           </div>
         </div>
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+        <span className="dashboard-status dashboard-status-muted">
           {typeLabel[type]}
         </span>
       </div>
-      <p className="mt-2 text-xs text-slate-500">{when}</p>
+      <p className="dashboard-caption mt-3">{when}</p>
     </article>
   );
 }

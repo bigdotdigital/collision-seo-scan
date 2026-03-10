@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
 import { PageHeader } from '@/components/page-header';
+import { DashboardKpiCard } from '@/components/dashboard-kpi-card';
 import { reconcileStripeStateForOrg } from '@/lib/stripe';
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +18,6 @@ export default async function DashboardBillingPage({
     select: { stripeCustomerId: true, stripeSubscriptionId: true }
   });
 
-  // Webhooks can lag briefly; reconcile directly on key billing transitions.
   if (org?.stripeCustomerId && (searchParams?.checkout === 'success' || !org.stripeSubscriptionId)) {
     await reconcileStripeStateForOrg(ctx.orgId).catch(() => undefined);
   }
@@ -45,118 +45,146 @@ export default async function DashboardBillingPage({
           .filter((invoice, idx, arr) => {
             if (idx === 0) return true;
             const first = arr[0];
-            const sameDay =
-              first.invoiceDate.toDateString() === invoice.invoiceDate.toDateString();
+            const sameDay = first.invoiceDate.toDateString() === invoice.invoiceDate.toDateString();
             return !(sameDay && first.amountCents === invoice.amountCents && first.status === invoice.status);
           })
       : invoices;
 
   return (
-    <div>
-      <PageHeader title="Plans & Billing" subtitle="" eyebrow="Organization Settings" />
+    <div className="dashboard-main-inner">
+      <PageHeader
+        title="Plans & Billing"
+        subtitle="Stripe-backed billing state is preserved. This page only reworks the presentation around the existing subscription and invoice records."
+        eyebrow="Organization Settings"
+      />
 
       {portalState === 'missing-customer' ? (
-        <div className="mb-4 rounded-xl border border-amber-300/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-          Billing profile is not linked yet. Start your trial first or use “Add payment method now” from monitoring.
+        <div className="dashboard-panel dashboard-panel-warning mb-4">
+          <p className="dashboard-section-title">Billing profile not linked yet</p>
+          <p className="dashboard-body-sm mt-1">Start your trial first or use “Add payment method now” from monitoring.</p>
         </div>
       ) : null}
       {portalState === 'error' ? (
-        <div className="mb-4 rounded-xl border border-red-300/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-          Could not open Stripe billing portal right now. Please retry in a minute.
+        <div className="dashboard-panel dashboard-panel-warning mb-4">
+          <p className="dashboard-section-title">Stripe portal unavailable</p>
+          <p className="dashboard-body-sm mt-1">Could not open Stripe billing portal right now. Please retry in a minute.</p>
         </div>
       ) : null}
 
-      <div className="mb-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <article className="card p-6">
-          <p className="text-xs uppercase tracking-[0.16em] text-white/45">Current subscription</p>
-          <div className="mt-4 flex items-start justify-between gap-3">
+      <section className="mb-5 grid gap-3 lg:grid-cols-4">
+        <DashboardKpiCard label="Plan" value={plan === 'monitor' ? 'Monitor' : plan} detail="Current plan tier from the subscription record." tone="accent" />
+        <DashboardKpiCard label="Status" value={status} detail="Subscription lifecycle state synced from Stripe." />
+        <DashboardKpiCard
+          label="Next billing date"
+          value={subscription?.currentPeriodEnd?.toLocaleDateString() || 'Pending'}
+          detail="Pending means no current period end was saved yet."
+        />
+        <DashboardKpiCard label="Invoices" value={displayInvoices.length} detail="Deduped invoice rows shown below." />
+      </section>
+
+      <section className="mb-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <article className="dashboard-panel dashboard-panel-accent">
+          <p className="dashboard-label">Current subscription</p>
+          <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-5xl font-semibold text-white">{plan === 'monitor' ? 'Monitor Plan' : plan}</p>
-              <p className="mt-2 text-2xl text-white/65">$49.00 <span className="text-base">/ month</span></p>
+              <p className="text-4xl font-semibold tracking-[-0.04em] text-[var(--dashboard-text)]">
+                {plan === 'monitor' ? 'Monitor Plan' : plan}
+              </p>
+              <p className="mt-2 text-xl text-[var(--dashboard-text-muted)]">
+                $49.00 <span className="text-base">/ month</span>
+              </p>
             </div>
-            <a
-              href={portalUrl}
-              className="dashboard-button"
-            >
-              Manage Billing
+            <a href={portalUrl} className="dashboard-button">
+              Manage billing
             </a>
           </div>
 
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <div>
-              <p className="text-xs uppercase tracking-[0.14em] text-white/45">Next billing date</p>
-              <p className="mt-1 text-3xl text-white">
+            <div className="dashboard-subpanel rounded-[20px] p-4">
+              <p className="dashboard-label">Next billing date</p>
+              <p className="mt-2 text-2xl font-semibold text-[var(--dashboard-text)]">
                 {subscription?.currentPeriodEnd?.toLocaleDateString() || 'Pending'}
               </p>
             </div>
-            <div>
-              <p className="text-xs uppercase tracking-[0.14em] text-white/45">Status</p>
-              <p className="mt-1 text-3xl capitalize text-white">{status}</p>
+            <div className="dashboard-subpanel rounded-[20px] p-4">
+              <p className="dashboard-label">Status</p>
+              <p className="mt-2 text-2xl font-semibold capitalize text-[var(--dashboard-text)]">{status}</p>
             </div>
           </div>
         </article>
 
-        <article className="card p-6">
-          <p className="text-xs uppercase tracking-[0.16em] text-[#ff8a93]">Available upgrade</p>
-          <p className="mt-3 text-5xl font-semibold text-white">Pro Agency</p>
-          <p className="mt-2 text-sm text-white/65">Unlock daily refreshes and white-label reporting.</p>
-          <p className="mt-8 text-5xl font-semibold text-white">$199 <span className="text-lg text-white/65">/ mo</span></p>
+        <article className="dashboard-panel">
+          <p className="dashboard-label">Available upgrade</p>
+          <p className="mt-3 text-4xl font-semibold tracking-[-0.04em] text-[var(--dashboard-text)]">Pro Agency</p>
+          <p className="dashboard-body mt-3">Unlock daily refreshes and white-label reporting.</p>
+          <p className="mt-8 text-4xl font-semibold text-[var(--dashboard-text)]">
+            $199 <span className="text-lg text-[var(--dashboard-text-muted)]">/ mo</span>
+          </p>
           <a
             href={bookCallUrl}
             target="_blank"
             rel="noreferrer"
-            className="mt-6 block w-full rounded-xl bg-[#ff4d5b] px-4 py-3 text-center text-sm font-semibold text-white"
+            className="dashboard-button-primary mt-6 w-full"
           >
             Upgrade to Pro
           </a>
         </article>
-      </div>
+      </section>
 
-      <article className="card overflow-hidden p-6">
-        <p className="mb-4 text-xs uppercase tracking-[0.16em] text-white/45">Invoice history</p>
-        <table className="w-full min-w-[760px] text-sm">
-          <thead>
-            <tr className="border-b border-white/10 text-left text-xs uppercase tracking-[0.14em] text-white/45">
-              <th className="py-3">Invoice ID</th>
-              <th className="py-3">Date</th>
-              <th className="py-3">Amount</th>
-              <th className="py-3">Status</th>
-              <th className="py-3 text-right">Download</th>
-            </tr>
-          </thead>
-          <tbody>
-            {displayInvoices.length === 0 ? (
+      <section className="dashboard-panel overflow-hidden p-0">
+        <div className="flex items-start justify-between gap-3 border-b border-[var(--dashboard-border-strong)] px-5 py-4">
+          <div>
+            <h2 className="dashboard-section-title">Invoice history</h2>
+            <p className="dashboard-body-sm mt-1">Rows below come directly from synced invoice records. Missing PDFs stay marked unavailable.</p>
+          </div>
+          <span className="dashboard-chip">Latest 12</span>
+        </div>
+
+        <div className="overflow-x-auto p-5">
+          <table className="dashboard-table w-full min-w-[760px] text-sm">
+            <thead>
               <tr>
-                <td colSpan={5} className="py-5 text-white/60">
-                  No synced invoices yet.
-                </td>
+                <th className="py-3 text-left">Invoice ID</th>
+                <th className="py-3 text-left">Date</th>
+                <th className="py-3 text-left">Amount</th>
+                <th className="py-3 text-left">Status</th>
+                <th className="py-3 text-right">Download</th>
               </tr>
-            ) : (
-              displayInvoices.map((invoice) => (
-                <tr key={invoice.id} className="border-b border-white/8 text-white/80">
-                  <td className="py-4 text-lg font-mono">{invoice.stripeInvoiceId || invoice.id}</td>
-                  <td className="py-4">{invoice.invoiceDate.toLocaleDateString()}</td>
-                  <td className="py-4">${(invoice.amountCents / 100).toFixed(2)}</td>
-                  <td className="py-4">
-                    <span className="rounded-full border border-white/15 bg-black/20 px-2 py-1 text-xs uppercase tracking-wide">
-                      {invoice.status}
-                    </span>
-                  </td>
-                  <td className="py-4 text-right">
-                    {invoice.pdfUrl ? (
-                      <a href={invoice.pdfUrl} target="_blank" rel="noreferrer" className="text-[#ff8a93]">
-                        PDF
-                      </a>
-                    ) : (
-                      <span className="text-white/35">—</span>
-                    )}
+            </thead>
+            <tbody>
+              {displayInvoices.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-5 text-[var(--dashboard-text-muted)]">
+                    No synced invoices yet.
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </article>
+              ) : (
+                displayInvoices.map((invoice) => (
+                  <tr key={invoice.id}>
+                    <td className="py-4 text-base font-mono text-[var(--dashboard-text)]">
+                      {invoice.stripeInvoiceId || invoice.id}
+                    </td>
+                    <td className="py-4">{invoice.invoiceDate.toLocaleDateString()}</td>
+                    <td className="py-4">${(invoice.amountCents / 100).toFixed(2)}</td>
+                    <td className="py-4">
+                      <span className="dashboard-status dashboard-status-muted">{invoice.status}</span>
+                    </td>
+                    <td className="py-4 text-right">
+                      {invoice.pdfUrl ? (
+                        <a href={invoice.pdfUrl} target="_blank" rel="noreferrer" className="dashboard-inline-link">
+                          PDF
+                        </a>
+                      ) : (
+                        <span className="dashboard-status dashboard-status-unknown">Unavailable</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }

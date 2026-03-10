@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
 import { PageHeader } from '@/components/page-header';
+import { DashboardKpiCard } from '@/components/dashboard-kpi-card';
+import { CompetitorComparisonGrid } from '@/components/competitor-comparison-card';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,34 +47,80 @@ export default async function DashboardCompetitorsPage() {
   const sov = cols.map((name, idx) => {
     const trackedRows = tableRows.filter((row) => row.ranks[idx] !== null);
     const top3 = trackedRows.filter((row) => (row.ranks[idx] || 999) <= 3).length;
-    const value =
-      trackedRows.length > 0 ? Math.round((top3 / trackedRows.length) * 100) : null;
-    return { name, value };
+    const value = trackedRows.length > 0 ? Math.round((top3 / trackedRows.length) * 100) : null;
+    return { name, value, trackedRows: trackedRows.length };
+  });
+
+  const comparisonCards = competitors.map((competitor) => {
+    const competitorIndex = competitors.findIndex((item) => item.id === competitor.id) + 1;
+    const rowsWithData = tableRows.filter((row) => row.ranks[competitorIndex] !== null);
+    const top3Count = rowsWithData.filter((row) => (row.ranks[competitorIndex] || 999) <= 3).length;
+    return {
+      title: competitor.name,
+      subtitle: competitor.websiteUrl || 'No website URL saved',
+      href: competitor.websiteUrl,
+      hrefLabel: 'Visit site',
+      metrics: [
+        { label: 'Tracked terms', value: String(rowsWithData.length) },
+        { label: 'Top 3 count', value: String(top3Count) },
+        { label: 'Share of voice', value: sov[competitorIndex]?.value === null ? 'Unavailable' : `${sov[competitorIndex]?.value}%` }
+      ],
+      highlights: rowsWithData.length === 0
+        ? ['No overlapping keyword snapshots are available for this competitor yet.']
+        : rowsWithData.slice(0, 3).map((row) => `${row.kw}: rank ${row.ranks[competitorIndex]}`)
+    };
   });
 
   return (
-    <div>
+    <div className="dashboard-main-inner">
       <PageHeader
         title="Head-to-Head Comparison"
-        subtitle="Keyword performance vs. top local rivals"
+        subtitle="Competitor tables only show saved overlaps from tracked keywords and snapshots. No synthetic rank estimates are introduced."
         eyebrow="Market Analysis"
         actions={
-          <Link href="/dashboard/onboarding" className="rounded-xl bg-[#ff4d5b] px-4 py-2 text-sm font-semibold text-white">
-            + Add Competitor
+          <Link href="/dashboard/onboarding" className="dashboard-button-primary">
+            Add competitor
           </Link>
         }
       />
 
-      <article className="card mb-5 overflow-hidden p-0">
+      <section className="mb-5 grid gap-3 lg:grid-cols-4">
+        <DashboardKpiCard label="Tracked rivals" value={competitors.length} detail="Active competitor records in the workspace." />
+        <DashboardKpiCard label="Overlap terms" value={tableRows.length} detail="Keywords where at least one side has stored ranking data." />
+        <DashboardKpiCard
+          label="Your SOV"
+          value={sov[0]?.value === null ? 'Unavailable' : `${sov[0]?.value}%`}
+          detail="Percent of overlapping terms where your shop ranks in the top 3."
+          tone={sov[0]?.value && sov[0].value >= 50 ? 'accent' : 'default'}
+        />
+        <DashboardKpiCard
+          label="Coverage gaps"
+          value={keywords.length - tableRows.length}
+          detail="Tracked keywords with no head-to-head data yet."
+          tone={keywords.length - tableRows.length > 0 ? 'warning' : 'default'}
+        />
+      </section>
+
+      <section className="dashboard-panel mb-5 overflow-hidden p-0">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--dashboard-border-strong)] px-5 py-4">
+          <div>
+            <h2 className="dashboard-section-title">Competitor matrix</h2>
+            <p className="dashboard-body-sm mt-1">Cells show stored ranking positions only. Blank cells mean the system does not have that competitor snapshot.</p>
+          </div>
+          <span className="dashboard-chip">Rank positions</span>
+        </div>
+
         <div className="overflow-x-auto p-5">
-          <table className="w-full min-w-[980px] text-sm">
+          <table className="dashboard-table w-full min-w-[980px] text-sm">
             <thead>
-              <tr className="border-b border-white/10 text-left text-xs uppercase tracking-[0.16em] text-white/45">
-                <th className="px-4 py-4">Target keyword</th>
+              <tr>
+                <th className="px-4 py-4 text-left">Target keyword</th>
                 {cols.map((col, idx) => (
-                  <th key={col} className="px-4 py-4">
-                    <p className={idx === 0 ? 'text-[#ff8a93]' : 'text-white/55'}>{col}</p>
-                    <p className="mt-1 text-[10px] tracking-[0.1em] text-white/35">{Math.max(12, 64 - idx * 12)}% SOV</p>
+                  <th key={col} className="px-4 py-4 text-left">
+                    <p className={idx === 0 ? 'text-[var(--dashboard-text)]' : 'text-[var(--dashboard-text-muted)]'}>{col}</p>
+                    <p className="dashboard-caption mt-1">
+                      {sov[idx]?.value === null ? 'SOV unavailable' : `${sov[idx]?.value}% SOV`}
+                    </p>
                   </th>
                 ))}
               </tr>
@@ -80,34 +128,28 @@ export default async function DashboardCompetitorsPage() {
             <tbody>
               {tableRows.length === 0 ? (
                 <tr>
-                  <td colSpan={cols.length + 1} className="px-4 py-6 text-white/60">
+                  <td colSpan={cols.length + 1} className="px-4 py-6 text-[var(--dashboard-text-muted)]">
                     No head-to-head ranking data yet. Run a scan and refresh rankings to populate this table.
                   </td>
                 </tr>
               ) : (
                 tableRows.map((row, i) => (
-                  <tr key={`${row.kw}-${i}`} className="border-b border-white/8">
-                    <td className="px-4 py-5 text-base text-white">{row.kw}</td>
+                  <tr key={`${row.kw}-${i}`}>
+                    <td className="px-4 py-5 text-base text-[var(--dashboard-text)]">{row.kw}</td>
                     {row.ranks.map((rank, ri) => (
                       <td key={`${row.kw}-${ri}`} className="px-4 py-5">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`inline-flex h-8 min-w-8 items-center justify-center rounded-full border px-2 text-sm ${
-                              ri === 0
-                                ? 'border-[#ff4d5b] bg-[#ff4d5b]/20 text-[#ff8a93]'
-                                : 'border-white/20 bg-black/30 text-white'
-                            }`}
-                          >
-                            {rank ?? '—'}
-                          </span>
-                          <span
-                            className={
-                              rank !== null && rank <= 3 ? 'text-[#ff8a93]' : 'text-white/35'
-                            }
-                          >
-                            {rank !== null && rank <= 3 ? '▲' : '•'}
-                          </span>
-                        </div>
+                        {rank === null ? (
+                          <span className="dashboard-status dashboard-status-unknown">N/A</span>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className={`dashboard-status ${ri === 0 ? 'dashboard-status-live' : 'dashboard-status-muted'}`}>
+                              {rank}
+                            </span>
+                            <span className={rank <= 3 ? 'text-[#ffd0c6]' : 'text-[var(--dashboard-text-faint)]'}>
+                              {rank <= 3 ? 'Top 3' : 'Tracked'}
+                            </span>
+                          </div>
+                        )}
                       </td>
                     ))}
                   </tr>
@@ -116,27 +158,24 @@ export default async function DashboardCompetitorsPage() {
             </tbody>
           </table>
         </div>
-      </article>
+      </section>
 
-      <div className="grid gap-3 md:grid-cols-4">
-        {sov.map((item, idx) => (
-          <article key={`${item.name}-${idx}`} className="card p-4">
-            <p className="text-xs uppercase tracking-[0.16em] text-white/45">
-              {idx === 0 ? 'Share of voice trend' : `Competitor #${idx} SOV`}
-            </p>
-            <p className="mt-4 text-base text-white">{item.name === 'YOU' ? 'Your Shop' : item.name}</p>
-            <div className="mt-1 flex items-center justify-between text-xl font-semibold text-white">
-              <span>{item.value === null ? '—' : `${item.value}%`}</span>
-            </div>
-            <div className="mt-2 h-1.5 rounded-full bg-black/40">
-              <div
-                className="h-full rounded-full bg-[#ff4d5b]"
-                style={{ width: `${item.value ?? 0}%` }}
-              />
-            </div>
-          </article>
-        ))}
-      </div>
+      <section className="dashboard-panel">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="dashboard-section-title">Competitor cards</h2>
+            <p className="dashboard-body-sm mt-1">These cards summarize only measurable overlap. Competitors with no overlap stay honest about that gap.</p>
+          </div>
+          <span className="dashboard-chip">Reusable comparison grid</span>
+        </div>
+        <div className="mt-4">
+          <CompetitorComparisonGrid
+            items={comparisonCards}
+            emptyTitle="No tracked competitors"
+            emptyBody="Add at least one competitor in onboarding or settings to unlock head-to-head analysis."
+          />
+        </div>
+      </section>
     </div>
   );
 }

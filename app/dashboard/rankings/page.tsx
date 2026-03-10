@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
 import { PageHeader } from '@/components/page-header';
+import { DashboardKpiCard } from '@/components/dashboard-kpi-card';
+import { DashboardTrendIndicator } from '@/components/dashboard-trend-indicator';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,112 +36,168 @@ export default async function DashboardRankingsPage() {
     const current = kw.snapshots[0]?.rankPosition ?? null;
     const previous = kw.snapshots[1]?.rankPosition ?? null;
     const delta = current !== null && previous !== null ? previous - current : null;
-    const score = current === null ? 50 : Math.max(35, Math.min(98, 100 - current * 2));
+    const score = current === null ? null : Math.max(35, Math.min(98, 100 - current * 2));
     return {
       id: kw.id,
       keyword: kw.term,
-      volume: null as number | null,
       current,
+      previous,
       delta,
       score
     };
   });
 
+  const withBaseline = rows.filter((row) => row.delta !== null);
+  const top3 = rows.filter((row) => row.current !== null && row.current <= 3).length;
+  const top10 = rows.filter((row) => row.current !== null && row.current <= 10).length;
+  const improving = withBaseline.filter((row) => (row.delta || 0) > 0).length;
+  const declining = withBaseline.filter((row) => (row.delta || 0) < 0).length;
+
   return (
-    <div>
+    <div className="dashboard-main-inner">
       <PageHeader
         title="Keyword Rankings"
-        subtitle=""
+        subtitle="Row-level ranking data only. Where there is no baseline snapshot, the table stays explicit about that gap."
         eyebrow="Collision Repair SEO"
-        actions={<p className="text-sm text-white/60">Tracking {rows.length} keywords</p>}
+        actions={<p className="dashboard-chip">Tracking {rows.length} keywords</p>}
       />
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-2">
-          {['All Positions', 'Top 3', '4-10', '11+'].map((chip, idx) => (
-            <span
-              key={chip}
-              className={`rounded-full border px-4 py-2 text-sm ${
-                idx === 0
-                  ? 'border-[#ff4d5b] bg-[#ff4d5b]/20 text-white'
-                  : 'border-white/10 bg-white/5 text-white/65'
-              }`}
-            >
-              {chip}
-            </span>
-          ))}
-          <span className="self-center pl-2 text-xs text-white/45">Filters lock after daily rank sync</span>
-        </div>
-        <div className="flex gap-2">
-          <a className="dashboard-button" href="/api/dashboard/keywords/export">
-            Export CSV
-          </a>
-          <Link href="/dashboard/onboarding" className="rounded-xl bg-[#ff4d5b] px-4 py-2 text-sm font-semibold text-white">
-            + Add Keyword
-          </Link>
-        </div>
-      </div>
+      <section className="mb-5 grid gap-3 lg:grid-cols-4">
+        <DashboardKpiCard
+          label="Tracked terms"
+          value={rows.length}
+          detail="All active keywords in the current workspace."
+        />
+        <DashboardKpiCard
+          label="Top 3"
+          value={top3}
+          detail="Keywords currently ranking in positions 1 through 3."
+          tone={top3 > 0 ? 'accent' : 'default'}
+        />
+        <DashboardKpiCard
+          label="Top 10"
+          value={top10}
+          detail="Terms with first-page visibility."
+        />
+        <DashboardKpiCard
+          label="Without baseline"
+          value={rows.length - withBaseline.length}
+          detail="Terms that only have one snapshot, so trend is unavailable."
+          tone={rows.length - withBaseline.length > 0 ? 'warning' : 'default'}
+        />
+      </section>
 
-      <article className="card overflow-hidden">
-        <table className="w-full min-w-[980px] text-sm">
-          <thead>
-            <tr className="border-b border-white/10 text-left text-xs uppercase tracking-[0.16em] text-white/45">
-              <th className="px-6 py-4">Keyword</th>
-              <th className="px-6 py-4">Volume</th>
-              <th className="px-6 py-4">Rank</th>
-              <th className="px-6 py-4">Delta</th>
-              <th className="px-6 py-4">30-Day Trend</th>
-              <th className="px-6 py-4">Opportunity</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
+      <section className="dashboard-panel mb-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="dashboard-section-title">Movement summary</h2>
+            <p className="dashboard-body-sm mt-1">Improvement and decline counts are based only on keywords with at least two saved snapshots.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <a className="dashboard-button" href="/api/dashboard/keywords/export">
+              Export CSV
+            </a>
+            <Link href="/dashboard/onboarding" className="dashboard-button-primary">
+              Add keyword
+            </Link>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <DashboardTrendIndicator
+            label="Improving terms"
+            value={String(improving)}
+            direction={improving > 0 ? 'up' : 'flat'}
+            detail="Count of keywords whose latest rank improved vs the prior snapshot."
+          />
+          <DashboardTrendIndicator
+            label="Declining terms"
+            value={String(declining)}
+            direction={declining > 0 ? 'down' : 'flat'}
+            detail="Count of keywords whose latest rank dropped vs the prior snapshot."
+          />
+          <DashboardTrendIndicator
+            label="No baseline"
+            value={String(rows.length - withBaseline.length)}
+            direction={rows.length - withBaseline.length > 0 ? 'unknown' : 'flat'}
+            detail="Trend bars are decorative when a baseline does not exist."
+          />
+        </div>
+      </section>
+
+      <section className="dashboard-panel overflow-hidden p-0">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--dashboard-border-strong)] px-5 py-4">
+          <div className="flex flex-wrap gap-2">
+            {['All Positions', 'Top 3', '4-10', '11+'].map((chip, idx) => (
+              <span key={chip} className={`dashboard-chip ${idx === 0 ? 'dashboard-status-live' : ''}`}>
+                {chip}
+              </span>
+            ))}
+          </div>
+          <p className="dashboard-caption">Static chips only. Interactive filters are not wired in the current payload contract.</p>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="dashboard-table w-full min-w-[980px] text-sm">
+            <thead>
               <tr>
-                <td colSpan={6} className="px-6 py-6 text-white/60">
-                  No tracked keywords yet.
-                </td>
+                <th className="px-6 py-4 text-left">Keyword</th>
+                <th className="px-6 py-4 text-left">Current</th>
+                <th className="px-6 py-4 text-left">Previous</th>
+                <th className="px-6 py-4 text-left">Delta</th>
+                <th className="px-6 py-4 text-left">30-day trend</th>
+                <th className="px-6 py-4 text-left">Opportunity</th>
               </tr>
-            ) : (
-              rows.map((row) => (
-                <tr key={row.id} className="border-b border-white/8">
-                  <td className="px-6 py-5 text-base text-white">{row.keyword}</td>
-                  <td className="px-6 py-5 text-white/70">{row.volume === null ? '—' : row.volume.toLocaleString()}</td>
-                  <td className="px-6 py-5">
-                    <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-white/20 bg-black/30 px-2 text-white">
-                      {row.current ?? '—'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-5 text-white/75">
-                    {row.delta === null ? (
-                      '—'
-                    ) : (
-                      <span className={row.delta > 0 ? 'text-[#ff8a93]' : 'text-white/65'}>
-                        {row.delta > 0 ? `+${row.delta}` : row.delta}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-5">
-                    <div className="flex items-end gap-1">
-                      {trendBars(row.delta).map((bar, i) => (
-                        <span
-                          key={`${row.id}-bar-${i}`}
-                          className="w-1 rounded-sm bg-[#ff4d5b]"
-                          style={{ height: `${bar}px`, opacity: 0.55 + i * 0.1 }}
-                        />
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-6 py-5">
-                    <span className="rounded-md bg-[#ff4d5b]/20 px-2 py-1 text-xs font-semibold text-[#ff8a93]">
-                      {row.score}
-                    </span>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-6 text-[var(--dashboard-text-muted)]">
+                    No tracked keywords yet.
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </article>
+              ) : (
+                rows.map((row) => (
+                  <tr key={row.id}>
+                    <td className="px-6 py-5 text-base text-[var(--dashboard-text)]">{row.keyword}</td>
+                    <td className="px-6 py-5">
+                      <span className="dashboard-status dashboard-status-muted">{row.current ?? 'N/A'}</span>
+                    </td>
+                    <td className="px-6 py-5 text-[var(--dashboard-text-muted)]">{row.previous ?? 'N/A'}</td>
+                    <td className="px-6 py-5">
+                      {row.delta === null ? (
+                        <span className="dashboard-status dashboard-status-unknown">No baseline</span>
+                      ) : (
+                        <span className={`dashboard-status ${row.delta > 0 ? 'dashboard-status-positive' : row.delta < 0 ? 'dashboard-status-warning' : 'dashboard-status-info'}`}>
+                          {row.delta > 0 ? `+${row.delta}` : row.delta}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex items-end gap-1">
+                        {trendBars(row.delta).map((bar, i) => (
+                          <span
+                            key={`${row.id}-bar-${i}`}
+                            className="w-1 rounded-sm bg-[var(--dashboard-accent)]"
+                            style={{ height: `${bar}px`, opacity: row.delta === null ? 0.25 : 0.55 + i * 0.1 }}
+                          />
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      {row.score === null ? (
+                        <span className="dashboard-status dashboard-status-unknown">Unavailable</span>
+                      ) : (
+                        <span className="dashboard-status dashboard-status-live">{row.score}</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }

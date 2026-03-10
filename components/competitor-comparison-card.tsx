@@ -1,49 +1,97 @@
-type CompetitorComparisonRow = {
-  id: string;
-  name: string;
-  trackedKeywords: number;
-  note?: string;
+type ComparisonMetric = {
+  label: string;
+  value: string;
 };
 
 type CompetitorComparisonCardProps = {
-  rows: CompetitorComparisonRow[];
+  title: string;
+  subtitle?: string;
+  metrics?: ComparisonMetric[];
+  highlights?: string[];
+  href?: string | null;
+  hrefLabel?: string;
+  tone?: 'default' | 'accent' | 'muted';
 };
 
-export function CompetitorComparisonCard({ rows }: CompetitorComparisonCardProps) {
-  const maxKeywords = Math.max(...rows.map((row) => row.trackedKeywords), 1);
+type CompetitorComparisonGridProps = {
+  items: CompetitorComparisonCardProps[];
+  emptyTitle: string;
+  emptyBody: string;
+};
+
+function toneClass(tone: CompetitorComparisonCardProps['tone']) {
+  if (tone === 'accent') return 'dashboard-panel dashboard-panel-accent';
+  if (tone === 'muted') return 'dashboard-panel dashboard-panel-muted';
+  return 'dashboard-panel';
+}
+
+export function CompetitorComparisonCard({
+  title,
+  subtitle,
+  metrics = [],
+  highlights = [],
+  href,
+  hrefLabel = 'Open',
+  tone = 'default'
+}: CompetitorComparisonCardProps) {
+  return (
+    <article className={toneClass(tone)}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="dashboard-section-title">{title}</p>
+          {subtitle ? <p className="dashboard-body-sm mt-1">{subtitle}</p> : null}
+        </div>
+        {href ? (
+          <a href={href} target="_blank" rel="noreferrer" className="dashboard-inline-link">
+            {hrefLabel}
+          </a>
+        ) : null}
+      </div>
+
+      {metrics.length > 0 ? (
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          {metrics.map((metric) => (
+            <div key={`${title}-${metric.label}`} className="dashboard-subpanel rounded-[20px] p-3">
+              <p className="dashboard-label">{metric.label}</p>
+              <p className="mt-1 text-base font-semibold text-[var(--dashboard-text)]">{metric.value}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {highlights.length > 0 ? (
+        <div className="mt-4 space-y-2">
+          {highlights.slice(0, 3).map((highlight, index) => (
+            <p key={`${title}-highlight-${index}`} className="dashboard-list-row">
+              <span className="dashboard-list-dot" />
+              <span>{highlight}</span>
+            </p>
+          ))}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+export function CompetitorComparisonGrid({
+  items,
+  emptyTitle,
+  emptyBody
+}: CompetitorComparisonGridProps) {
+  if (items.length === 0) {
+    return (
+      <div className="dashboard-empty-state">
+        <p className="dashboard-empty-title">{emptyTitle}</p>
+        <p className="dashboard-body-sm mt-1">{emptyBody}</p>
+      </div>
+    );
+  }
 
   return (
-    <article className="card p-5">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold text-slate-900">Competitor Snapshot</h2>
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
-          {rows.length} tracked
-        </span>
-      </div>
-      <p className="mt-1 text-sm text-slate-600">Side-by-side competitor watchlist for this location.</p>
-      <div className="mt-4 space-y-3">
-        {rows.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-sm text-slate-500">
-            No competitors tracked yet.
-          </div>
-        ) : (
-          rows.map((row) => (
-            <div key={row.id} className="rounded-lg border border-slate-200 px-3 py-3">
-              <div className="flex items-center justify-between gap-4">
-                <p className="text-sm font-semibold text-slate-900">{row.name}</p>
-                <p className="text-xs font-semibold text-slate-500">{row.trackedKeywords} overlapping terms</p>
-              </div>
-              <div className="mt-2 h-1.5 rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-teal-700/80"
-                  style={{ width: `${Math.max(8, (row.trackedKeywords / maxKeywords) * 100)}%` }}
-                />
-              </div>
-              {row.note ? <p className="mt-1 text-xs text-slate-600">{row.note}</p> : null}
-            </div>
-          ))
-        )}
-      </div>
-    </article>
+    <div className="grid gap-4 lg:grid-cols-2">
+      {items.map((item) => (
+        <CompetitorComparisonCard key={`${item.title}-${item.subtitle || 'card'}`} {...item} />
+      ))}
+    </div>
   );
 }

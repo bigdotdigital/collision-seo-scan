@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
 import { PageHeader } from '@/components/page-header';
+import { DashboardKpiCard } from '@/components/dashboard-kpi-card';
 import { addTrackedCompetitor, addTrackedKeyword, saveAccountCredentials, saveLocationDetails } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -70,258 +71,182 @@ export default async function DashboardSettingsPage({
       : null;
 
   return (
-    <div>
+    <div className="dashboard-main-inner">
       <PageHeader
         title="Account Settings"
-        subtitle="System preferences"
+        subtitle="The route keeps the same settings actions and payloads. This update only reorganizes them into a clearer operator workspace."
+        eyebrow="Settings"
         actions={
-          <Link href="/dashboard/onboarding" className="rounded-xl bg-[#ff4d5b] px-4 py-2 text-sm font-semibold text-white">
+          <Link href="/dashboard/onboarding" className="dashboard-button">
             Open onboarding
           </Link>
         }
       />
 
-      <div className="mb-4 flex gap-6 border-b border-white/10 pb-3 text-sm">
-        {['Location Info', 'Tracking', 'Team', 'Notifications', 'Billing'].map((tab, i) => (
-          <span key={tab} className={i === 0 ? 'border-b-2 border-[#ff4d5b] pb-2 text-white' : 'text-white/55'}>
+      <section className="mb-5 grid gap-3 lg:grid-cols-4">
+        <DashboardKpiCard label="Location" value={location?.city ? `${location.city}, ${location.state}` : 'Missing'} detail="Primary business location used across the dashboard." />
+        <DashboardKpiCard label="Tracked keywords" value={keywordCount} detail="Active keyword records." />
+        <DashboardKpiCard label="Tracked competitors" value={competitorCount} detail="Active competitor records." />
+        <DashboardKpiCard label="Team members" value={members.length} detail="Visible org memberships for this workspace." />
+      </section>
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        {['Location', 'Tracking', 'Team', 'Notifications', 'Billing'].map((tab, i) => (
+          <span key={tab} className={`dashboard-chip ${i === 0 ? 'dashboard-status-live' : ''}`}>
             {tab}
           </span>
         ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-4">
-          <article className="card p-6">
-            <h2 className="text-[30px] font-semibold text-white">Account Login</h2>
-            <p className="mt-1 text-sm text-white/60">
-              Update your display name and password for this dashboard account.
-            </p>
+          <article className="dashboard-panel">
+            <h2 className="dashboard-section-title">Account login</h2>
+            <p className="dashboard-body-sm mt-1">Update your display name and password for this dashboard account.</p>
             <form action={saveAccountCredentials} className="mt-4 space-y-3">
               <div>
-                <p className="text-xs uppercase tracking-[0.14em] text-white/45">Email</p>
-                <input
-                  value={user?.email || 'Legacy client account'}
-                  readOnly
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/35 px-4 py-3 text-white/65"
-                />
+                <p className="dashboard-label">Email</p>
+                <input value={user?.email || 'Legacy client account'} readOnly className="dashboard-field mt-1 opacity-70" />
               </div>
               <div>
-                <p className="text-xs uppercase tracking-[0.14em] text-white/45">Display name</p>
-                <input
-                  name="name"
-                  defaultValue={user?.name || ''}
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
-                  placeholder="Your name"
-                />
+                <p className="dashboard-label">Display name</p>
+                <input name="name" defaultValue={user?.name || ''} className="dashboard-field mt-1" placeholder="Your name" />
               </div>
               <div>
-                <p className="text-xs uppercase tracking-[0.14em] text-white/45">Current password</p>
-                <input
-                  name="currentPassword"
-                  type="password"
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
-                  placeholder="Required"
-                  required
-                />
+                <p className="dashboard-label">Current password</p>
+                <input name="currentPassword" type="password" className="dashboard-field mt-1" placeholder="Required" required />
               </div>
               <div>
-                <p className="text-xs uppercase tracking-[0.14em] text-white/45">
-                  New password (optional)
-                </p>
-                <input
-                  name="newPassword"
-                  type="password"
-                  minLength={8}
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
-                  placeholder="Leave blank to keep current password"
-                />
+                <p className="dashboard-label">New password (optional)</p>
+                <input name="newPassword" type="password" minLength={8} className="dashboard-field mt-1" placeholder="Leave blank to keep current password" />
               </div>
-              <button className="dashboard-button mt-2" type="submit">
-                Save account
-              </button>
-              {accountState === 'ok' ? (
-                <p className="text-sm text-emerald-300">Account updated.</p>
-              ) : null}
-              {accountError ? <p className="text-sm text-red-300">{accountError}</p> : null}
+              <button className="dashboard-button-primary mt-2" type="submit">Save account</button>
+              {accountState === 'ok' ? <p className="text-sm text-emerald-200">Account updated.</p> : null}
+              {accountError ? <p className="text-sm text-red-200">{accountError}</p> : null}
             </form>
           </article>
 
-          <article className="card p-6">
-            <h2 className="text-[30px] font-semibold text-white">Location Details</h2>
-            <p className="mt-1 text-sm text-white/60">Configure the primary business entity being monitored.</p>
-
+          <article className="dashboard-panel">
+            <h2 className="dashboard-section-title">Location details</h2>
+            <p className="dashboard-body-sm mt-1">Configure the primary business entity being monitored.</p>
             <form action={saveLocationDetails} className="mt-4 space-y-3">
               <div>
-                <p className="text-xs uppercase tracking-[0.14em] text-white/45">Business name</p>
-                <input
-                  name="name"
-                  defaultValue={location?.name || org?.name || ''}
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
-                  placeholder="Your shop name"
-                />
+                <p className="dashboard-label">Business name</p>
+                <input name="name" defaultValue={location?.name || org?.name || ''} className="dashboard-field mt-1" placeholder="Your shop name" />
               </div>
               <div>
-                <p className="text-xs uppercase tracking-[0.14em] text-white/45">Street address</p>
-                <input
-                  name="address"
-                  defaultValue={location?.address || ''}
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
-                  placeholder="Street address"
-                />
+                <p className="dashboard-label">Street address</p>
+                <input name="address" defaultValue={location?.address || ''} className="dashboard-field mt-1" placeholder="Street address" />
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.14em] text-white/45">City</p>
-                  <input
-                    name="city"
-                    defaultValue={location?.city || org?.city || ''}
-                    className="mt-1 w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
-                    placeholder="City"
-                  />
+                  <p className="dashboard-label">City</p>
+                  <input name="city" defaultValue={location?.city || org?.city || ''} className="dashboard-field mt-1" placeholder="City" />
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-[0.14em] text-white/45">State</p>
-                  <input
-                    name="state"
-                    defaultValue={location?.state || org?.state || ''}
-                    className="mt-1 w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
-                    placeholder="State"
-                  />
+                  <p className="dashboard-label">State</p>
+                  <input name="state" defaultValue={location?.state || org?.state || ''} className="dashboard-field mt-1" placeholder="State" />
                 </div>
               </div>
               <div>
-                <p className="text-xs uppercase tracking-[0.14em] text-white/45">Website URL</p>
-                <input
-                  name="websiteUrl"
-                  defaultValue={location?.websiteUrl || org?.websiteUrl || ''}
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
-                  placeholder="https://yourshop.com"
-                />
+                <p className="dashboard-label">Website URL</p>
+                <input name="websiteUrl" defaultValue={location?.websiteUrl || org?.websiteUrl || ''} className="dashboard-field mt-1" placeholder="https://yourshop.com" />
               </div>
               <div>
-                <p className="text-xs uppercase tracking-[0.14em] text-white/45">Google business profile URL</p>
-                <input
-                  name="gbpUrl"
-                  defaultValue={location?.gbpUrl || ''}
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
-                  placeholder="https://business.google.com/..."
-                />
+                <p className="dashboard-label">Google business profile URL</p>
+                <input name="gbpUrl" defaultValue={location?.gbpUrl || ''} className="dashboard-field mt-1" placeholder="https://business.google.com/..." />
               </div>
-              <button className="dashboard-button mt-2" type="submit">
-                Save location
-              </button>
+              <button className="dashboard-button-primary mt-2" type="submit">Save location</button>
             </form>
           </article>
 
-          <article className="card p-6">
-            <h2 className="text-[30px] font-semibold text-white">Keywords & Search Terms</h2>
-            <p className="mt-1 text-sm text-white/60">Manage search phrases tracked across Google Maps and Search.</p>
-            <form action={addTrackedKeyword} className="mt-3 flex gap-2">
-              <input
-                name="term"
-                className="flex-1 rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
-                placeholder="Add keyword (e.g. collision repair near me)"
-                required
-              />
-              <button className="dashboard-button" type="submit">
-                Add
-              </button>
-            </form>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-sm text-white/75">{keywordCount} tracked keywords</span>
-              <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-sm text-white/75">{competitorCount} tracked competitors</span>
-              {location?.city ? (
-                <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-sm text-white/75">{location.city}, {location.state}</span>
-              ) : null}
+          <article className="dashboard-panel">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="dashboard-section-title">Keywords & search terms</h2>
+                <p className="dashboard-body-sm mt-1">Manage search phrases tracked across Google Maps and Search.</p>
+              </div>
+              <span className="dashboard-chip">{keywordCount} tracked</span>
             </div>
+            <form action={addTrackedKeyword} className="mt-3 flex gap-2">
+              <input name="term" className="dashboard-field flex-1" placeholder="Add keyword (e.g. collision repair near me)" required />
+              <button className="dashboard-button" type="submit">Add</button>
+            </form>
             {keywords.length > 0 ? (
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-wrap gap-2">
                 {keywords.map((k) => (
-                  <span key={k.id} className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-sm text-white/85">
-                    {k.term}
-                  </span>
+                  <span key={k.id} className="dashboard-chip">{k.term}</span>
                 ))}
               </div>
             ) : (
-              <p className="mt-3 text-sm text-white/55">No keywords yet. Add your top money terms first.</p>
+              <p className="dashboard-body-sm mt-3">No keywords yet. Add your top money terms first.</p>
             )}
           </article>
 
-          <article className="card p-6">
-            <h2 className="text-[30px] font-semibold text-white">Competitor Tracking</h2>
-            <p className="mt-1 text-sm text-white/60">Track nearby independent shops you want to outrank.</p>
+          <article className="dashboard-panel">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="dashboard-section-title">Competitor tracking</h2>
+                <p className="dashboard-body-sm mt-1">Track nearby independent shops you want to outrank.</p>
+              </div>
+              <span className="dashboard-chip">{competitorCount} tracked</span>
+            </div>
             <form action={addTrackedCompetitor} className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-              <input
-                name="name"
-                className="rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
-                placeholder="Competitor name"
-                required
-              />
-              <input
-                name="websiteUrl"
-                className="rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
-                placeholder="https://competitor.com (optional)"
-              />
-              <button className="dashboard-button" type="submit">
-                Add
-              </button>
+              <input name="name" className="dashboard-field" placeholder="Competitor name" required />
+              <input name="websiteUrl" className="dashboard-field" placeholder="https://competitor.com (optional)" />
+              <button className="dashboard-button" type="submit">Add</button>
             </form>
             {competitors.length > 0 ? (
-              <div className="mt-3 space-y-2">
+              <div className="mt-4 space-y-2">
                 {competitors.map((c) => (
-                  <div key={c.id} className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
-                    <p className="text-white">{c.name}</p>
-                    <p className="text-xs text-white/55">{c.websiteUrl || 'No URL saved'}</p>
+                  <div key={c.id} className="dashboard-subpanel rounded-[18px] px-3 py-3">
+                    <p className="text-[var(--dashboard-text)]">{c.name}</p>
+                    <p className="dashboard-caption mt-1">{c.websiteUrl || 'No URL saved'}</p>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="mt-3 text-sm text-white/55">No competitors added yet.</p>
+              <p className="dashboard-body-sm mt-3">No competitors added yet.</p>
             )}
           </article>
         </div>
 
         <div className="space-y-4">
-          <article className="card p-6">
-            <h2 className="text-[30px] font-semibold text-white">Alerts</h2>
-            <div className="mt-4 space-y-4">
-              <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                <p className="text-white/85">Rank drops {'>'} {prefs?.rankDropThreshold ?? 3} spots</p>
-                <p className="mt-1 text-xs text-white/55">Configured in Alerts page</p>
+          <article className="dashboard-panel">
+            <h2 className="dashboard-section-title">Alerts</h2>
+            <div className="mt-4 space-y-3">
+              <div className="dashboard-subpanel rounded-[20px] p-4">
+                <p className="text-[var(--dashboard-text)]">Rank drops greater than {prefs?.rankDropThreshold ?? 3} spots</p>
+                <p className="dashboard-caption mt-1">Configured in Alerts page</p>
               </div>
-              <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                <p className="text-white/85">Digest frequency: {prefs?.digestFrequency || 'daily'}</p>
-                <p className="mt-1 text-xs text-white/55">Configured in Alerts page</p>
+              <div className="dashboard-subpanel rounded-[20px] p-4">
+                <p className="text-[var(--dashboard-text)]">Digest frequency: {prefs?.digestFrequency || 'daily'}</p>
+                <p className="dashboard-caption mt-1">Configured in Alerts page</p>
               </div>
-              <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                <p className="text-white/85">
-                  Competitor movement alerts: {prefs?.competitorMoveEnabled ? 'On' : 'Off'}
-                </p>
-                <p className="mt-1 text-xs text-white/55">Configured in Alerts page</p>
+              <div className="dashboard-subpanel rounded-[20px] p-4">
+                <p className="text-[var(--dashboard-text)]">Competitor movement alerts: {prefs?.competitorMoveEnabled ? 'On' : 'Off'}</p>
+                <p className="dashboard-caption mt-1">Configured in Alerts page</p>
               </div>
-              <Link
-                href="/dashboard/alerts"
-                className="inline-flex rounded-xl border border-white/20 bg-black/20 px-3 py-2 text-sm text-white"
-              >
+              <Link href="/dashboard/alerts" className="dashboard-button">
                 Open alert settings
               </Link>
             </div>
           </article>
 
-          <article className="card p-6">
-            <h2 className="text-[30px] font-semibold text-white">Team Members</h2>
+          <article className="dashboard-panel">
+            <h2 className="dashboard-section-title">Team members</h2>
             <div className="mt-4 space-y-3">
               {members.length === 0 ? (
-                <p className="text-sm text-white/60">No team members yet.</p>
+                <p className="dashboard-body-sm">No team members yet.</p>
               ) : (
                 members.map((m) => (
-                  <div key={m.id} className="flex items-start gap-3 border-b border-white/10 pb-3">
-                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#ff4d5b]/25 text-xs text-[#ff8a93]">
+                  <div key={m.id} className="flex items-start gap-3 border-b border-[var(--dashboard-border)] pb-3">
+                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[rgba(255,123,127,0.24)] text-xs text-[#ffd4cc]">
                       {(m.user.name || m.user.email || 'U').slice(0, 2).toUpperCase()}
                     </span>
                     <div>
-                      <p className="text-white">{m.user.name || 'Team Member'}</p>
-                      <p className="text-xs text-white/60">{m.user.email}</p>
+                      <p className="text-[var(--dashboard-text)]">{m.user.name || 'Team Member'}</p>
+                      <p className="dashboard-caption mt-1">{m.user.email}</p>
                     </div>
                   </div>
                 ))
@@ -329,9 +254,9 @@ export default async function DashboardSettingsPage({
             </div>
             <a
               href="mailto:bigdotdigital@gmail.com?subject=Dashboard%20team%20invite%20request"
-              className="mt-3 block w-full rounded-xl border border-white/15 bg-black/20 px-4 py-2 text-center text-sm text-white"
+              className="dashboard-button mt-4 w-full"
             >
-              + Invite User
+              Invite user
             </a>
           </article>
         </div>
