@@ -24,7 +24,11 @@ const ACCOUNT_ITEMS: SidebarItem[] = [
   { href: '/dashboard/settings', label: 'Settings', note: 'Location, users, alerts' }
 ];
 
-export function SidebarNav() {
+type SidebarNavProps = {
+  lastScanAt?: string | null;
+};
+
+export function SidebarNav({ lastScanAt }: SidebarNavProps) {
   const pathname = usePathname();
 
   return (
@@ -38,10 +42,14 @@ export function SidebarNav() {
       </div>
 
       <div className="dashboard-subpanel rounded-[24px] p-4">
-        <p className="dashboard-sidebar-kicker">Focus</p>
-        <p className="mt-2 text-sm font-medium text-[var(--dashboard-text)]">Protect estimate flow and close the next ranking gap.</p>
+        <p className="dashboard-sidebar-kicker">Last scan</p>
+        <p className="mt-2 text-sm font-medium text-[var(--dashboard-text)]">
+          {lastScanAt ? new Date(lastScanAt).toLocaleString() : 'No scan recorded yet'}
+        </p>
         <p className="dashboard-sidebar-copy mt-2 text-sm">
-          Every route uses the same status language for live, cached, modeled, and unavailable data.
+          {lastScanAt
+            ? 'Latest saved monitoring snapshot for this workspace.'
+            : 'Run a scan to populate dashboard metrics and comparisons.'}
         </p>
       </div>
 
