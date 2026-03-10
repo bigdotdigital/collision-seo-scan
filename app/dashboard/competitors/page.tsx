@@ -29,19 +29,26 @@ export default async function DashboardCompetitorsPage() {
 
   const cols = ['YOU', ...competitors.map((c) => c.name.toUpperCase())];
 
-  const tableRows = keywords.map((kw, idx) => {
-    const yourRank = kw.snapshots.find((s) => !s.competitorId)?.rankPosition ?? Math.max(2, idx + 2);
-    const competitorRanks = competitors.map((c, cIdx) => {
-      const snap = kw.snapshots.find((s) => s.competitorId === c.id)?.rankPosition;
-      return snap ?? Math.max(1, yourRank + cIdx + 1 + (idx % 3));
-    });
-    return { kw: kw.term, ranks: [yourRank, ...competitorRanks] };
-  });
+  const tableRows = keywords
+    .map((kw) => {
+      const yourSnap = kw.snapshots.find((s) => !s.competitorId);
+      const yourRank = yourSnap?.rankPosition ?? null;
+      const competitorRanks = competitors.map((c) => {
+        const snap = kw.snapshots.find((s) => s.competitorId === c.id);
+        return snap?.rankPosition ?? null;
+      });
+      const hasAnyData = yourRank !== null || competitorRanks.some((r) => r !== null);
+      return hasAnyData ? { kw: kw.term, ranks: [yourRank, ...competitorRanks] } : null;
+    })
+    .filter((row): row is { kw: string; ranks: Array<number | null> } => Boolean(row));
 
-  const sov = cols.map((name, idx) => ({
-    name,
-    value: Math.max(8, 64 - idx * 15)
-  }));
+  const sov = cols.map((name, idx) => {
+    const trackedRows = tableRows.filter((row) => row.ranks[idx] !== null);
+    const top3 = trackedRows.filter((row) => (row.ranks[idx] || 999) <= 3).length;
+    const value =
+      trackedRows.length > 0 ? Math.round((top3 / trackedRows.length) * 100) : null;
+    return { name, value };
+  });
 
   return (
     <div>
@@ -74,7 +81,7 @@ export default async function DashboardCompetitorsPage() {
               {tableRows.length === 0 ? (
                 <tr>
                   <td colSpan={cols.length + 1} className="px-4 py-6 text-white/60">
-                    Add keywords and competitors to unlock head-to-head rankings.
+                    No head-to-head ranking data yet. Run a scan and refresh rankings to populate this table.
                   </td>
                 </tr>
               ) : (
@@ -91,9 +98,15 @@ export default async function DashboardCompetitorsPage() {
                                 : 'border-white/20 bg-black/30 text-white'
                             }`}
                           >
-                            {rank}
+                            {rank ?? '—'}
                           </span>
-                          <span className={rank <= 3 ? 'text-[#ff8a93]' : 'text-white/35'}>{rank <= 3 ? '▲' : '•'}</span>
+                          <span
+                            className={
+                              rank !== null && rank <= 3 ? 'text-[#ff8a93]' : 'text-white/35'
+                            }
+                          >
+                            {rank !== null && rank <= 3 ? '▲' : '•'}
+                          </span>
                         </div>
                       </td>
                     ))}
@@ -113,10 +126,13 @@ export default async function DashboardCompetitorsPage() {
             </p>
             <p className="mt-4 text-base text-white">{item.name === 'YOU' ? 'Your Shop' : item.name}</p>
             <div className="mt-1 flex items-center justify-between text-xl font-semibold text-white">
-              <span>{item.value}%</span>
+              <span>{item.value === null ? '—' : `${item.value}%`}</span>
             </div>
             <div className="mt-2 h-1.5 rounded-full bg-black/40">
-              <div className="h-full rounded-full bg-[#ff4d5b]" style={{ width: `${item.value}%` }} />
+              <div
+                className="h-full rounded-full bg-[#ff4d5b]"
+                style={{ width: `${item.value ?? 0}%` }}
+              />
             </div>
           </article>
         ))}

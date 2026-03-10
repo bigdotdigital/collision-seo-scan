@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
+import { hashPortalPassword, verifyPortalPassword } from '@/lib/client-auth';
+import { isLikelyNonShopCompetitor } from '@/lib/competitor-filter';
 
 async function getOrCreatePrimaryLocation(orgId: string) {
   const existing = await prisma.location.findFirst({
@@ -105,7 +107,9 @@ export async function addTrackedCompetitor(formData: FormData) {
   const name = String(formData.get('name') || '').trim();
   const websiteUrl = String(formData.get('websiteUrl') || '').trim();
   const nextPath = String(formData.get('nextPath') || '').trim();
-  if (!name) return;
+  if (!name || isLikelyNonShopCompetitor(name, websiteUrl)) {
+    redirect('/dashboard/settings?updated=competitor&error=1');
+  }
 
   const location = await getOrCreatePrimaryLocation(ctx.orgId);
 
@@ -142,4 +146,44 @@ export async function addTrackedCompetitor(formData: FormData) {
   if (nextPath.startsWith('/dashboard/')) {
     redirect(nextPath);
   }
+}
+
+export async function saveAccountCredentials(formData: FormData) {
+  const ctx = await requireDashboardContext();
+  const nextPath = '/dashboard/settings';
+  const currentPassword = String(formData.get('currentPassword') || '');
+  const newPassword = String(formData.get('newPassword') || '');
+  const name = String(formData.get('name') || '').trim();
+
+  if (!ctx.userId || ctx.userId.startsWith('legacy-client-')) {
+    redirect(`${nextPath}?account=error&reason=legacy`);
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: ctx.userId },
+    select: { id: true, passwordHash: true, name: true }
+  });
+
+  if (!user) {
+    redirect(`${nextPath}?account=error&reason=missing`);
+  }
+
+  if (!currentPassword || !verifyPortalPassword(currentPassword, user.passwordHash)) {
+    redirect(`${nextPath}?account=error&reason=current`);
+  }
+
+  if (newPassword && newPassword.length < 8) {
+    redirect(`${nextPath}?account=error&reason=length`);
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      name: name || user.name || undefined,
+      passwordHash: newPassword ? hashPortalPassword(newPassword) : undefined
+    }
+  });
+
+  revalidatePath('/dashboard/settings');
+  redirect('/dashboard/settings?account=ok');
 }

@@ -74,7 +74,7 @@ const NON_SHOP_TITLE_HINTS = [
 
 const MAP_PACK_QUERY_TEMPLATES = [
   'collision repair {city}',
-  'auto body shop {city}',
+  'auto body shop near me',
   'bumper repair {city}',
   'hail damage repair {city}'
 ];

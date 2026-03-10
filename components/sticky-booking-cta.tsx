@@ -13,7 +13,7 @@ export function StickyBookingCta({ scanId, salesPhone }: { scanId: string; sales
           Book 15-min teardown
         </Link>
         <a
-          href={`tel:${salesPhone}`}
+          href={`sms:${salesPhone}`}
           className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-900"
         >
           Text plan

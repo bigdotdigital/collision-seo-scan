@@ -89,6 +89,7 @@ export default async function AdminPage({
       }
     })
   ]);
+  const allowDemoTools = process.env.ALLOW_ADMIN_DEMO_TOOLS === '1';
 
   const showRealOnly = searchParams?.view === 'real';
   const realScans = scans.filter((scan) => !isLikelyTestScan(scan));
@@ -99,22 +100,26 @@ export default async function AdminPage({
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Collision SEO Scan Admin</h1>
         <div className="flex items-center gap-2">
-          <form action={createDemoClient}>
-            <button
-              type="submit"
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold"
-            >
-              Seed demo client
-            </button>
-          </form>
-          <form action={resetDemoClient}>
-            <button
-              type="submit"
-              className="rounded-md border border-red-300 px-3 py-2 text-sm font-semibold text-red-700"
-            >
-              Reset demo client
-            </button>
-          </form>
+          {allowDemoTools ? (
+            <>
+              <form action={createDemoClient}>
+                <button
+                  type="submit"
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold"
+                >
+                  Seed demo client
+                </button>
+              </form>
+              <form action={resetDemoClient}>
+                <button
+                  type="submit"
+                  className="rounded-md border border-red-300 px-3 py-2 text-sm font-semibold text-red-700"
+                >
+                  Reset demo client
+                </button>
+              </form>
+            </>
+          ) : null}
           <LogoutButton />
         </div>
       </div>

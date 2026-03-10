@@ -105,10 +105,10 @@ export type ReportPayload = {
 };
 
 const REVIEW_DEFAULTS = {
-  shopRating: 4.6,
-  shopReviews: 132,
-  competitorRating: 4.8,
-  competitorReviews: 420
+  shopRating: 0,
+  shopReviews: 0,
+  competitorRating: 0,
+  competitorReviews: 0
 };
 
 function impactLabel(gap: number): 'High' | 'Med' | 'Low' {

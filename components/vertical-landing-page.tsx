@@ -31,6 +31,12 @@ export function VerticalLandingPage({ vertical }: { vertical: VerticalSlug }) {
             >
               See Example Report
             </Link>
+            <Link
+              className="inline-flex h-11 items-center rounded-md border border-slate-500/70 bg-white/5 px-5 text-sm font-medium text-slate-100 backdrop-blur"
+              href="/pricing"
+            >
+              Pricing
+            </Link>
           </div>
           <p className="mt-3 text-sm text-slate-400">
             Already a client?{' '}

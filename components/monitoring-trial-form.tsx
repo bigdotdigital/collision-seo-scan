@@ -23,11 +23,45 @@ export function MonitoringTrialForm({
   const [name, setName] = useState(defaultName || '');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [billingLoading, setBillingLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   async function startTrial() {
     setLoading(true);
     setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch('/api/auth/start-trial', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          scanId,
+          orgId,
+          email: email || undefined,
+          name: name || undefined,
+          password: password || undefined
+        })
+      });
+
+      const data = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
+      if (!res.ok || !data?.url) {
+        setError(data?.error || 'Could not start your free trial. Please try again.');
+        return;
+      }
+      setSuccess('Trial started. Redirecting to onboarding...');
+      window.location.href = data.url;
+    } catch {
+      setError('Could not start trial right now. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function startBillingOptional() {
+    setBillingLoading(true);
+    setError(null);
+    setSuccess(null);
     try {
       const res = await fetch('/api/stripe/create-checkout-session', {
         method: 'POST',
@@ -49,14 +83,14 @@ export function MonitoringTrialForm({
         return;
       }
       if (!res.ok || !data?.url) {
-        setError(data?.error || 'Could not start checkout. Book a call and we will set it up.');
+        setError(data?.error || 'Could not start checkout. Continue with trial and add billing later.');
         return;
       }
       window.location.href = data.url;
     } catch {
-      setError('Could not start trial right now. Please try again.');
+      setError('Could not start checkout right now. Continue with trial and add billing later.');
     } finally {
-      setLoading(false);
+      setBillingLoading(false);
     }
   }
 
@@ -99,10 +133,19 @@ export function MonitoringTrialForm({
       <div className="monitor-dashed-divider" />
 
       <button onClick={startTrial} disabled={loading} className="monitor-btn-primary">
-        <span>{loading ? 'Starting free trial...' : 'Start free trial'}</span>
+        <span>{loading ? 'Starting free trial...' : 'Create account + start free trial'}</span>
         <span className="monitor-btn-icon" aria-hidden>
           →
         </span>
+      </button>
+
+      <button
+        onClick={startBillingOptional}
+        disabled={billingLoading || loading}
+        className="monitor-link-secondary"
+        type="button"
+      >
+        {billingLoading ? 'Opening billing...' : 'Add payment method now (optional)'}
       </button>
 
       <a href={calendlyUrl} target="_blank" rel="noreferrer" className="monitor-link-secondary">
@@ -116,6 +159,7 @@ export function MonitoringTrialForm({
       </a>
 
       {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
+      {success ? <p className="mt-3 text-sm text-emerald-700">{success}</p> : null}
     </article>
   );
 }

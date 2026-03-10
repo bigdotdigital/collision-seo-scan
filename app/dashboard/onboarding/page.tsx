@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export default async function DashboardOnboardingPage({
   searchParams
 }: {
-  searchParams?: { updated?: string; error?: string; checkout?: string };
+  searchParams?: { updated?: string; error?: string; checkout?: string; trial?: string };
 }) {
   const ctx = await requireDashboardContext();
 
@@ -40,6 +40,7 @@ export default async function DashboardOnboardingPage({
   const updated = searchParams?.updated || '';
   const hasError = searchParams?.error === '1';
   const checkoutSuccess = searchParams?.checkout === 'success';
+  const trialStarted = searchParams?.trial === 'started';
   const calendly = process.env.CALENDLY_LINK || 'https://calendly.com/bigdotdigital/30min';
 
   return (
@@ -71,6 +72,11 @@ export default async function DashboardOnboardingPage({
         {checkoutSuccess ? (
           <p className="mt-2 text-sm text-emerald-300">
             Trial checkout complete. Finish onboarding below and your dashboard will start tracking.
+          </p>
+        ) : null}
+        {trialStarted ? (
+          <p className="mt-2 text-sm text-emerald-300">
+            Trial started. Complete onboarding below to start tracking.
           </p>
         ) : null}
       </section>

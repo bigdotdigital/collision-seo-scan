@@ -14,8 +14,7 @@ const MONITORING_ITEMS: SidebarItem[] = [
   { href: '/dashboard/rankings', label: 'Rankings' },
   { href: '/dashboard/competitors', label: 'Competitors' },
   { href: '/dashboard/alerts', label: 'Alerts' },
-  { href: '/dashboard/reports', label: 'Reports' },
-  { href: '/dashboard/mockups', label: 'Mockups', badge: 'new' }
+  { href: '/dashboard/reports', label: 'Reports' }
 ];
 
 const ACCOUNT_ITEMS: SidebarItem[] = [

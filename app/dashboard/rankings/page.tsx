@@ -30,7 +30,7 @@ export default async function DashboardRankingsPage() {
     take: 150
   });
 
-  const rows = keywords.map((kw, idx) => {
+  const rows = keywords.map((kw) => {
     const current = kw.snapshots[0]?.rankPosition ?? null;
     const previous = kw.snapshots[1]?.rankPosition ?? null;
     const delta = current !== null && previous !== null ? previous - current : null;
@@ -38,7 +38,7 @@ export default async function DashboardRankingsPage() {
     return {
       id: kw.id,
       keyword: kw.term,
-      volume: (idx + 6) * 180,
+      volume: null as number | null,
       current,
       delta,
       score
@@ -68,6 +68,7 @@ export default async function DashboardRankingsPage() {
               {chip}
             </span>
           ))}
+          <span className="self-center pl-2 text-xs text-white/45">Filters lock after daily rank sync</span>
         </div>
         <div className="flex gap-2">
           <a className="dashboard-button" href="/api/dashboard/keywords/export">
@@ -102,7 +103,7 @@ export default async function DashboardRankingsPage() {
               rows.map((row) => (
                 <tr key={row.id} className="border-b border-white/8">
                   <td className="px-6 py-5 text-base text-white">{row.keyword}</td>
-                  <td className="px-6 py-5 text-white/70">{row.volume.toLocaleString()}</td>
+                  <td className="px-6 py-5 text-white/70">{row.volume === null ? '—' : row.volume.toLocaleString()}</td>
                   <td className="px-6 py-5">
                     <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-white/20 bg-black/30 px-2 text-white">
                       {row.current ?? '—'}

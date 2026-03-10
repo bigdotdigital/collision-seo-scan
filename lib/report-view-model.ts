@@ -78,15 +78,15 @@ export type ReportViewModel = {
 };
 
 const REVIEW_DEFAULTS = {
-  shopRating: 4.6,
-  shopReviews: 132,
-  competitorRating: 4.8,
-  competitorReviews: 420
+  shopRating: 0,
+  shopReviews: 0,
+  competitorRating: 0,
+  competitorReviews: 0
 };
 
 const MAP_QUERY_TEMPLATES = [
   'collision repair {city}',
-  'auto body shop {city}',
+  'auto body shop near me',
   'bumper repair {city}',
   'hail damage repair {city}',
   'free collision estimate {city}'
@@ -148,13 +148,8 @@ function keywordViewModel(items: MoneyKeyword[]): { rows: KeywordView[]; estimat
 }
 
 function competitorViewModel(city: string, items: Competitor[], reviews: ReviewGap): CompetitorView[] {
-  const baseNames = [
-    `Leading ${city} collision shop`,
-    `Top-rated ${city} auto body brand`,
-    `High-visibility ${city} repair competitor`
-  ];
-
-  const names = items.length > 0 ? items.map((c) => c.name).slice(0, 3) : baseNames;
+  const names = items.map((c) => c.name).slice(0, 3);
+  if (names.length === 0) return [];
 
   return names.map((name, idx) => ({
     name,
@@ -195,17 +190,18 @@ function reviewGapView(data: ReportData): ReviewGap {
 }
 
 function mapPackView(city: string, shopName: string, competitors: CompetitorView[]): MapPackQuery[] {
+  if (competitors.length === 0) return [];
   const c = city.toLowerCase();
-  const rank1 = competitors[0]?.name || `Leading ${city} collision shop`;
-  const rank2 = competitors[1]?.name || `Top-rated ${city} auto body brand`;
-  const rank3 = competitors[2]?.name || `High-visibility ${city} repair competitor`;
+  const rank1 = competitors[0]?.name || 'n/a';
+  const rank2 = competitors[1]?.name || 'n/a';
+  const rank3 = competitors[2]?.name || 'n/a';
 
   return MAP_QUERY_TEMPLATES.slice(0, 4).map((template, idx) => ({
     query: template.replace('{city}', c),
     rank1,
     rank2,
     rank3,
-    yourRank: idx === 0 ? `${shopName} (likely #4-#7)` : `${shopName} (outside top 3)`
+    yourRank: `${shopName} (position unavailable)`
   }));
 }
 
@@ -232,7 +228,10 @@ export function buildReportViewModel(reportData: ReportData): ReportViewModel {
     reviewGap,
     mapPack: {
       queries: mapQueries,
-      info: 'Map pack ranks will be pulled on your teardown - we will show exactly who is outranking you and why.',
+      info:
+        mapQueries.length > 0
+          ? 'Map pack ranks are shown from captured local search data.'
+          : 'Map pack ranks were unavailable in this run.',
       likelySignals: [
         'Review velocity and star rating advantage',
         'Tighter service + location category match',

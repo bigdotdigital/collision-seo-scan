@@ -2,26 +2,18 @@ import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
 import { PageHeader } from '@/components/page-header';
-import { addTrackedCompetitor, addTrackedKeyword, saveLocationDetails } from './actions';
+import { addTrackedCompetitor, addTrackedKeyword, saveAccountCredentials, saveLocationDetails } from './actions';
 
 export const dynamic = 'force-dynamic';
 
-function toggle(enabled: boolean) {
-  return (
-    <span
-      className={`relative inline-flex h-6 w-10 items-center rounded-full border ${
-        enabled ? 'border-[#ff4d5b] bg-[#ff4d5b]/30' : 'border-white/15 bg-black/30'
-      }`}
-    >
-      <span className={`h-4 w-4 rounded-full bg-white transition ${enabled ? 'ml-5' : 'ml-1'}`} />
-    </span>
-  );
-}
-
-export default async function DashboardSettingsPage() {
+export default async function DashboardSettingsPage({
+  searchParams
+}: {
+  searchParams?: { account?: string; reason?: string };
+}) {
   const ctx = await requireDashboardContext();
 
-  const [org, location, keywordCount, competitorCount, prefs, members, keywords, competitors] = await Promise.all([
+  const [org, location, keywordCount, competitorCount, prefs, members, keywords, competitors, user] = await Promise.all([
     prisma.organization.findUnique({
       where: { id: ctx.orgId },
       select: { name: true, websiteUrl: true, city: true, state: true, phone: true }
@@ -55,8 +47,27 @@ export default async function DashboardSettingsPage() {
       orderBy: { createdAt: 'asc' },
       take: 8,
       select: { id: true, name: true, websiteUrl: true }
-    })
+    }),
+    ctx.userId.startsWith('legacy-client-')
+      ? Promise.resolve(null)
+      : prisma.user.findUnique({
+          where: { id: ctx.userId },
+          select: { name: true, email: true }
+        })
   ]);
+
+  const accountState = searchParams?.account || '';
+  const accountReason = searchParams?.reason || '';
+  const accountError =
+    accountState === 'error'
+      ? accountReason === 'current'
+        ? 'Current password is incorrect.'
+        : accountReason === 'length'
+        ? 'New password must be at least 8 characters.'
+        : accountReason === 'legacy'
+        ? 'Please re-login through the monitoring flow to enable account updates.'
+        : 'Could not update account details.'
+      : null;
 
   return (
     <div>
@@ -80,6 +91,61 @@ export default async function DashboardSettingsPage() {
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-4">
+          <article className="card p-6">
+            <h2 className="text-[30px] font-semibold text-white">Account Login</h2>
+            <p className="mt-1 text-sm text-white/60">
+              Update your display name and password for this dashboard account.
+            </p>
+            <form action={saveAccountCredentials} className="mt-4 space-y-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.14em] text-white/45">Email</p>
+                <input
+                  value={user?.email || 'Legacy client account'}
+                  readOnly
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/35 px-4 py-3 text-white/65"
+                />
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.14em] text-white/45">Display name</p>
+                <input
+                  name="name"
+                  defaultValue={user?.name || ''}
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
+                  placeholder="Your name"
+                />
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.14em] text-white/45">Current password</p>
+                <input
+                  name="currentPassword"
+                  type="password"
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
+                  placeholder="Required"
+                  required
+                />
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.14em] text-white/45">
+                  New password (optional)
+                </p>
+                <input
+                  name="newPassword"
+                  type="password"
+                  minLength={8}
+                  className="mt-1 w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-white"
+                  placeholder="Leave blank to keep current password"
+                />
+              </div>
+              <button className="dashboard-button mt-2" type="submit">
+                Save account
+              </button>
+              {accountState === 'ok' ? (
+                <p className="text-sm text-emerald-300">Account updated.</p>
+              ) : null}
+              {accountError ? <p className="text-sm text-red-300">{accountError}</p> : null}
+            </form>
+          </article>
+
           <article className="card p-6">
             <h2 className="text-[30px] font-semibold text-white">Location Details</h2>
             <p className="mt-1 text-sm text-white/60">Configure the primary business entity being monitored.</p>
@@ -219,22 +285,26 @@ export default async function DashboardSettingsPage() {
           <article className="card p-6">
             <h2 className="text-[30px] font-semibold text-white">Alerts</h2>
             <div className="mt-4 space-y-4">
-              <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                <span className="text-white/75">Rank drops {'>'} {prefs?.rankDropThreshold ?? 3} spots</span>
-                {toggle(true)}
+              <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                <p className="text-white/85">Rank drops {'>'} {prefs?.rankDropThreshold ?? 3} spots</p>
+                <p className="mt-1 text-xs text-white/55">Configured in Alerts page</p>
               </div>
-              <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                <span className="text-white/75">New review alert</span>
-                {toggle((prefs?.digestFrequency || 'daily') !== 'off')}
+              <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                <p className="text-white/85">Digest frequency: {prefs?.digestFrequency || 'daily'}</p>
+                <p className="mt-1 text-xs text-white/55">Configured in Alerts page</p>
               </div>
-              <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                <span className="text-white/75">Competitor movement</span>
-                {toggle(Boolean(prefs?.competitorMoveEnabled))}
+              <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                <p className="text-white/85">
+                  Competitor movement alerts: {prefs?.competitorMoveEnabled ? 'On' : 'Off'}
+                </p>
+                <p className="mt-1 text-xs text-white/55">Configured in Alerts page</p>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-white/75">Weekly summary email</span>
-                {toggle((prefs?.digestFrequency || 'daily') !== 'off')}
-              </div>
+              <Link
+                href="/dashboard/alerts"
+                className="inline-flex rounded-xl border border-white/20 bg-black/20 px-3 py-2 text-sm text-white"
+              >
+                Open alert settings
+              </Link>
             </div>
           </article>
 

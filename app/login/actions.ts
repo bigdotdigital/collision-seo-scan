@@ -25,7 +25,7 @@ export async function loginClient(
     include: {
       memberships: {
         where: { status: 'active' },
-        orderBy: { createdAt: 'asc' },
+        orderBy: { updatedAt: 'desc' },
         take: 1
       }
     }

@@ -70,6 +70,37 @@ function isUnavailableCompetitorLine(text: string): boolean {
   return /competitor page fetch unavailable/i.test(text);
 }
 
+function isPlaceholderCompetitorName(name: string): boolean {
+  return /^(leading\s+.+\s+collision shop|top-rated\s+.+\s+auto body brand|high-visibility\s+.+\s+repair competitor)$/i.test(
+    name.trim()
+  );
+}
+
+function isPlaceholderMapLabel(value: string): boolean {
+  return /^(leading\s+.+\s+collision shop|top-rated\s+.+\s+auto body brand|high-visibility\s+.+\s+repair competitor)$/i.test(
+    value.trim()
+  );
+}
+
+function sanitizeEvidenceSnippet(rawSnippet: string): string {
+  const cleaned = rawSnippet
+    .replace(/&amp;/g, '&')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned) return 'Evidence snippet unavailable.';
+
+  const cssOrJsNoise =
+    /@media|background-image|register\(|serviceWorker|function\s*\(|=>|\.x\s+\.c1-|{[^}]+}/i.test(
+      cleaned
+    );
+  if (cssOrJsNoise) {
+    return 'Evidence found in page source, but the raw excerpt was non-readable CSS/JS.';
+  }
+
+  return cleaned.length > 220 ? `${cleaned.slice(0, 217)}...` : cleaned;
+}
+
 function severityClass(severity: string) {
   const normalized = severity.toLowerCase();
   if (normalized === 'high') return 'bg-red-100 text-red-700';
@@ -217,23 +248,7 @@ function normalizeCompetitors(input: unknown, city: string): Competitor[] {
     .slice(0, 5);
 
   if (filtered.length > 0) return filtered;
-  return [
-    {
-      name: `Leading ${city} collision shop`,
-      note: 'Benchmark profile',
-      differentiatorGuess: 'Stronger local trust and conversion signals.'
-    },
-    {
-      name: `Top-rated ${city} auto body brand`,
-      note: 'Benchmark profile',
-      differentiatorGuess: 'Better category match and location-page depth.'
-    },
-    {
-      name: `High-visibility ${city} repair competitor`,
-      note: 'Benchmark profile',
-      differentiatorGuess: 'More prominent estimate CTA and service coverage.'
-    }
-  ];
+  return [];
 }
 
 function normalizePlan(input: unknown): ThirtyDayPlanItem[] {
@@ -487,6 +502,11 @@ export default async function ReportPage({ params }: { params: { scanId: string 
     }
   })();
   const pagespeed = normalizePageSpeed(scanRecord.pagespeed, scoreWebsite);
+  const hasMeasuredSpeedDiagnostics =
+    typeof pagespeed.lcpMs === 'number' ||
+    typeof pagespeed.cls === 'number' ||
+    typeof pagespeed.tbtMs === 'number' ||
+    typeof pagespeed.speedIndexMs === 'number';
   const websiteCardScore = pagespeed.performanceScore ?? scoreWebsite;
   const healthChecks = [
     { label: 'Title tags', score: checksScore(raw, 'title') ? 90 : 45 },
@@ -607,9 +627,37 @@ export default async function ReportPage({ params }: { params: { scanId: string 
     sourceConfidence.competitors === 'live' || sourceConfidence.competitors === 'cached';
   const hasLiveMapPackData =
     sourceConfidence.mapPack === 'live' || sourceConfidence.mapPack === 'cached';
-  const hasLiveReviewData = sourceConfidence.reviews === 'live';
-  const hasLiveKeywordData = sourceConfidence.keywords === 'live';
+  const hasLiveReviewData =
+    sourceConfidence.reviews === 'live' || sourceConfidence.reviews === 'cached';
+  const hasLiveKeywordData =
+    sourceConfidence.keywords === 'live' || sourceConfidence.keywords === 'cached';
   const googlePlace = payload?.googlePlace;
+  const reviewGapLooksSynthetic =
+    reviewGap.shopRating === 4.6 &&
+    reviewGap.shopReviews === 132 &&
+    reviewGap.competitorRating === 4.8 &&
+    reviewGap.competitorReviews === 420;
+  const reviewGapConflictsWithGooglePlace =
+    typeof googlePlace?.rating === 'number' &&
+    Math.abs(reviewGap.shopRating - googlePlace.rating) >= 0.2;
+  const hasUsableReviewGap =
+    hasLiveReviewData && !reviewGapLooksSynthetic && !reviewGapConflictsWithGooglePlace;
+  const ownGoogleReviewLabel =
+    typeof googlePlace?.rating === 'number' ? `${googlePlace.rating.toFixed(1)} ★` : null;
+  const hasPlaceholderCompetitors = competitors.some((row) => isPlaceholderCompetitorName(row.name));
+  const hasUsableCompetitorData =
+    hasLiveCompetitorData && competitors.length > 0 && !hasPlaceholderCompetitors;
+  const hasPlaceholderMapPackRows =
+    !Array.isArray(mapPack?.queries) ||
+    mapPack.queries.length === 0 ||
+    mapPack.queries.every(
+      (row) =>
+        isPlaceholderMapLabel(row.rank1) &&
+        isPlaceholderMapLabel(row.rank2) &&
+        isPlaceholderMapLabel(row.rank3) &&
+        /(likely #|outside top|position unavailable|not found)/i.test(row.yourRank)
+    );
+  const hasUsableMapPackData = hasLiveMapPackData && !hasPlaceholderMapPackRows;
   const fallbackFetch = (() => {
     const preferred = pageMeta.find((row) => {
       try {
@@ -645,6 +693,18 @@ export default async function ReportPage({ params }: { params: { scanId: string 
             : null
     }
   };
+  const scannerMetadata =
+    scannerPreview.metadata.statusCode && scannerPreview.metadata.statusCode < 400
+      ? scannerPreview.metadata
+      : fallbackFetch && fallbackFetch.status >= 200 && fallbackFetch.status < 400
+        ? {
+            ...scannerPreview.metadata,
+            statusCode: fallbackFetch.status,
+            responseTimeMs: fallbackFetch.fetchMs ?? scannerPreview.metadata.responseTimeMs,
+            fileSizeBytes: fallbackFetch.bytes ?? scannerPreview.metadata.fileSizeBytes,
+            url: fallbackFetch.url || scannerPreview.metadata.url
+          }
+        : scannerPreview.metadata;
   const scannerPreviewUrl =
     scannerPreview.screenshotUrl || buildFallbackPreviewUrl(scannerPreview.metadata.url || scanRecord.url);
   const scannerSteps = [
@@ -678,17 +738,17 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       timeStyle: 'short'
     }).format(new Date());
     const scoreCondition = scoreTotal >= 85 ? 'Excellent Condition' : scoreTotal >= 70 ? 'Good Condition' : 'Needs Repair';
-    const competitorRows = hasLiveCompetitorData
+    const competitorRows = hasUsableCompetitorData
       ? [
           {
             name: 'Your Shop',
             score: scoreTotal,
-            reviews: hasLiveReviewData ? `${reviewGap.shopRating.toFixed(1)} ★` : '—'
+            reviews: ownGoogleReviewLabel ?? (hasUsableReviewGap ? `${reviewGap.shopRating.toFixed(1)} ★` : '—')
           },
           ...vm.competitors.slice(0, 2).map((comp, idx) => ({
             name: comp.name,
             score: Math.max(48, scoreTotal - (idx + 1) * 8),
-            reviews: hasLiveReviewData && idx === 0 ? `${reviewGap.competitorRating.toFixed(1)} ★` : '—'
+            reviews: hasUsableReviewGap && idx === 0 ? `${reviewGap.competitorRating.toFixed(1)} ★` : '—'
           }))
         ]
       : [];
@@ -766,9 +826,9 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         </div>
         <div className="report-arch-grid3">
           <article className="report-arch-cell">
-            <p className="report-arch-label">Current Health</p>
-            <p className="report-arch-big">{scoreTotal}</p>
-            <p className="report-arch-sub">{scoreCondition}</p>
+            <p className="report-arch-label">Current Status</p>
+            <p className="report-arch-big">{scoreCondition}</p>
+            <p className="report-arch-sub">Based on current scan signals</p>
           </article>
           <article className="report-arch-cell">
             <p className="report-arch-label">Top Priority</p>
@@ -804,14 +864,6 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       ) : null}
 
       <section className="variant-results-grid mb-6">
-        <article className="variant-score-card">
-          <div className="variant-score-ring" style={{ '--score-deg': `${Math.round((scoreTotal / 100) * 360)}deg` } as Record<string, string>}>
-            <span className="variant-score-value">{scoreTotal}</span>
-          </div>
-          <p className="variant-score-label">Visibility Score</p>
-          <p className="variant-score-condition">{scoreCondition}</p>
-        </article>
-
         <article className="variant-report-card">
           <p className="variant-card-label">Top issues impacting calls</p>
           <ul className="variant-issue-list">
@@ -833,7 +885,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
 
         <article className="variant-report-card">
           <p className="variant-card-label">Local market context</p>
-          {hasLiveCompetitorData ? (
+          {hasUsableCompetitorData ? (
             <table className="variant-table">
               <thead>
                 <tr>
@@ -874,7 +926,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
           <span className="report-arch-meta">Your shop vs local rivals</span>
         </div>
         <div className="report-arch-table-wrap">
-          {hasLiveCompetitorData ? (
+          {hasUsableCompetitorData ? (
             <table className="variant-table">
               <thead>
                 <tr>
@@ -986,12 +1038,12 @@ export default async function ReportPage({ params }: { params: { scanId: string 
             </h3>
             <div className="mt-2 space-y-1.5 text-xs">
               <p><span className="font-semibold text-white">Title:</span> {scannerPreview.metadata.title || 'n/a'}</p>
-              <p><span className="font-semibold text-white">Meta:</span> {scannerPreview.metadata.metaDescription || 'n/a'}</p>
-              <p><span className="font-semibold text-white">URL:</span> {scannerPreview.metadata.url || scanRecord.url}</p>
-              <p><span className="font-semibold text-white">Status:</span> {scannerPreview.metadata.statusCode ?? 'n/a'}</p>
-              <p><span className="font-semibold text-white">Response:</span> {scannerPreview.metadata.responseTimeMs != null ? `${scannerPreview.metadata.responseTimeMs}ms` : 'n/a'}</p>
-              <p><span className="font-semibold text-white">Size:</span> {scannerPreview.metadata.fileSizeBytes != null ? `${Math.round(scannerPreview.metadata.fileSizeBytes / 1024)} KB` : 'n/a'}</p>
-              <p><span className="font-semibold text-white">Words:</span> {scannerPreview.metadata.wordCount ?? 'n/a'}</p>
+              <p><span className="font-semibold text-white">Meta:</span> {scannerMetadata.metaDescription || 'n/a'}</p>
+              <p><span className="font-semibold text-white">URL:</span> {scannerMetadata.url || scanRecord.url}</p>
+              <p><span className="font-semibold text-white">Status:</span> {scannerMetadata.statusCode ?? 'n/a'}</p>
+              <p><span className="font-semibold text-white">Response:</span> {scannerMetadata.responseTimeMs != null ? `${scannerMetadata.responseTimeMs}ms` : 'n/a'}</p>
+              <p><span className="font-semibold text-white">Size:</span> {scannerMetadata.fileSizeBytes != null ? `${Math.round(scannerMetadata.fileSizeBytes / 1024)} KB` : 'n/a'}</p>
+              <p><span className="font-semibold text-white">Words:</span> {scannerMetadata.wordCount ?? 'n/a'}</p>
               {googlePlace?.rating != null ? (
                 <p>
                   <span className="font-semibold text-white">Google Rating:</span>{' '}
@@ -1137,24 +1189,30 @@ export default async function ReportPage({ params }: { params: { scanId: string 
           </p>
         ) : (
           <>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs uppercase tracking-wide text-slate-500">LCP</p>
-                <p className="mt-1 text-lg font-semibold">{formatMilliseconds(pagespeed.lcpMs)}</p>
-              </article>
-              <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs uppercase tracking-wide text-slate-500">CLS</p>
-                <p className="mt-1 text-lg font-semibold">{formatCls(pagespeed.cls)}</p>
-              </article>
-              <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs uppercase tracking-wide text-slate-500">TBT</p>
-                <p className="mt-1 text-lg font-semibold">{formatMilliseconds(pagespeed.tbtMs)}</p>
-              </article>
-              <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs uppercase tracking-wide text-slate-500">Speed Index</p>
-                <p className="mt-1 text-lg font-semibold">{formatMilliseconds(pagespeed.speedIndexMs)}</p>
-              </article>
-            </div>
+            {hasMeasuredSpeedDiagnostics ? (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Load speed (LCP)</p>
+                  <p className="mt-1 text-lg font-semibold">{formatMilliseconds(pagespeed.lcpMs)}</p>
+                </article>
+                <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Layout stability (CLS)</p>
+                  <p className="mt-1 text-lg font-semibold">{formatCls(pagespeed.cls)}</p>
+                </article>
+                <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Interaction delay (TBT)</p>
+                  <p className="mt-1 text-lg font-semibold">{formatMilliseconds(pagespeed.tbtMs)}</p>
+                </article>
+                <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Overall speed index</p>
+                  <p className="mt-1 text-lg font-semibold">{formatMilliseconds(pagespeed.speedIndexMs)}</p>
+                </article>
+              </div>
+            ) : (
+              <p className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                Live speed diagnostic metrics were unavailable for this run.
+              </p>
+            )}
 
             <div className="mt-5 space-y-3">
               <h3 className="font-semibold text-slate-900">Top Website Issues</h3>
@@ -1186,7 +1244,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         <p className="mt-1 text-sm text-slate-600">
           Snapshot of review strength versus top local competitor.
         </p>
-        {hasLiveReviewData ? (
+        {hasUsableReviewGap ? (
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <article className="rounded-lg border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs uppercase tracking-wide text-slate-500">Your shop</p>
@@ -1206,6 +1264,16 @@ export default async function ReportPage({ params }: { params: { scanId: string 
               <p className="text-sm text-slate-700">Impact: {reviewGap.impact}</p>
             </article>
           </div>
+        ) : ownGoogleReviewLabel ? (
+          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Your Google profile</p>
+            <p className="mt-1 text-lg font-semibold">
+              {googlePlace?.rating?.toFixed(1)} stars • {googlePlace?.userRatingCount ?? 0} reviews
+            </p>
+            <p className="mt-1 text-sm text-slate-600">
+              Competitor review comparison was unavailable in this run.
+            </p>
+          </div>
         ) : (
           <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
             Live review comparison data was unavailable in this run.
@@ -1215,17 +1283,17 @@ export default async function ReportPage({ params }: { params: { scanId: string 
 
       <section className="mt-6 card print-break-avoid p-6">
         <h2 className="text-xl font-bold">Map Rankings for Collision Searches</h2>
-        {sourceConfidence.mapPack !== 'live' && sourceConfidence.mapPack !== 'cached' ? (
+        {!hasUsableMapPackData ? (
           <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
             Live map-pack data was unavailable for this run.
           </p>
         ) : null}
         <p className="mt-1 text-sm text-slate-600">
-          {hasLiveMapPackData
+          {hasUsableMapPackData
             ? mapPack.info
             : 'Map pack ranks were unavailable in this run and will be pulled during teardown.'}
         </p>
-        {hasLiveMapPackData ? (
+        {hasUsableMapPackData ? (
           <div className="mt-4 space-y-3">
             {mapPack.queries.map((row) => (
               <article key={row.query} className="rounded-lg border border-slate-200 p-4">
@@ -1245,11 +1313,17 @@ export default async function ReportPage({ params }: { params: { scanId: string 
             ))}
           </div>
         ) : null}
-        <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-slate-700">
-          {mapPack.likelySignals.map((signal) => (
-            <li key={signal}>{signal}</li>
-          ))}
-        </ul>
+        {hasUsableMapPackData ? (
+          <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-slate-700">
+            {mapPack.likelySignals.map((signal) => (
+              <li key={signal}>{signal}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-3 text-sm text-slate-600">
+            We could not compute reliable map-pack ranking signals for this run.
+          </p>
+        )}
       </section>
 
       <section className="mt-6 card print-break-avoid p-6">
@@ -1271,7 +1345,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
                       rel="noreferrer"
                       className="text-xs underline"
                     >
-                      Evidence: {signal.evidence.snippet}
+                      Evidence: {sanitizeEvidenceSnippet(signal.evidence.snippet || '')}
                     </a>
                   </li>
                 ))}
@@ -1392,13 +1466,13 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         <p className="mt-1 text-sm text-slate-600">
           Lightweight comparison of top competitors vs your current signal coverage.
         </p>
-        {!hasLiveCompetitorData ? (
+        {!hasUsableCompetitorData ? (
           <p className="mt-2 text-xs text-slate-500">
             Live competitor crawl was unavailable for this run.
           </p>
         ) : null}
         <div className="mt-4 space-y-3">
-          {hasLiveCompetitorData ? (
+          {hasUsableCompetitorData ? (
             (competitorDisplayRows.length > 0 ? competitorDisplayRows : vm.competitors).map((row, idx) => (
               <article key={row.name + idx} className="rounded-lg border border-slate-200 p-4">
                 <p className="font-semibold text-slate-900">{row.name}</p>
@@ -1504,7 +1578,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       <section className="mt-8 grid gap-4 md:grid-cols-2">
         <div className="card print-break-avoid p-6">
           <h2 className="text-xl font-bold">Money Keywords</h2>
-          {hasLiveKeywordData ? (
+          {vm.keywords.length > 0 ? (
             <>
               <div className="mt-3 space-y-2">
                 {vm.keywords.map((item) => (
@@ -1518,23 +1592,27 @@ export default async function ReportPage({ params }: { params: { scanId: string 
                   </article>
                 ))}
               </div>
-              <p className="mt-3 text-xs text-slate-500">Live keyword demand metrics captured for this scan.</p>
+              <p className="mt-3 text-xs text-slate-500">
+                {hasLiveKeywordData
+                  ? 'Live keyword demand metrics captured for this scan.'
+                  : 'Keyword demand is estimated because live provider data was unavailable in this run.'}
+              </p>
             </>
           ) : (
             <p className="mt-3 text-sm text-slate-600">
-              Live keyword volume/CPC data was unavailable in this run.
+              No keyword opportunities were generated for this run.
             </p>
           )}
         </div>
 
         <div className="card print-break-avoid p-6">
           <h2 className="text-xl font-bold">Top local competitors we&apos;ll benchmark on your teardown</h2>
-          {hasLiveCompetitorData ? (
+          {hasUsableCompetitorData ? (
             <div className="mt-3 space-y-3">
               {vm.competitors.map((comp, idx) => (
                 <article key={`${comp.name}-${idx}`} className="rounded-md border border-slate-200 p-3">
                   <p className="font-semibold">{comp.name}</p>
-                  {hasLiveReviewData && typeof comp.rating === 'number' && typeof comp.reviews === 'number' ? (
+                  {hasUsableReviewGap && typeof comp.rating === 'number' && typeof comp.reviews === 'number' ? (
                     <p className="mt-1 text-xs text-slate-700">
                       {comp.rating.toFixed(1)} stars • {comp.reviews} reviews
                     </p>
@@ -1591,6 +1669,9 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         <ReportShareActions reportUrl={reportUrl} />
 
         <div className="mt-4">
+          <p className="mb-2 text-xs text-slate-500">
+            Includes 3 free reports per month. Start a 30-day trial, then continue at $49/month.
+          </p>
           <Link href={monitoringLandingUrl} className="btn-variant-secondary px-4 py-2 text-sm">
             Prefer monitoring? Start free trial (no call required)
           </Link>

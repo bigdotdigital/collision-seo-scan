@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { isLikelyNonShopCompetitor } from '@/lib/competitor-filter';
 
 type KeywordSeed = {
   keyword?: string;
@@ -98,7 +99,7 @@ export async function seedDashboardFromScan(args: {
       name: (row.name || '').trim(),
       websiteUrl: (row.url || '').trim() || null
     }))
-    .filter((row) => row.name)
+    .filter((row) => row.name && !isLikelyNonShopCompetitor(row.name, row.websiteUrl))
     .slice(0, 10);
 
   for (const row of competitorRows) {
@@ -136,4 +137,3 @@ export async function seedDashboardFromScan(args: {
     competitorsSeeded: competitorRows.length
   };
 }
-

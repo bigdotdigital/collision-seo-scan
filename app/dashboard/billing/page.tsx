@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export default async function DashboardBillingPage({
   searchParams
 }: {
-  searchParams?: { checkout?: string };
+  searchParams?: { checkout?: string; portal?: string };
 }) {
   const ctx = await requireDashboardContext();
 
@@ -37,6 +37,7 @@ export default async function DashboardBillingPage({
   const status = subscription?.status || 'trialing';
   const portalUrl = '/api/stripe/create-portal-session?returnTo=/dashboard/billing';
   const bookCallUrl = process.env.CALENDLY_LINK || 'https://calendly.com/bigdotdigital/30min';
+  const portalState = searchParams?.portal || '';
   const displayInvoices =
     status === 'trialing'
       ? invoices
@@ -53,6 +54,17 @@ export default async function DashboardBillingPage({
   return (
     <div>
       <PageHeader title="Plans & Billing" subtitle="" eyebrow="Organization Settings" />
+
+      {portalState === 'missing-customer' ? (
+        <div className="mb-4 rounded-xl border border-amber-300/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+          Billing profile is not linked yet. Start your trial first or use “Add payment method now” from monitoring.
+        </div>
+      ) : null}
+      {portalState === 'error' ? (
+        <div className="mb-4 rounded-xl border border-red-300/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          Could not open Stripe billing portal right now. Please retry in a minute.
+        </div>
+      ) : null}
 
       <div className="mb-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
         <article className="card p-6">

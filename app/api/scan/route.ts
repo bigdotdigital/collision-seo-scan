@@ -212,7 +212,9 @@ export async function POST(req: Request) {
         pagespeed: pageSpeedStatus,
         serp: result.sources.serp,
         aiSummary: result.sources.aiSummary,
-        reviews: googlePlaceResult.source === 'live' ? 'live' : 'modeled',
+        // We only have authoritative shop-level Google rating here, not a fully sourced
+        // shop-vs-competitor review comparison payload.
+        reviews: 'modeled',
         mapPack: result.sources.mapPack,
         competitors: result.sources.serp,
         keywords: result.sources.keywords

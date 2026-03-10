@@ -33,11 +33,19 @@ export default function MonitoringLandingPage({
               <span className="monitor-logo-text">Big Dot Monitoring</span>
             </header>
 
+            <div className="monitor-inline-links">
+              <Link href="/pricing">See pricing</Link>
+              <Link href="/login">Login</Link>
+            </div>
+
             <section>
               <h1 className="monitor-h1">Launch your SEO monitoring dashboard in minutes</h1>
               <p className="monitor-copy">
                 {shop} in {city}. No Zoom required. Start on your own, then email us for dashboard
                 customizations or feedback.
+              </p>
+              <p className="monitor-copy" style={{ marginTop: '8px' }}>
+                Includes 3 free reports per month. Start a 30-day trial now, then continue at $49/month.
               </p>
             </section>
 

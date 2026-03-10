@@ -62,25 +62,37 @@ export default async function ReportsPage() {
           {scans.length === 0 ? (
             <div className="py-5 text-sm text-white/60">No scans available yet.</div>
           ) : (
-            scans.map((scan, idx) => (
-              <div
-                key={scan.id}
-                className="grid grid-cols-[minmax(0,1fr)_120px_140px_100px] items-center gap-4 border-b border-white/10 px-3 py-4"
-              >
-                <div>
-                  <p className="text-base text-white">{new Date(scan.createdAt).toLocaleDateString()} Performance Report</p>
-                  <p className="text-xs text-white/50">Generated {scan.createdAt.toLocaleString()}</p>
-                </div>
-                <p className="text-sm text-white/70">{scan.scoreTotal ?? 'N/A'} Score</p>
-                <p className="text-sm font-semibold text-[#ff8a93]">{idx === 0 ? '+1.8%' : '+0.6%'} Growth</p>
-                <a
-                  href={`/report/${scan.id}`}
-                  className="inline-flex justify-center rounded-md border border-white/15 bg-black/20 px-3 py-1.5 text-sm text-white"
+            scans.map((scan, idx) => {
+              const previous = scans[idx + 1]?.scoreTotal ?? null;
+              const current = scan.scoreTotal ?? null;
+              const growth =
+                previous !== null && current !== null && previous > 0
+                  ? ((current - previous) / previous) * 100
+                  : null;
+              return (
+                <div
+                  key={scan.id}
+                  className="grid grid-cols-[minmax(0,1fr)_120px_140px_100px] items-center gap-4 border-b border-white/10 px-3 py-4"
                 >
-                  Open
-                </a>
-              </div>
-            ))
+                  <div>
+                    <p className="text-base text-white">{new Date(scan.createdAt).toLocaleDateString()} Performance Report</p>
+                    <p className="text-xs text-white/50">Generated {scan.createdAt.toLocaleString()}</p>
+                  </div>
+                  <p className="text-sm text-white/70">{current ?? 'N/A'} Score</p>
+                  <p className="text-sm font-semibold text-[#ff8a93]">
+                    {growth === null
+                      ? '—'
+                      : `${growth > 0 ? '+' : ''}${growth.toFixed(1)}% Growth`}
+                  </p>
+                  <a
+                    href={`/report/${scan.id}`}
+                    className="inline-flex justify-center rounded-md border border-white/15 bg-black/20 px-3 py-1.5 text-sm text-white"
+                  >
+                    Open
+                  </a>
+                </div>
+              );
+            })
           )}
         </div>
       </article>

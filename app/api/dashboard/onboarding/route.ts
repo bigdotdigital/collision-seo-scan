@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getDashboardSession } from '@/lib/client-auth';
 import { normalizeWebsiteUrl, sanitizeInput } from '@/lib/security/url';
+import { isLikelyNonShopCompetitor } from '@/lib/competitor-filter';
 
 export const dynamic = 'force-dynamic';
 
@@ -106,7 +107,7 @@ export async function POST(req: Request) {
       const name = sanitizeInput(String(form.get('name') || ''), 120);
       const websiteUrlInput = sanitizeInput(String(form.get('websiteUrl') || ''), 240);
       const websiteUrl = websiteUrlInput ? normalizeWebsiteUrl(websiteUrlInput) : null;
-      if (!name) return toRedirect(req, 'competitor', false);
+      if (!name || isLikelyNonShopCompetitor(name, websiteUrl)) return toRedirect(req, 'competitor', false);
       const location = await getOrCreatePrimaryLocation(session.orgId);
 
       const existing = await prisma.trackedCompetitor.findFirst({
