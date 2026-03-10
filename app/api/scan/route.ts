@@ -71,14 +71,24 @@ function modeledPageSpeedFromScan(result: Awaited<ReturnType<typeof runScan>>): 
     recommendation: issue.fix
   }));
 
+  const modeledScore = result.checks.performanceScore;
+  const modeledLcpMs =
+    modeledScore >= 90 ? 1800 : modeledScore >= 75 ? 2400 : modeledScore >= 60 ? 3200 : 4200;
+  const modeledCls =
+    modeledScore >= 90 ? 0.04 : modeledScore >= 75 ? 0.08 : modeledScore >= 60 ? 0.14 : 0.24;
+  const modeledTbtMs =
+    modeledScore >= 90 ? 60 : modeledScore >= 75 ? 140 : modeledScore >= 60 ? 260 : 420;
+  const modeledSpeedIndexMs =
+    modeledScore >= 90 ? 2100 : modeledScore >= 75 ? 3200 : modeledScore >= 60 ? 4300 : 5800;
+
   return {
     status: 'ok',
     message: 'Modeled from on-site checks while live PageSpeed data is unavailable.',
-    performanceScore: result.checks.performanceScore,
-    lcpMs: null,
-    cls: null,
-    tbtMs: null,
-    speedIndexMs: null,
+    performanceScore: modeledScore,
+    lcpMs: modeledLcpMs,
+    cls: modeledCls,
+    tbtMs: modeledTbtMs,
+    speedIndexMs: modeledSpeedIndexMs,
     diagnostics
   };
 }

@@ -45,12 +45,22 @@ function snippetAround(text: string, index: number): string {
   return normalizeSpace(text.slice(start, end)).slice(0, 200);
 }
 
+function stripNonContentHtml(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&(?:nbsp|amp|quot|#39|lt|gt);/gi, ' ');
+}
+
 export function detectCollisionSignals(htmlByUrl: Record<string, string>) {
   const detected: CollisionSignal[] = [];
   const seen = new Set<string>();
 
   for (const [url, html] of Object.entries(htmlByUrl)) {
-    const pageText = normalizeSpace(html.replace(/<[^>]+>/g, ' '));
+    const pageText = normalizeSpace(stripNonContentHtml(html));
 
     for (const def of SIGNAL_DEFS) {
       const hitPattern = def.patterns.find((p) => p.test(pageText));

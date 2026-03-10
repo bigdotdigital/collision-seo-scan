@@ -105,6 +105,59 @@ const timeoutFetch = async (url: string, ms = 10000): Promise<Response> => {
   }
 };
 
+const extractSitemapUrls = (xml: string, baseHost: string): string[] => {
+  if (!xml) return [];
+  const matches = [...xml.matchAll(/<loc>([^<]+)<\/loc>/gi)]
+    .map((match) => normalizeSpace(match[1] || ''))
+    .filter(Boolean);
+
+  const urls = matches.filter((candidate) => {
+    try {
+      const parsed = new URL(candidate);
+      return parsed.hostname.replace(/^www\./i, '').toLowerCase() === baseHost;
+    } catch {
+      return false;
+    }
+  });
+
+  return [...new Set(urls)];
+};
+
+const prioritizeSitemapUrls = (urls: string[], baseUrl: string): string[] => {
+  const preferredPatterns = [
+    /\/$/,
+    /\/about/i,
+    /\/contact/i,
+    /\/services?/i,
+    /\/estimate/i,
+    /\/cert/i,
+    /\/repair/i,
+    /\/collision/i,
+    /\/body/i,
+    /\/paint/i,
+    /\/hail/i,
+    /\/dent/i,
+    /\/faq/i,
+    /\/insurance/i
+  ];
+
+  const baseHost = hostnameOf(baseUrl);
+  return [...urls]
+    .filter((url) => hostnameOf(url) === baseHost)
+    .sort((a, b) => {
+      const aUrl = new URL(a);
+      const bUrl = new URL(b);
+      const aPath = aUrl.pathname || '/';
+      const bPath = bUrl.pathname || '/';
+      const aScore = preferredPatterns.findIndex((pattern) => pattern.test(aPath));
+      const bScore = preferredPatterns.findIndex((pattern) => pattern.test(bPath));
+      const aRank = aScore === -1 ? 999 : aScore;
+      const bRank = bScore === -1 ? 999 : bScore;
+      if (aRank !== bRank) return aRank - bRank;
+      return aPath.length - bPath.length;
+    });
+};
+
 const fetchText = async (
   url: string,
   pageFetchMeta: PageFetchMeta[]
@@ -208,10 +261,13 @@ const isShopCompetitorCandidate = (candidate: { name?: string; url?: string }): 
 };
 
 const getCompetitors = async (
-  city: string
+  city: string,
+  shopName: string,
+  websiteUrl: string
 ): Promise<{ competitors: Competitor[]; source: 'live' | 'cached' | 'fallback' }> => {
   const cityKey = city.trim().toLowerCase();
   const cacheCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const ownHost = hostnameOf(websiteUrl);
 
   // 24h cache from previous scans to reduce SERP API spend.
   try {
@@ -248,6 +304,7 @@ const getCompetitors = async (
             } as Competitor;
           })
           .filter((item) => isShopCompetitorCandidate(item))
+          .filter((item) => hostnameOf(item.url) !== ownHost)
           .slice(0, 3);
 
         if (normalized.length > 0) {
@@ -280,6 +337,7 @@ const getCompetitors = async (
           differentiatorGuess: 'Likely stronger local pack visibility and review recency.'
         }))
         .filter((item: Competitor) => isShopCompetitorCandidate(item))
+        .filter((item: Competitor) => hostnameOf(item.url) !== ownHost)
         .slice(0, 3);
       if (top.length > 0) {
         console.info(`SERP_STATUS=live city=${cityKey} count=${top.length}`);
@@ -290,28 +348,63 @@ const getCompetitors = async (
     }
   }
 
-  const fallbackNote =
-    'Top local competitors we’ll benchmark on your teardown.';
+  const placesKey = process.env.GOOGLE_PLACES_API_KEY;
+  if (placesKey) {
+    try {
+      const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-goog-api-key': placesKey,
+          'x-goog-fieldmask':
+            'places.displayName,places.websiteUri,places.googleMapsUri,places.primaryTypeDisplayName,places.rating,places.userRatingCount'
+        },
+        body: JSON.stringify({
+          textQuery: `${city} collision repair`,
+          languageCode: 'en',
+          regionCode: 'US',
+          maxResultCount: 8
+        }),
+        cache: 'no-store'
+      });
 
-  const fallbackRows = [
-    {
-      name: `Leading ${city} collision shop`,
-      note: fallbackNote,
-      differentiatorGuess: 'Likely winning with location-specific service pages.'
-    },
-    {
-      name: `Top-rated ${city} auto body brand`,
-      note: fallbackNote,
-      differentiatorGuess: 'Likely benefiting from stronger review velocity.'
-    },
-    {
-      name: `High-visibility ${city} repair competitor`,
-      note: fallbackNote,
-      differentiatorGuess: 'Likely capturing estimate intent with stronger CTAs.'
+      const json = (await res.json().catch(() => null)) as
+        | { places?: Array<Record<string, unknown>> }
+        | null;
+      const rows = Array.isArray(json?.places) ? json.places : [];
+      const top = rows
+        .map((row, idx) => ({
+          name:
+            typeof (row.displayName as { text?: unknown } | undefined)?.text === 'string'
+              ? String((row.displayName as { text: string }).text)
+              : `Competitor ${idx + 1}`,
+          url: typeof row.websiteUri === 'string' ? row.websiteUri : undefined,
+          note:
+            typeof row.googleMapsUri === 'string'
+              ? row.googleMapsUri
+              : 'Live competitor signal from Google Places.',
+          differentiatorGuess:
+            typeof row.primaryTypeDisplayName === 'object' &&
+            typeof (row.primaryTypeDisplayName as { text?: unknown }).text === 'string'
+              ? `Primary category: ${String((row.primaryTypeDisplayName as { text: string }).text)}`
+              : 'Live competitor signal from Google Places.'
+        }))
+        .filter((item) => isShopCompetitorCandidate(item))
+        .filter((item) => hostnameOf(item.url) !== ownHost)
+        .filter((item) => !item.name.toLowerCase().includes(shopName.toLowerCase()))
+        .slice(0, 3);
+
+      if (top.length > 0) {
+        console.info(`SERP_STATUS=places city=${cityKey} count=${top.length}`);
+        return { competitors: top, source: 'live' };
+      }
+    } catch {
+      // fall through to graceful fallback
     }
-  ];
-  console.info(`SERP_STATUS=fallback city=${cityKey} count=${fallbackRows.length}`);
-  return { competitors: fallbackRows, source: 'fallback' };
+  }
+
+  console.info(`SERP_STATUS=fallback city=${cityKey} count=0`);
+  return { competitors: [], source: 'fallback' };
 };
 
 const normalizeMapResultName = (value: unknown): string | null => {
@@ -325,9 +418,9 @@ const canonicalName = (value: string): string =>
 
 const buildFallbackMapPack = (city: string, shopName: string, competitors: Competitor[]): MapPackResult => {
   const c = city.trim().toLowerCase();
-  const rank1 = competitors[0]?.name || `Leading ${city} collision shop`;
-  const rank2 = competitors[1]?.name || `Top-rated ${city} auto body brand`;
-  const rank3 = competitors[2]?.name || `High-visibility ${city} repair competitor`;
+  const rank1 = competitors[0]?.name || 'Unavailable';
+  const rank2 = competitors[1]?.name || 'Unavailable';
+  const rank3 = competitors[2]?.name || 'Unavailable';
 
   return {
     source: 'fallback',
@@ -343,7 +436,7 @@ const buildFallbackMapPack = (city: string, shopName: string, competitors: Compe
       rank1,
       rank2,
       rank3,
-      yourRank: idx === 0 ? `${shopName} (likely #4-#7)` : `${shopName} (outside top 3)`
+      yourRank: idx === 0 ? `${shopName} (position unavailable)` : `${shopName} (position unavailable)`
     }))
   };
 };
@@ -498,36 +591,29 @@ const withKeywordMetrics = (keywords: string[]): MoneyKeyword[] => {
   });
 };
 
-const buildMoneyKeywords = (city: string, oemSignals: string[]): MoneyKeyword[] => {
+const buildMoneyKeywords = (city: string, checks: Pick<ScanChecks, 'oemSignals' | 'fleetSignals' | 'insuranceSignals' | 'estimateCtaDetected'>): MoneyKeyword[] => {
   const c = city.toLowerCase().trim();
-  const picks: string[] = [];
-  const hasSubaru = oemSignals.some((s) => s.includes('subaru'));
-  const hasFord = oemSignals.some((s) => s.includes('ford'));
-  const hasGm = oemSignals.some((s) => s.includes('gm'));
-
-  if (hasSubaru) picks.push(`subaru certified collision repair ${c}`);
-  if (hasFord) picks.push(`ford certified body shop ${c}`);
-  if (hasGm) picks.push(`gm certified collision repair ${c}`);
-
-  if (picks.length < 2) {
-    if (!picks.includes(`subaru certified collision repair ${c}`)) {
-      picks.push(`subaru certified collision repair ${c}`);
-    }
-    if (picks.length < 2 && !picks.includes(`ford certified body shop ${c}`)) {
-      picks.push(`ford certified body shop ${c}`);
-    }
-    if (picks.length < 2 && !picks.includes(`gm certified collision repair ${c}`)) {
-      picks.push(`gm certified collision repair ${c}`);
-    }
-  }
-
-  const vanOptions = [
-    `sprinter body shop ${c}`,
-    `promaster collision repair ${c}`,
-    `ford transit collision repair ${c}`
+  const picks: string[] = [
+    `collision repair ${c}`,
+    `auto body shop ${c}`,
+    `bumper repair ${c}`,
+    `hail damage repair ${c}`,
+    `free collision estimate ${c}`
   ];
-  picks.push(vanOptions[0], vanOptions[1]);
-  picks.push(`free collision repair estimate ${c}`);
+
+  if (checks.insuranceSignals.some((s) => s.includes('insurance') || s.includes('claim'))) {
+    picks.unshift(`insurance collision repair ${c}`);
+  }
+  if (checks.fleetSignals.some((s) => s.includes('sprinter') || s.includes('transit') || s.includes('promaster'))) {
+    picks.unshift(`commercial auto body ${c}`);
+  }
+  if (checks.estimateCtaDetected) {
+    picks.unshift(`auto body estimate ${c}`);
+  }
+  if (checks.oemSignals.some((s) => s.includes('subaru'))) picks.unshift(`subaru certified collision repair ${c}`);
+  if (checks.oemSignals.some((s) => s.includes('ford'))) picks.unshift(`ford certified body shop ${c}`);
+  if (checks.oemSignals.some((s) => s.includes('gm'))) picks.unshift(`gm certified collision repair ${c}`);
+  if (checks.oemSignals.some((s) => s.includes('nissan'))) picks.unshift(`nissan certified collision repair ${c}`);
 
   return withKeywordMetrics([...new Set(picks)].slice(0, 5));
 };
@@ -591,8 +677,14 @@ const parsePages = (
 
   const schemaTypes = parseSchemaTypes(combinedHtml);
 
-  const mapsLinkDetected = /google\.com\/maps|g\.page|maps\.app\.goo\.gl/i.test(combinedHtml);
-  const mapEmbedDetected = /<iframe[^>]+google\.com\/maps/i.test(combinedHtml);
+  const mapsLinkDetected =
+    /google\.com\/maps|g\.page|maps\.app\.goo\.gl|goo\.gl\/maps|placeid|google\.com\/search\?[^"']*tbm=lcl/i.test(
+      combinedHtml
+    );
+  const mapEmbedDetected =
+    /<iframe[^>]+google\.com\/maps|maps\/embed|google\.maps|data-lat=|data-lng=|mapbox|leaflet|staticmap/i.test(
+      combinedHtml
+    );
   const directionsOrReviewsCta = /directions|get directions|reviews|read reviews/i.test(combinedHtml);
 
   const napDetected =
@@ -1001,6 +1093,23 @@ export const runScan = async (
     })
   );
 
+  const sitemap = await fetchText(`${base}/sitemap.xml`, pageFetchMeta);
+  const sitemapUrls = sitemap.ok ? extractSitemapUrls(sitemap.text, hostnameOf(base)) : [];
+  const prioritizedSitemapUrls = prioritizeSitemapUrls(sitemapUrls, websiteUrl)
+    .filter((url) => !urls.includes(url))
+    .slice(0, 8);
+
+  await Promise.all(
+    prioritizedSitemapUrls.map(async (url) => {
+      const { text, ok, status, finalUrl } = await fetchText(url, pageFetchMeta);
+      if (ok && text) {
+        htmlByUrl[finalUrl] = text;
+      } else {
+        fetchNotes.push(`${url} not fetched (status ${status || 'timeout/error'})`);
+      }
+    })
+  );
+
   if (!htmlByUrl[base]) {
     htmlByUrl[base] = '';
     fetchNotes.push('Homepage fetch failed; scan quality is limited.');
@@ -1017,7 +1126,6 @@ export const runScan = async (
     checks.performanceMethod = 'ttfb-heuristic';
   }
 
-  const sitemap = await fetchText(`${base}/sitemap.xml`, pageFetchMeta);
   checks.sitemapFound = sitemap.ok;
 
   const scores = buildScores(checks);
@@ -1051,9 +1159,9 @@ export const runScan = async (
     missingPages,
     hasPerformanceData: pagespeed?.status === 'ok'
   });
-  const moneyKeywords = buildMoneyKeywords(city, checks.oemSignals);
+  const moneyKeywords = buildMoneyKeywords(city, checks);
   const [competitorResult, nationalBenchmark] = await Promise.all([
-    getCompetitors(city),
+    getCompetitors(city, shopName, websiteUrl),
     runNationalCollisionBenchmark(checks)
   ]);
   const competitors = competitorResult.competitors;

@@ -91,7 +91,7 @@ function sanitizeEvidenceSnippet(rawSnippet: string): string {
   if (!cleaned) return 'Evidence snippet unavailable.';
 
   const cssOrJsNoise =
-    /@media|background-image|register\(|serviceWorker|function\s*\(|=>|\.x\s+\.c1-|{[^}]+}/i.test(
+    /@media|background-image|register\(|serviceWorker|function\s*\(|=>|\.x\s+\.c1-|{[^}]+}|@font-face|font-family:|src: url\(/i.test(
       cleaned
     );
   if (cssOrJsNoise) {
@@ -365,9 +365,15 @@ function scoreDot(score: number): string {
   return '🔴';
 }
 
-function checksScore(raw: Record<string, unknown>, key: 'title' | 'estimate'): boolean {
+function checksScore(
+  raw: Record<string, unknown>,
+  key: 'title' | 'estimate' | 'reviews' | 'map' | 'phone'
+): boolean {
   const checks = (raw.checks as Record<string, unknown> | undefined) || {};
   if (key === 'title') return typeof checks.title === 'string' && checks.title.trim().length > 0;
+  if (key === 'reviews') return Boolean(checks.reviewWidgetOrSchema);
+  if (key === 'map') return Boolean(checks.mapsLinkDetected) || Boolean(checks.mapEmbedDetected);
+  if (key === 'phone') return Boolean(checks.napDetected);
   return Boolean(checks.estimateCtaDetected);
 }
 
@@ -461,7 +467,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
     : scanRecord.rawChecks || {};
   const payload = parseReportPayload(raw);
 
-  const scoreTotal = snapshot?.visibilityScore ?? scanRecord.scoreTotal ?? 0;
+  const scoreTotal = scanRecord.scoreTotal ?? snapshot?.visibilityScore ?? 0;
   const scoreWebsite = scanRecord.scoreWebsite ?? 0;
   const scoreLocal = scanRecord.scoreLocal ?? 0;
   const scoreIntent = scanRecord.scoreIntent ?? 0;
@@ -516,6 +522,18 @@ export default async function ReportPage({ params }: { params: { scanId: string 
     { label: 'Local signals', score: categoryScores.localSeo },
     { label: 'Estimate CTA', score: checksScore(raw, 'estimate') ? 88 : 48 }
   ];
+  const callConversionScore = Math.max(
+    0,
+    Math.min(
+      100,
+      Math.round(
+        (checksScore(raw, 'estimate') ? 40 : 10) +
+          (checksScore(raw, 'reviews') ? 20 : 0) +
+          (checksScore(raw, 'map') ? 20 : 0) +
+          (checksScore(raw, 'phone') ? 20 : 10)
+      )
+    )
+  );
   const ownerIssues = issues.map((issue) => ({
     ...issue,
     title: ownerIssueTitle(issue.title),
@@ -553,6 +571,11 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       label: 'Service Page Coverage',
       hint: 'How well your pages match collision search intent',
       score: categoryScores.contentCoverage
+    },
+    {
+      label: 'Call Conversion',
+      hint: 'How ready the site is to turn searchers into estimate requests',
+      score: callConversionScore
     }
   ];
 
@@ -843,16 +866,11 @@ export default async function ReportPage({ params }: { params: { scanId: string 
           </article>
           <article className="report-arch-cell">
             <p className="report-arch-label">Estimated Opportunity</p>
-            {hasLiveKeywordData ? (
-              <>
-                <p className="report-arch-big">${vm.opportunity.revenueOpportunity.toLocaleString()}</p>
-                <p className="report-arch-sub">
-                  {vm.opportunity.missedLeads.toLocaleString()} missed leads/month
-                </p>
-              </>
-            ) : (
-              <p className="report-arch-sub">Unavailable until live keyword demand data is captured.</p>
-            )}
+            <p className="report-arch-big">${vm.opportunity.revenueOpportunity.toLocaleString()}</p>
+            <p className="report-arch-sub">
+              {vm.opportunity.missedLeads.toLocaleString()} missed leads/month
+              {hasLiveKeywordData ? '' : ' • estimated from modeled demand'}
+            </p>
           </article>
         </div>
       </section>
@@ -1468,7 +1486,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         </p>
         {!hasUsableCompetitorData ? (
           <p className="mt-2 text-xs text-slate-500">
-            Live competitor crawl was unavailable for this run.
+            Live competitor crawl was unavailable for this run. We only show competitor sections when we have source-backed shop data.
           </p>
         ) : null}
         <div className="mt-4 space-y-3">
@@ -1508,7 +1526,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
           {crawlEvidenceRows.length === 0 ? (
             <p className="text-sm text-slate-600">No page metadata captured in this run.</p>
           ) : (
-            crawlEvidenceRows.slice(0, 8).map((row) => (
+            crawlEvidenceRows.slice(0, 12).map((row) => (
               <article key={`${row.url}-${row.status}`} className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
                 <p className="font-medium text-slate-900">{row.url}</p>
                 <p className="text-xs text-slate-600">
@@ -1520,29 +1538,32 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         </div>
       </details>
 
-      {hasLiveKeywordData ? (
-        <section className="mt-6 rounded-xl border border-teal-200 bg-teal-50 print-break-avoid p-6">
-          <h2 className="text-xl font-bold text-slate-900">Estimated Opportunity</h2>
-          <p className="mt-1 text-sm text-slate-700">
-            Estimate based on live keyword demand and visibility gaps. Not a guarantee.
-          </p>
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <div className="rounded-lg bg-white p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Monthly search demand</p>
-              <p className="mt-1 text-2xl font-bold">{vm.opportunity.monthlySearchDemand.toLocaleString()}</p>
-            </div>
-            <div className="rounded-lg bg-white p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Missed leads/month</p>
-              <p className="mt-1 text-2xl font-bold">{vm.opportunity.missedLeads.toLocaleString()}</p>
-            </div>
-            <div className="rounded-lg bg-white p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Revenue opportunity</p>
-              <p className="mt-1 text-2xl font-bold">${vm.opportunity.revenueOpportunity.toLocaleString()}</p>
-              <p className="text-xs text-slate-500">ARO: ${vm.opportunity.averageRepairOrder.toLocaleString()}</p>
-            </div>
+      <section className="mt-6 rounded-xl border border-teal-200 bg-teal-50 print-break-avoid p-6">
+        <h2 className="text-xl font-bold text-slate-900">Estimated Opportunity</h2>
+        <p className="mt-1 text-sm text-slate-700">
+          {hasLiveKeywordData
+            ? 'Estimate based on live keyword demand and visibility gaps. Not a guarantee.'
+            : 'Estimate based on modeled local demand and visibility gaps. Not a guarantee.'}
+        </p>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <div className="rounded-lg bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Monthly search demand</p>
+            <p className="mt-1 text-2xl font-bold">{vm.opportunity.monthlySearchDemand.toLocaleString()}</p>
           </div>
-        </section>
-      ) : null}
+          <div className="rounded-lg bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Missed leads/month</p>
+            <p className="mt-1 text-2xl font-bold">{vm.opportunity.missedLeads.toLocaleString()}</p>
+          </div>
+          <div className="rounded-lg bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Revenue opportunity</p>
+            <p className="mt-1 text-2xl font-bold">${vm.opportunity.revenueOpportunity.toLocaleString()}</p>
+            <p className="text-xs text-slate-500">
+              ARO: ${vm.opportunity.averageRepairOrder.toLocaleString()}
+              {!hasLiveKeywordData ? ' • modeled demand' : ''}
+            </p>
+          </div>
+        </div>
+      </section>
 
       <details className="mt-8 card print-break-avoid p-6">
         <summary className="cursor-pointer text-sm font-semibold uppercase tracking-[0.14em] text-[#c49a7a]">
@@ -1620,6 +1641,16 @@ export default async function ReportPage({ params }: { params: { scanId: string 
                   <p className="mt-1 text-xs text-slate-700">Why they&apos;re winning: {comp.whyWinning}</p>
                 </article>
               ))}
+            </div>
+          ) : ownGoogleReviewLabel ? (
+            <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+              <p className="font-semibold text-slate-900">Your Google profile is connected</p>
+              <p className="mt-1">
+                {googlePlace?.rating?.toFixed(1)} stars • {googlePlace?.userRatingCount ?? 0} reviews
+              </p>
+              <p className="mt-1 text-xs text-slate-600">
+                Competitor extraction was unavailable for this run, so teardown benchmarking is pending.
+              </p>
             </div>
           ) : (
             <p className="mt-3 text-sm text-slate-600">
