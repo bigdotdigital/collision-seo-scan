@@ -27,6 +27,11 @@ import {
   upsertOrganizationFromInput
 } from '@/lib/org-data';
 import { seedDashboardFromScan } from '@/lib/dashboard-prefill';
+import {
+  claimShopForOrganization,
+  recordCompetitorObservations,
+  recordKeywordObservations
+} from '@/lib/shop-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -313,7 +318,8 @@ export async function POST(req: Request) {
           has_aluminum: input.has_aluminum,
           vertical: input.vertical
         },
-        org.id
+        org.id,
+        org.shopId || undefined
       );
 
       const scan = await prisma.scan.update({
@@ -332,6 +338,35 @@ export async function POST(req: Request) {
           thirtyDayPlanJson: toJson(result.thirtyDayPlan)
         }
       });
+
+      if (org.shopId) {
+        await Promise.all([
+          claimShopForOrganization({
+            orgId: org.id,
+            shopId: org.shopId,
+            name: normalizedShop,
+            websiteUrl,
+            city: normalizedCity,
+            state: googlePlaceResult.profile?.state || null
+          }),
+          recordKeywordObservations({
+            shopId: org.shopId,
+            scanId: scan.id,
+            observedAt: scan.createdAt,
+            city: normalizedCity,
+            keywords: result.moneyKeywords
+          }),
+          recordCompetitorObservations({
+            sourceShopId: org.shopId,
+            scanId: scan.id,
+            observedAt: scan.createdAt,
+            city: normalizedCity,
+            state: googlePlaceResult.profile?.state || null,
+            vertical: input.vertical,
+            competitors: result.competitors
+          })
+        ]);
+      }
 
       await Promise.all([
         storeRawProviderResponse({
@@ -410,6 +445,7 @@ export async function POST(req: Request) {
       try {
         await seedDashboardFromScan({
           organizationId: org.id,
+          scanId: scan.id,
           shopName: normalizedShop,
           websiteUrl,
           city: normalizedCity,

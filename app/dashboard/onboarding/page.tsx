@@ -71,14 +71,14 @@ export default async function DashboardOnboardingPage({
           </span>
         </div>
         {updated ? (
-          <p className={`mt-4 text-sm ${hasError ? 'text-red-200' : 'text-emerald-200'}`}>
+          <p className={`mt-4 text-sm ${hasError ? 'text-red-700' : 'text-emerald-700'}`}>
             {hasError
               ? `Could not save ${updated}. Please check fields and try again.`
               : `${updated.charAt(0).toUpperCase() + updated.slice(1)} saved.`}
           </p>
         ) : null}
-        {checkoutSuccess ? <p className="mt-2 text-sm text-emerald-200">Trial checkout complete. Finish onboarding below and your dashboard will start tracking.</p> : null}
-        {trialStarted ? <p className="mt-2 text-sm text-emerald-200">Trial started. Complete onboarding below to start tracking.</p> : null}
+        {checkoutSuccess ? <p className="mt-2 text-sm text-emerald-700">Trial checkout complete. Finish onboarding below and your dashboard will start tracking.</p> : null}
+        {trialStarted ? <p className="mt-2 text-sm text-emerald-700">Trial started. Complete onboarding below to start tracking.</p> : null}
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">

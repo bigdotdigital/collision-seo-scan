@@ -9,9 +9,9 @@ type DashboardKpiCardProps = {
 };
 
 function toneClass(tone: DashboardKpiCardProps['tone']) {
-  if (tone === 'accent') return 'dashboard-panel dashboard-panel-accent';
-  if (tone === 'warning') return 'dashboard-panel dashboard-panel-warning';
-  return 'dashboard-panel';
+  if (tone === 'accent') return 'dashboard-panel dashboard-panel-accent dashboard-panel-tone';
+  if (tone === 'warning') return 'dashboard-panel dashboard-panel-warning dashboard-panel-tone';
+  return 'dashboard-panel dashboard-panel-tone';
 }
 
 export function DashboardKpiCard({

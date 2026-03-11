@@ -4,6 +4,7 @@ import { requireDashboardContext } from '@/lib/dashboard-auth';
 import { PageHeader } from '@/components/page-header';
 import { DashboardKpiCard } from '@/components/dashboard-kpi-card';
 import { DashboardTrendIndicator } from '@/components/dashboard-trend-indicator';
+import { deriveKeywordSuggestions } from '@/lib/dashboard-suggestions';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,17 +21,49 @@ function trendBars(delta: number | null) {
 export default async function DashboardRankingsPage() {
   const ctx = await requireDashboardContext();
 
-  const keywords = await prisma.trackedKeyword.findMany({
-    where: { orgId: ctx.orgId, isActive: true },
-    include: {
-      snapshots: {
-        orderBy: { snapshotDate: 'desc' },
-        take: 2
+  const [keywords, latestScan, observedKeywords] = await Promise.all([
+    prisma.trackedKeyword.findMany({
+      where: { orgId: ctx.orgId, isActive: true },
+      include: {
+        snapshots: {
+          orderBy: { snapshotDate: 'desc' },
+          take: 2
+        }
+      },
+      orderBy: { createdAt: 'asc' },
+      take: 150
+    }),
+    prisma.scan.findFirst({
+      where: { organizationId: ctx.orgId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        shopName: true,
+        city: true,
+        websiteUrl: true,
+        moneyKeywordsJson: true,
+        competitorsJson: true,
+        rawChecksJson: true
       }
-    },
-    orderBy: { createdAt: 'asc' },
-    take: 150
-  });
+    }),
+    prisma.organization.findUnique({
+      where: { id: ctx.orgId },
+      select: { shopId: true }
+    }).then((organization) =>
+      organization?.shopId
+        ? prisma.shopKeywordObservation.findMany({
+            where: { shopId: organization.shopId },
+            orderBy: { observedAt: 'desc' },
+            distinct: ['keyword'],
+            take: 10,
+            select: {
+              keyword: true,
+              searchVolume: true,
+              confidence: true
+            }
+          })
+        : Promise.resolve([])
+    )
+  ]);
 
   const rows = keywords.map((kw) => {
     const current = kw.snapshots[0]?.rankPosition ?? null;
@@ -52,6 +85,26 @@ export default async function DashboardRankingsPage() {
   const top10 = rows.filter((row) => row.current !== null && row.current <= 10).length;
   const improving = withBaseline.filter((row) => (row.delta || 0) > 0).length;
   const declining = withBaseline.filter((row) => (row.delta || 0) < 0).length;
+  const hasSnapshotData = rows.some((row) => row.current !== null || row.previous !== null);
+  const keywordSuggestions = latestScan
+    ? await deriveKeywordSuggestions({
+        shopName: latestScan.shopName,
+        city: latestScan.city,
+        websiteUrl: latestScan.websiteUrl,
+        moneyKeywordsJson: latestScan.moneyKeywordsJson,
+        competitorsJson: latestScan.competitorsJson,
+        rawChecksJson: latestScan.rawChecksJson,
+        allowAi: true
+      })
+    : [];
+  const suggestedTerms = keywordSuggestions.filter(
+    (suggestion) => !keywords.some((keyword) => keyword.term.toLowerCase() === suggestion.term.toLowerCase())
+  );
+  const observedSuggestionTerms = observedKeywords.filter(
+    (row, index, all) =>
+      !keywords.some((keyword) => keyword.term.toLowerCase() === row.keyword.toLowerCase()) &&
+      all.findIndex((candidate) => candidate.keyword.toLowerCase() === row.keyword.toLowerCase()) === index
+  );
 
   return (
     <div className="dashboard-main-inner">
@@ -123,6 +176,29 @@ export default async function DashboardRankingsPage() {
             detail="Trend bars are decorative when a baseline does not exist."
           />
         </div>
+
+        {!hasSnapshotData && (observedSuggestionTerms.length > 0 || suggestedTerms.length > 0) ? (
+          <div className="dashboard-subpanel mt-4 rounded-[22px] p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="dashboard-section-title">Known shop keyword opportunities</p>
+                <p className="dashboard-body-sm mt-1">
+                  These terms come from stored shop observations and the latest scan, and are safer than stale starter keywords when no ranking snapshots exist yet.
+                </p>
+              </div>
+              <Link href="/dashboard/settings" className="dashboard-button">
+                Review in settings
+              </Link>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[...observedSuggestionTerms, ...suggestedTerms].slice(0, 8).map((suggestion) => (
+                <span key={'term' in suggestion ? suggestion.term : suggestion.keyword} className="dashboard-chip">
+                  {'term' in suggestion ? suggestion.term : suggestion.keyword}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <section className="dashboard-panel overflow-hidden p-0">

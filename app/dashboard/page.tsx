@@ -2,11 +2,15 @@ import { MetricCard } from '@/components/metric-card';
 import { MultiProgressBar } from '@/components/multi-progress-bar';
 import { CompetitorComparison } from '@/components/competitor-comparison';
 import { InteractiveMap } from '@/components/interactive-map';
+import { BarChart } from '@/components/bar-chart';
+import { PieChart } from '@/components/pie-chart';
+import { HeroMetric } from '@/components/hero-metric';
 import { prisma } from '@/lib/prisma';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
 import { parseJson } from '@/lib/json';
 import { parseReportPayload } from '@/lib/report-payload';
 import type { Issue } from '@/lib/types';
+import { deriveCompetitorSuggestions } from '@/lib/dashboard-suggestions';
 import { calculateRevenueImpact, calculateTrends, prepareCategoryDistribution } from '@/lib/dashboard-data';
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +18,7 @@ export const dynamic = 'force-dynamic';
 export default async function DashboardOverviewPage() {
   const ctx = await requireDashboardContext();
 
-  const [latestScan, previousScan, activeKeywords, subscription] = await Promise.all([
+  const [latestScan, previousScan, activeKeywords, keywordRows, subscription] = await Promise.all([
     prisma.scan.findFirst({
       where: { organizationId: ctx.orgId },
       orderBy: { createdAt: 'desc' },
@@ -26,6 +30,8 @@ export default async function DashboardOverviewPage() {
         scoreLocal: true,
         scoreIntent: true,
         issuesJson: true,
+        moneyKeywordsJson: true,
+        competitorsJson: true,
         rawChecksJson: true,
         websiteUrl: true,
         city: true,
@@ -45,6 +51,17 @@ export default async function DashboardOverviewPage() {
     prisma.trackedKeyword.count({
       where: { orgId: ctx.orgId, isActive: true }
     }),
+    prisma.trackedKeyword.findMany({
+      where: { orgId: ctx.orgId, isActive: true },
+      orderBy: { createdAt: 'asc' },
+      take: 10,
+      include: {
+        snapshots: {
+          orderBy: { snapshotDate: 'desc' },
+          take: 2
+        }
+      }
+    }),
     prisma.subscription.findUnique({
       where: { orgId: ctx.orgId },
       select: { planTier: true, status: true, trialEndsAt: true }
@@ -53,19 +70,45 @@ export default async function DashboardOverviewPage() {
 
   const rawPayload = latestScan ? parseJson<unknown>(latestScan.rawChecksJson, null) : null;
   const reportPayload = parseReportPayload(rawPayload);
-  const rawScanPayload = parseJson<{
-    moneyKeywords?: Array<{ keyword?: string; volume?: number | null }>;
-  }>(latestScan?.rawChecksJson || '', {});
+  const rawMoneyKeywords = parseJson<Array<{ keyword?: string; volume?: number | null }>>(latestScan?.moneyKeywordsJson || '', []);
   const issues = latestScan ? parseJson<Issue[]>(latestScan.issuesJson, []) : [];
 
   const trends = latestScan && previousScan ? calculateTrends(latestScan, previousScan) : null;
   const categories = prepareCategoryDistribution(reportPayload);
-  const moneyKeywords = Array.isArray(rawScanPayload.moneyKeywords)
-    ? rawScanPayload.moneyKeywords
+  const moneyKeywords = Array.isArray(rawMoneyKeywords)
+    ? rawMoneyKeywords
         .filter((row): row is { keyword: string; volume?: number | null } => typeof row?.keyword === 'string')
         .map((row) => ({ keyword: row.keyword, volume: row.volume ?? undefined }))
     : [];
   const revenueImpact = calculateRevenueImpact(latestScan?.scoreTotal ?? 0, moneyKeywords);
+  const rankedKeywords = keywordRows
+    .map((keyword) => {
+      const current = keyword.snapshots[0]?.rankPosition ?? null;
+      const previous = keyword.snapshots[1]?.rankPosition ?? null;
+      const delta = current !== null && previous !== null ? previous - current : null;
+      return {
+        term: keyword.term,
+        current,
+        delta
+      };
+    })
+    .filter((row) => row.current !== null)
+    .sort((a, b) => (a.current ?? 999) - (b.current ?? 999));
+  const keywordBarData = rankedKeywords.slice(0, 7).map((row) => Math.max(10, 100 - (row.current ?? 100) * 3));
+  const avgTrackedPosition =
+    rankedKeywords.length > 0
+      ? Number((rankedKeywords.reduce((sum, row) => sum + (row.current ?? 0), 0) / rankedKeywords.length).toFixed(1))
+      : null;
+  const avgTrackedDeltaRows = rankedKeywords.filter((row) => row.delta !== null);
+  const avgTrackedDelta =
+    avgTrackedDeltaRows.length > 0
+      ? Number(
+          (
+            avgTrackedDeltaRows.reduce((sum, row) => sum + (row.delta ?? 0), 0) /
+            avgTrackedDeltaRows.length
+          ).toFixed(1)
+        )
+      : null;
 
   const yourShop = {
     name: reportPayload?.googlePlace?.name || latestScan?.shopName || 'Your Shop',
@@ -78,10 +121,7 @@ export default async function DashboardOverviewPage() {
 
   const competitors = (reportPayload?.competitorAdvantages || []).slice(0, 4).map((competitor, index) => ({
     name: competitor.name,
-    score:
-      latestScan?.scoreTotal !== null && latestScan?.scoreTotal !== undefined
-        ? Math.max(0, Math.min(100, (latestScan.scoreTotal || 0) + Math.min(12, competitor.oemSignalCount + competitor.capabilityCount)))
-        : null,
+    score: null,
     hasOemCerts: competitor.oemSignalCount > 0,
     hasOnlineEstimate: competitor.estimateCta,
     reviewCount:
@@ -93,6 +133,15 @@ export default async function DashboardOverviewPage() {
         ? reportPayload.reviewGap.competitorRating
         : null
   }));
+  const competitorSuggestions = latestScan
+    ? deriveCompetitorSuggestions({
+        shopName: latestScan.shopName || '',
+        city: latestScan.city || '',
+        websiteUrl: latestScan.websiteUrl || '',
+        competitorsJson: latestScan.competitorsJson,
+        rawChecksJson: latestScan.rawChecksJson
+      })
+    : [];
 
   const hasGeographicPoints =
     typeof reportPayload?.googlePlace?.lat === 'number' &&
@@ -113,14 +162,22 @@ export default async function DashboardOverviewPage() {
       id: `competitor-${index}`,
       label: competitor.name,
       detail: [
-        typeof competitor.score === 'number' ? `Modeled score ${competitor.score}/100` : 'Score unavailable',
+        'Source-backed competitor suggestion',
         competitor.hasOemCerts ? 'Has OEM signals' : 'No OEM signals detected',
         competitor.hasOnlineEstimate ? 'Estimate CTA detected' : 'No estimate CTA detected'
       ].join(' • '),
       x: hasGeographicPoints ? 20 + index * 18 : 54 + index * 10,
-      y: hasGeographicPoints ? 22 + index * 14 : Math.max(16, 100 - (competitor.score || 42)),
+      y: hasGeographicPoints ? 22 + index * 14 : 30 + index * 12,
       tone: 'competitor' as const
     }))
+  ];
+
+  const visibilitySegments = [
+    { color: 'var(--accent-blue)', value: categories[0]?.value ?? 0, label: categories[0]?.label ?? 'Technical SEO' },
+    { color: 'var(--accent-green)', value: categories[1]?.value ?? 0, label: categories[1]?.label ?? 'Local SEO' },
+    { color: 'var(--accent-orange)', value: categories[2]?.value ?? 0, label: categories[2]?.label ?? 'Authority' },
+    { color: 'var(--accent-purple)', value: categories[3]?.value ?? 0, label: categories[3]?.label ?? 'Performance' },
+    { color: 'var(--accent-pink)', value: categories[4]?.value ?? 0, label: categories[4]?.label ?? 'Coverage' }
   ];
 
   return (
@@ -197,6 +254,89 @@ export default async function DashboardOverviewPage() {
         />
       </div>
 
+      <div className="dashboard-grid">
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">Tracked Keyword Positions</div>
+            <div className="card-action">●●●</div>
+          </div>
+          <div className="ranking-status text-green">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            {avgTrackedPosition !== null ? `Avg. tracked position ${avgTrackedPosition}` : 'No tracked keyword positions yet'}
+          </div>
+          <div className="ranking-subtext">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            {avgTrackedDelta !== null
+              ? `${avgTrackedDelta >= 0 ? 'Up' : 'Down'} ${Math.abs(avgTrackedDelta)} positions on average`
+              : 'Need two keyword snapshots to show movement'}
+          </div>
+          <BarChart
+            data={keywordBarData.length > 0 ? keywordBarData : [10, 10, 10, 10, 10, 10, 10]}
+            activeIndex={keywordBarData.length > 0 ? 0 : -1}
+            labels={
+              rankedKeywords.slice(0, 7).length > 0
+                ? rankedKeywords.slice(0, 7).map((row) => row.term.slice(0, 1).toUpperCase())
+                : ['K', 'E', 'Y', 'W', 'O', 'R', 'D']
+            }
+          />
+        </div>
+
+        <div className="card span-2">
+          <div className="card-header">
+            <div className="card-title">SEO Category Mix</div>
+            <div className="card-action">●●●</div>
+          </div>
+          <div className="segmented-control">
+            <div className="segment active">Category Scores</div>
+            <div className="segment">Current Snapshot</div>
+          </div>
+          <PieChart segments={visibilitySegments} />
+        </div>
+
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">Google Profile Snapshot</div>
+            <div className="card-action" style={{ color: 'var(--accent-blue)' }}>
+              {reportPayload?.googlePlace?.googleMapsUri ? 'Maps linked' : 'No live profile link'}
+            </div>
+          </div>
+          <HeroMetric
+            value={reportPayload?.googlePlace?.userRatingCount ?? 0}
+            label="google reviews"
+            orbitStats={[
+              { value: Math.round((reportPayload?.googlePlace?.rating ?? 0) * 10), label: 'rating x10' },
+              {
+                value: typeof reportPayload?.reviewGap?.competitorReviews === 'number' ? reportPayload.reviewGap.competitorReviews : 0,
+                label: 'comp reviews'
+              }
+            ]}
+          />
+          <div className="hero-footer">
+            {reportPayload?.googlePlace
+              ? `Google Places snapshot${typeof reportPayload.googlePlace.rating === 'number' ? ` • ${reportPayload.googlePlace.rating.toFixed(1)} star rating` : ''}.`
+              : 'No live Google Places profile was captured in the latest payload.'}
+          </div>
+          <a
+            className="button-pill"
+            href={reportPayload?.googlePlace?.googleMapsUri || '/dashboard/reports'}
+            target={reportPayload?.googlePlace?.googleMapsUri ? '_blank' : undefined}
+            rel={reportPayload?.googlePlace?.googleMapsUri ? 'noreferrer' : undefined}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            {reportPayload?.googlePlace?.googleMapsUri ? 'Open Google profile' : 'Open reports'}
+          </a>
+        </div>
+      </div>
+
       {categories.length > 0 ? (
         <div className="card">
           <div className="mb-4 flex items-center justify-between">
@@ -218,6 +358,26 @@ export default async function DashboardOverviewPage() {
           title={hasGeographicPoints ? 'Interactive Market Map' : 'Interactive Relative Position Map'}
         />
       </div>
+
+      {competitors.length === 0 && competitorSuggestions.length > 0 ? (
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">Competitor suggestions</div>
+            <div className="card-action">Source-backed</div>
+          </div>
+          <p className="text-sm text-[var(--text-secondary)]">
+            No tracked competitor comparison is available yet. The latest scan found these shops for review in settings.
+          </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {competitorSuggestions.slice(0, 4).map((competitor) => (
+              <div key={competitor.name} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-body)] px-4 py-4">
+                <p className="font-medium text-[var(--text-main)]">{competitor.name}</p>
+                <p className="mt-1 text-sm text-[var(--text-secondary)]">{competitor.websiteUrl || competitor.note}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

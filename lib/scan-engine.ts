@@ -273,8 +273,11 @@ const getCompetitors = async (
   try {
     const recent = await prisma.scan.findFirst({
       where: {
-        city: { equals: city, mode: 'insensitive' },
-        createdAt: { gte: cacheCutoff }
+        createdAt: { gte: cacheCutoff },
+        OR: [
+          { websiteUrl },
+          { shopName: { equals: shopName, mode: 'insensitive' } }
+        ]
       },
       orderBy: { createdAt: 'desc' },
       select: { competitorsJson: true }
@@ -485,8 +488,8 @@ const getMapPack = async (
   try {
     const recent = await prisma.scan.findFirst({
       where: {
-        city: { equals: city, mode: 'insensitive' },
-        createdAt: { gte: cacheCutoff }
+        createdAt: { gte: cacheCutoff },
+        shopName: { equals: shopName, mode: 'insensitive' }
       },
       orderBy: { createdAt: 'desc' },
       select: { rawChecksJson: true }

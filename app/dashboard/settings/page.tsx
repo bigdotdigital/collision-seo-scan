@@ -3,18 +3,26 @@ import { prisma } from '@/lib/prisma';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
 import { PageHeader } from '@/components/page-header';
 import { DashboardKpiCard } from '@/components/dashboard-kpi-card';
-import { addTrackedCompetitor, addTrackedKeyword, saveAccountCredentials, saveLocationDetails } from './actions';
+import { deriveCompetitorSuggestions, deriveKeywordSuggestions } from '@/lib/dashboard-suggestions';
+import {
+  addTrackedCompetitor,
+  addTrackedKeyword,
+  createSupportTicket,
+  importLatestScanSuggestions,
+  saveAccountCredentials,
+  saveLocationDetails
+} from './actions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardSettingsPage({
   searchParams
 }: {
-  searchParams?: { account?: string; reason?: string };
+  searchParams?: { account?: string; reason?: string; support?: string };
 }) {
   const ctx = await requireDashboardContext();
 
-  const [org, location, keywordCount, competitorCount, prefs, members, keywords, competitors, user] = await Promise.all([
+  const [org, location, keywordCount, competitorCount, prefs, members, keywords, competitors, user, latestScan] = await Promise.all([
     prisma.organization.findUnique({
       where: { id: ctx.orgId },
       select: { name: true, websiteUrl: true, city: true, state: true, phone: true }
@@ -54,7 +62,20 @@ export default async function DashboardSettingsPage({
       : prisma.user.findUnique({
           where: { id: ctx.userId },
           select: { name: true, email: true }
-        })
+        }),
+    prisma.scan.findFirst({
+      where: { organizationId: ctx.orgId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        createdAt: true,
+        shopName: true,
+        city: true,
+        websiteUrl: true,
+        moneyKeywordsJson: true,
+        competitorsJson: true,
+        rawChecksJson: true
+      }
+    })
   ]);
 
   const accountState = searchParams?.account || '';
@@ -69,6 +90,33 @@ export default async function DashboardSettingsPage({
         ? 'Please re-login through the monitoring flow to enable account updates.'
         : 'Could not update account details.'
       : null;
+  const supportState = searchParams?.support || '';
+  const keywordSuggestions = latestScan
+    ? await deriveKeywordSuggestions({
+        shopName: latestScan.shopName || org?.name || '',
+        city: latestScan.city || org?.city || '',
+        websiteUrl: latestScan.websiteUrl || org?.websiteUrl || '',
+        moneyKeywordsJson: latestScan.moneyKeywordsJson,
+        competitorsJson: latestScan.competitorsJson,
+        rawChecksJson: latestScan.rawChecksJson,
+        allowAi: true
+      })
+    : [];
+  const competitorSuggestions = latestScan
+    ? deriveCompetitorSuggestions({
+        shopName: latestScan.shopName || org?.name || '',
+        city: latestScan.city || org?.city || '',
+        websiteUrl: latestScan.websiteUrl || org?.websiteUrl || '',
+        competitorsJson: latestScan.competitorsJson,
+        rawChecksJson: latestScan.rawChecksJson
+      })
+    : [];
+  const keywordSuggestionTerms = keywordSuggestions.filter(
+    (suggestion) => !keywords.some((keyword) => keyword.term.toLowerCase() === suggestion.term.toLowerCase())
+  );
+  const competitorSuggestionTerms = competitorSuggestions.filter(
+    (suggestion) => !competitors.some((competitor) => competitor.name.toLowerCase() === suggestion.name.toLowerCase())
+  );
 
   return (
     <div className="dashboard-main-inner">
@@ -121,8 +169,8 @@ export default async function DashboardSettingsPage({
                 <input name="newPassword" type="password" minLength={8} className="dashboard-field mt-1" placeholder="Leave blank to keep current password" />
               </div>
               <button className="dashboard-button-primary mt-2" type="submit">Save account</button>
-              {accountState === 'ok' ? <p className="text-sm text-emerald-200">Account updated.</p> : null}
-              {accountError ? <p className="text-sm text-red-200">{accountError}</p> : null}
+              {accountState === 'ok' ? <p className="text-sm text-emerald-700">Account updated.</p> : null}
+              {accountError ? <p className="text-sm text-red-700">{accountError}</p> : null}
             </form>
           </article>
 
@@ -181,6 +229,30 @@ export default async function DashboardSettingsPage({
             ) : (
               <p className="dashboard-body-sm mt-3">No keywords yet. Add your top money terms first.</p>
             )}
+            {keywordSuggestionTerms.length > 0 ? (
+              <div className="dashboard-subpanel mt-4 rounded-[18px] p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="dashboard-section-title">Latest scan suggestions</p>
+                    <p className="dashboard-body-sm mt-1">
+                      These terms are scoped to the most recent scan for this shop. AI suggestions are only used as fallback when scan keywords are sparse.
+                    </p>
+                  </div>
+                  <form action={importLatestScanSuggestions}>
+                    <input type="hidden" name="importType" value="keywords" />
+                    <input type="hidden" name="nextPath" value="/dashboard/settings" />
+                    <button className="dashboard-button" type="submit">Import suggestions</button>
+                  </form>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {keywordSuggestionTerms.slice(0, 8).map((suggestion) => (
+                    <span key={suggestion.term} className="dashboard-chip">
+                      {suggestion.term}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </article>
 
           <article className="dashboard-panel">
@@ -208,6 +280,31 @@ export default async function DashboardSettingsPage({
             ) : (
               <p className="dashboard-body-sm mt-3">No competitors added yet.</p>
             )}
+            {competitorSuggestionTerms.length > 0 ? (
+              <div className="dashboard-subpanel mt-4 rounded-[18px] p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="dashboard-section-title">Latest scan competitor suggestions</p>
+                    <p className="dashboard-body-sm mt-1">
+                      Only source-backed competitors are suggested here. The dashboard does not invent competitor businesses with AI.
+                    </p>
+                  </div>
+                  <form action={importLatestScanSuggestions}>
+                    <input type="hidden" name="importType" value="competitors" />
+                    <input type="hidden" name="nextPath" value="/dashboard/settings" />
+                    <button className="dashboard-button" type="submit">Import suggestions</button>
+                  </form>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {competitorSuggestionTerms.slice(0, 4).map((suggestion) => (
+                    <div key={suggestion.name} className="rounded-[16px] border border-[var(--dashboard-border)] px-3 py-3">
+                      <p className="text-[var(--dashboard-text)]">{suggestion.name}</p>
+                      <p className="dashboard-caption mt-1">{suggestion.websiteUrl || suggestion.note}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </article>
         </div>
 
@@ -258,6 +355,38 @@ export default async function DashboardSettingsPage({
             >
               Invite user
             </a>
+          </article>
+
+          <article className="dashboard-panel">
+            <h2 className="dashboard-section-title">Support ticket</h2>
+            <p className="dashboard-body-sm mt-1">Request dashboard changes, data fixes, or onboarding cleanup. Tickets are stored for manual follow-up.</p>
+            <form action={createSupportTicket} className="mt-4 space-y-3">
+              <div>
+                <p className="dashboard-label">Subject</p>
+                <input name="subject" className="dashboard-field mt-1" placeholder="Need help cleaning up Aspen keywords" required />
+              </div>
+              <div>
+                <p className="dashboard-label">Priority</p>
+                <select name="priority" className="dashboard-select mt-1" defaultValue="normal">
+                  <option value="low">Low</option>
+                  <option value="normal">Normal</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+              <div>
+                <p className="dashboard-label">Details</p>
+                <textarea
+                  name="message"
+                  className="dashboard-field mt-1 min-h-[120px]"
+                  placeholder="Describe the data issue, route, or dashboard change you want."
+                  required
+                />
+              </div>
+              <button className="dashboard-button-primary w-full" type="submit">Submit support ticket</button>
+              {supportState === 'ok' ? <p className="text-sm text-emerald-700">Support ticket submitted.</p> : null}
+              {supportState === 'imported' ? <p className="text-sm text-emerald-700">Latest scan suggestions imported.</p> : null}
+              {supportState === 'error' ? <p className="text-sm text-red-700">Could not complete that action. Try again after a fresh scan.</p> : null}
+            </form>
           </article>
         </div>
       </div>

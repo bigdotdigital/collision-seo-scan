@@ -12,7 +12,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   });
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="dashboard-shell flex h-screen overflow-hidden">
       <SidebarNav lastScanAt={latestScan?.createdAt?.toISOString() || null} />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Topbar />

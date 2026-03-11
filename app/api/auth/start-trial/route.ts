@@ -7,6 +7,7 @@ import {
   verifyPortalPassword
 } from '@/lib/client-auth';
 import { seedDashboardFromScan } from '@/lib/dashboard-prefill';
+import { claimShopForOrganization } from '@/lib/shop-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -86,6 +87,7 @@ export async function POST(req: Request) {
           where: { id: input.scanId },
           select: {
             id: true,
+            shopId: true,
             organizationId: true,
             shopName: true,
             city: true,
@@ -125,6 +127,7 @@ export async function POST(req: Request) {
         requestedScan?.shopName?.trim() || input.name?.trim() || `${email.split('@')[0]} Collision`;
       const org = await prisma.organization.create({
         data: {
+          shopId: requestedScan?.shopId || undefined,
           name: fallbackName,
           city: requestedScan?.city || undefined,
           websiteUrl: requestedScan?.websiteUrl || undefined,
@@ -170,6 +173,16 @@ export async function POST(req: Request) {
     });
     await ensureOrgDefaults(targetOrgId, org?.name || 'Primary Location', email);
 
+    if (requestedScan?.shopId) {
+      await claimShopForOrganization({
+        orgId: targetOrgId,
+        shopId: requestedScan.shopId,
+        name: requestedScan.shopName,
+        websiteUrl: requestedScan.websiteUrl,
+        city: requestedScan.city
+      });
+    }
+
     if (requestedScan) {
       const seededKeywords = (() => {
         try {
@@ -200,6 +213,7 @@ export async function POST(req: Request) {
 
       await seedDashboardFromScan({
         organizationId: targetOrgId,
+        scanId: requestedScan.id,
         shopName: requestedScan.shopName || '',
         websiteUrl: requestedScan.websiteUrl || '',
         city: requestedScan.city || '',
@@ -209,7 +223,10 @@ export async function POST(req: Request) {
 
       await prisma.scan.update({
         where: { id: requestedScan.id },
-        data: { organizationId: targetOrgId }
+        data: {
+          organizationId: targetOrgId,
+          shopId: requestedScan.shopId || undefined
+        }
       });
     }
 

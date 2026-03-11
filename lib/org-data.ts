@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { prisma } from '@/lib/prisma';
 import { computeExpiry, isExpired, TTL } from '@/lib/cache-policy';
+import { upsertShopFromInput } from '@/lib/shop-data';
 
 type OrganizationInput = {
   shop_name?: string | null;
@@ -18,6 +19,15 @@ type OrganizationInput = {
   vertical?: string | null;
 };
 
+function domainOf(value?: string | null) {
+  if (!value) return '';
+  try {
+    return new URL(value).hostname.replace(/^www\./i, '').toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
 export function hashRequest(obj: unknown): string {
   return crypto
     .createHash('sha256')
@@ -27,44 +37,40 @@ export function hashRequest(obj: unknown): string {
 
 export async function upsertOrganizationFromInput(input: OrganizationInput) {
   const name = (input.shop_name || '').trim() || 'Unknown Shop';
+  const websiteUrl = (input.website_url || '').trim() || undefined;
+  const city = input.city || input.city_or_zip || undefined;
+  const websiteDomain = domainOf(websiteUrl);
 
-  if (input.googlePlaceId) {
-    return prisma.organization.upsert({
-      where: { googlePlaceId: input.googlePlaceId },
-      update: {
-        name,
-        websiteUrl: input.website_url || undefined,
-        phone: input.phone || undefined,
-        address: input.address || undefined,
-        city: input.city || input.city_or_zip || undefined,
-        state: input.state || undefined,
-        zip: input.zip || undefined,
-        lat: input.lat ?? undefined,
-        lng: input.lng ?? undefined,
-        primaryCategory: input.primaryCategory || undefined,
-        verticalDefault: input.vertical || undefined
-      },
-      create: {
-        googlePlaceId: input.googlePlaceId,
-        name,
-        websiteUrl: input.website_url || undefined,
-        phone: input.phone || undefined,
-        address: input.address || undefined,
-        city: input.city || input.city_or_zip || undefined,
-        state: input.state || undefined,
-        zip: input.zip || undefined,
-        lat: input.lat ?? undefined,
-        lng: input.lng ?? undefined,
-        primaryCategory: input.primaryCategory || undefined,
-        verticalDefault: input.vertical || undefined
-      }
-    });
-  }
+  const shop = await upsertShopFromInput({
+    name,
+    websiteUrl,
+    phone: input.phone,
+    address: input.address,
+    city,
+    state: input.state,
+    zip: input.zip,
+    lat: input.lat,
+    lng: input.lng,
+    googlePlaceId: input.googlePlaceId,
+    primaryCategory: input.primaryCategory,
+    vertical: input.vertical
+  });
 
   const existing = await prisma.organization.findFirst({
     where: {
-      name,
-      city: input.city || input.city_or_zip || undefined
+      OR: [
+        { shopId: shop.id },
+        input.googlePlaceId ? { googlePlaceId: input.googlePlaceId } : undefined,
+        websiteUrl
+          ? {
+              websiteUrl
+            }
+          : undefined,
+        {
+          name,
+          city
+        }
+      ].filter(Boolean) as Array<Record<string, unknown>>
     }
   });
 
@@ -72,8 +78,18 @@ export async function upsertOrganizationFromInput(input: OrganizationInput) {
     return prisma.organization.update({
       where: { id: existing.id },
       data: {
-        websiteUrl: input.website_url || existing.websiteUrl,
+        shopId: shop.id,
+        name,
+        websiteUrl: websiteUrl || existing.websiteUrl,
         phone: input.phone || existing.phone,
+        address: input.address || existing.address,
+        city: city || existing.city,
+        state: input.state || existing.state,
+        zip: input.zip || existing.zip,
+        lat: input.lat ?? existing.lat,
+        lng: input.lng ?? existing.lng,
+        googlePlaceId: input.googlePlaceId || existing.googlePlaceId,
+        primaryCategory: input.primaryCategory || existing.primaryCategory,
         verticalDefault: input.vertical || existing.verticalDefault
       }
     });
@@ -81,10 +97,18 @@ export async function upsertOrganizationFromInput(input: OrganizationInput) {
 
   return prisma.organization.create({
     data: {
+      shopId: shop.id,
       name,
-      websiteUrl: input.website_url || undefined,
+      websiteUrl: websiteUrl || undefined,
       phone: input.phone || undefined,
-      city: input.city || input.city_or_zip || undefined,
+      address: input.address || undefined,
+      city,
+      state: input.state || undefined,
+      zip: input.zip || undefined,
+      lat: input.lat ?? undefined,
+      lng: input.lng ?? undefined,
+      googlePlaceId: input.googlePlaceId || undefined,
+      primaryCategory: input.primaryCategory || undefined,
       verticalDefault: input.vertical || undefined
     }
   });
@@ -103,7 +127,8 @@ export async function createScanRecord(
     has_aluminum?: boolean;
     vertical?: string;
   },
-  organizationId?: string
+  organizationId?: string,
+  shopId?: string
 ) {
   return prisma.scan.create({
     data: {
@@ -122,6 +147,7 @@ export async function createScanRecord(
       rawChecksJson: '{}',
       status: 'lead',
       vertical: input.vertical || 'collision',
+      shopId,
       organizationId,
       scoringModelVersion: 'v0.1'
     }

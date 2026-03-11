@@ -6,6 +6,9 @@ import { prisma } from '@/lib/prisma';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
 import { hashPortalPassword, verifyPortalPassword } from '@/lib/client-auth';
 import { isLikelyNonShopCompetitor } from '@/lib/competitor-filter';
+import { deriveCompetitorSuggestions, deriveKeywordSuggestions } from '@/lib/dashboard-suggestions';
+import { toJson } from '@/lib/json';
+import { resolveCompetitorShop } from '@/lib/shop-data';
 
 async function getOrCreatePrimaryLocation(orgId: string) {
   const existing = await prisma.location.findFirst({
@@ -20,6 +23,14 @@ async function getOrCreatePrimaryLocation(orgId: string) {
       name: 'Primary Location'
     }
   });
+}
+
+function revalidateDashboardPaths() {
+  revalidatePath('/dashboard');
+  revalidatePath('/dashboard/onboarding');
+  revalidatePath('/dashboard/rankings');
+  revalidatePath('/dashboard/competitors');
+  revalidatePath('/dashboard/settings');
 }
 
 export async function saveLocationDetails(formData: FormData) {
@@ -57,9 +68,7 @@ export async function saveLocationDetails(formData: FormData) {
     }
   });
 
-  revalidatePath('/dashboard/settings');
-  revalidatePath('/dashboard/onboarding');
-  revalidatePath('/dashboard');
+  revalidateDashboardPaths();
   if (nextPath.startsWith('/dashboard/')) {
     redirect(nextPath);
   }
@@ -93,10 +102,7 @@ export async function addTrackedKeyword(formData: FormData) {
     }
   });
 
-  revalidatePath('/dashboard/settings');
-  revalidatePath('/dashboard/onboarding');
-  revalidatePath('/dashboard/rankings');
-  revalidatePath('/dashboard');
+  revalidateDashboardPaths();
   if (nextPath.startsWith('/dashboard/')) {
     redirect(nextPath);
   }
@@ -112,6 +118,17 @@ export async function addTrackedCompetitor(formData: FormData) {
   }
 
   const location = await getOrCreatePrimaryLocation(ctx.orgId);
+  const org = await prisma.organization.findUnique({
+    where: { id: ctx.orgId },
+    select: { city: true, state: true, verticalDefault: true }
+  });
+  const competitorShop = await resolveCompetitorShop({
+    name,
+    websiteUrl: websiteUrl || null,
+    city: location.city || org?.city || null,
+    state: location.state || org?.state || null,
+    vertical: org?.verticalDefault || 'collision'
+  });
 
   const existing = await prisma.trackedCompetitor.findFirst({
     where: { orgId: ctx.orgId, locationId: location.id, name }
@@ -123,6 +140,7 @@ export async function addTrackedCompetitor(formData: FormData) {
       data: {
         isActive: true,
         websiteUrl: websiteUrl || existing.websiteUrl,
+        shopId: competitorShop.id,
         source: 'manual'
       }
     });
@@ -131,6 +149,7 @@ export async function addTrackedCompetitor(formData: FormData) {
       data: {
         orgId: ctx.orgId,
         locationId: location.id,
+        shopId: competitorShop.id,
         name,
         websiteUrl: websiteUrl || null,
         source: 'manual',
@@ -139,13 +158,168 @@ export async function addTrackedCompetitor(formData: FormData) {
     });
   }
 
-  revalidatePath('/dashboard/settings');
-  revalidatePath('/dashboard/onboarding');
-  revalidatePath('/dashboard/competitors');
-  revalidatePath('/dashboard');
+  revalidateDashboardPaths();
   if (nextPath.startsWith('/dashboard/')) {
     redirect(nextPath);
   }
+}
+
+export async function importLatestScanSuggestions(formData: FormData) {
+  const ctx = await requireDashboardContext();
+  const importType = String(formData.get('importType') || 'all');
+  const nextPath = String(formData.get('nextPath') || '/dashboard/settings');
+  const location = await getOrCreatePrimaryLocation(ctx.orgId);
+
+  const [org, latestScan] = await Promise.all([
+    prisma.organization.findUnique({
+      where: { id: ctx.orgId },
+      select: { name: true, city: true, state: true, websiteUrl: true, verticalDefault: true }
+    }),
+    prisma.scan.findFirst({
+      where: { organizationId: ctx.orgId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        shopName: true,
+        city: true,
+        websiteUrl: true,
+        moneyKeywordsJson: true,
+        competitorsJson: true,
+        rawChecksJson: true
+      }
+    })
+  ]);
+
+  if (!latestScan) {
+    redirect(`${nextPath}?support=error&reason=no_scan`);
+  }
+
+  if (importType === 'all' || importType === 'keywords') {
+    const keywordSuggestions = await deriveKeywordSuggestions({
+      shopName: latestScan.shopName || org?.name || 'Shop',
+      city: latestScan.city || org?.city || '',
+      websiteUrl: latestScan.websiteUrl || org?.websiteUrl || '',
+      moneyKeywordsJson: latestScan.moneyKeywordsJson,
+      competitorsJson: latestScan.competitorsJson,
+      rawChecksJson: latestScan.rawChecksJson,
+      allowAi: true
+    });
+
+    for (const suggestion of keywordSuggestions.slice(0, 12)) {
+      await prisma.trackedKeyword.upsert({
+        where: {
+          locationId_term: {
+            locationId: location.id,
+            term: suggestion.term
+          }
+        },
+        update: {
+          isActive: true,
+          source: suggestion.note.includes('AI-assisted') ? 'ai_suggested' : 'scan_suggested'
+        },
+        create: {
+          orgId: ctx.orgId,
+          locationId: location.id,
+          term: suggestion.term,
+          source: suggestion.note.includes('AI-assisted') ? 'ai_suggested' : 'scan_suggested',
+          isActive: true
+        }
+      });
+    }
+  }
+
+  if (importType === 'all' || importType === 'competitors') {
+    const competitorSuggestions = deriveCompetitorSuggestions({
+      shopName: latestScan.shopName || org?.name || 'Shop',
+      city: latestScan.city || org?.city || '',
+      websiteUrl: latestScan.websiteUrl || org?.websiteUrl || '',
+      competitorsJson: latestScan.competitorsJson,
+      rawChecksJson: latestScan.rawChecksJson
+    });
+
+    for (const suggestion of competitorSuggestions.slice(0, 6)) {
+      const existing = await prisma.trackedCompetitor.findFirst({
+        where: { orgId: ctx.orgId, locationId: location.id, name: suggestion.name }
+      });
+      if (existing) {
+        await prisma.trackedCompetitor.update({
+          where: { id: existing.id },
+          data: {
+            isActive: true,
+            websiteUrl: suggestion.websiteUrl || existing.websiteUrl,
+            shopId: (
+              await resolveCompetitorShop({
+                name: suggestion.name,
+                websiteUrl: suggestion.websiteUrl,
+                city: latestScan.city || org?.city || null,
+                state: org?.state || null,
+                vertical: org?.verticalDefault || 'collision'
+              })
+            ).id,
+            source: 'scan_suggested'
+          }
+        });
+      } else {
+        const competitorShop = await resolveCompetitorShop({
+          name: suggestion.name,
+          websiteUrl: suggestion.websiteUrl,
+          city: latestScan.city || org?.city || null,
+          state: org?.state || null,
+          vertical: org?.verticalDefault || 'collision'
+        });
+        await prisma.trackedCompetitor.create({
+          data: {
+            orgId: ctx.orgId,
+            locationId: location.id,
+            shopId: competitorShop.id,
+            name: suggestion.name,
+            websiteUrl: suggestion.websiteUrl || null,
+            source: 'scan_suggested',
+            isActive: true
+          }
+        });
+      }
+    }
+  }
+
+  revalidateDashboardPaths();
+  redirect(`${nextPath}?support=imported`);
+}
+
+export async function createSupportTicket(formData: FormData) {
+  const ctx = await requireDashboardContext();
+  const subject = String(formData.get('subject') || '').trim();
+  const message = String(formData.get('message') || '').trim();
+  const priority = String(formData.get('priority') || 'normal').trim();
+
+  if (!subject || !message) {
+    redirect('/dashboard/settings?support=error&reason=missing_fields');
+  }
+
+  const user = ctx.userId.startsWith('legacy-client-')
+    ? null
+    : await prisma.user.findUnique({
+        where: { id: ctx.userId },
+        select: { email: true, name: true }
+      });
+
+  await prisma.queueJob.create({
+    data: {
+      runAt: new Date(),
+      type: 'dashboard_support_ticket',
+      status: 'pending',
+      payloadJson: toJson({
+        orgId: ctx.orgId,
+        userId: ctx.userId,
+        subject,
+        message,
+        priority,
+        requesterEmail: user?.email || null,
+        requesterName: user?.name || null
+      })
+    }
+  });
+
+  redirect('/dashboard/settings?support=ok');
 }
 
 export async function saveAccountCredentials(formData: FormData) {

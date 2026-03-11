@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getDashboardSession } from '@/lib/client-auth';
 import { normalizeWebsiteUrl, sanitizeInput } from '@/lib/security/url';
 import { isLikelyNonShopCompetitor } from '@/lib/competitor-filter';
+import { resolveCompetitorShop } from '@/lib/shop-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -109,6 +110,17 @@ export async function POST(req: Request) {
       const websiteUrl = websiteUrlInput ? normalizeWebsiteUrl(websiteUrlInput) : null;
       if (!name || isLikelyNonShopCompetitor(name, websiteUrl)) return toRedirect(req, 'competitor', false);
       const location = await getOrCreatePrimaryLocation(session.orgId);
+      const org = await prisma.organization.findUnique({
+        where: { id: session.orgId },
+        select: { city: true, state: true, verticalDefault: true }
+      });
+      const competitorShop = await resolveCompetitorShop({
+        name,
+        websiteUrl,
+        city: location.city || org?.city || null,
+        state: location.state || org?.state || null,
+        vertical: org?.verticalDefault || 'collision'
+      });
 
       const existing = await prisma.trackedCompetitor.findFirst({
         where: { orgId: session.orgId, locationId: location.id, name }
@@ -120,6 +132,7 @@ export async function POST(req: Request) {
           data: {
             isActive: true,
             websiteUrl: websiteUrl || existing.websiteUrl,
+            shopId: competitorShop.id,
             source: 'manual'
           }
         });
@@ -128,6 +141,7 @@ export async function POST(req: Request) {
           data: {
             orgId: session.orgId,
             locationId: location.id,
+            shopId: competitorShop.id,
             name,
             websiteUrl: websiteUrl || null,
             source: 'manual',

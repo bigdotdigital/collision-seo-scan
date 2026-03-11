@@ -4,17 +4,33 @@ import { requireDashboardContext } from '@/lib/dashboard-auth';
 import { PageHeader } from '@/components/page-header';
 import { DashboardKpiCard } from '@/components/dashboard-kpi-card';
 import { CompetitorComparisonGrid } from '@/components/competitor-comparison-card';
+import { deriveCompetitorSuggestions } from '@/lib/dashboard-suggestions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardCompetitorsPage() {
   const ctx = await requireDashboardContext();
 
-  const [competitors, keywords] = await Promise.all([
+  const [org, competitors, keywords, latestScan, observedCompetitors] = await Promise.all([
+    prisma.organization.findUnique({
+      where: { id: ctx.orgId },
+      select: { shopId: true }
+    }),
     prisma.trackedCompetitor.findMany({
       where: { orgId: ctx.orgId, isActive: true },
       orderBy: { createdAt: 'asc' },
-      take: 4
+      take: 4,
+      include: {
+        shop: {
+          select: {
+            id: true,
+            name: true,
+            websiteUrl: true,
+            city: true,
+            state: true
+          }
+        }
+      }
     }),
     prisma.trackedKeyword.findMany({
       where: { orgId: ctx.orgId, isActive: true },
@@ -26,16 +42,70 @@ export default async function DashboardCompetitorsPage() {
           take: 12
         }
       }
-    })
+    }),
+    prisma.scan.findFirst({
+      where: { organizationId: ctx.orgId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        shopName: true,
+        city: true,
+        websiteUrl: true,
+        competitorsJson: true,
+        rawChecksJson: true
+      }
+    }),
+    prisma.organization.findUnique({
+      where: { id: ctx.orgId },
+      select: { shopId: true }
+    }).then((organization) =>
+      organization?.shopId
+        ? prisma.shopCompetitorObservation.findMany({
+            where: { sourceShopId: organization.shopId },
+            orderBy: { observedAt: 'desc' },
+            distinct: ['competitorShopId'],
+            take: 6,
+            include: {
+              competitorShop: {
+                select: {
+                  name: true,
+                  websiteUrl: true,
+                  city: true,
+                  state: true
+                }
+              }
+            }
+          })
+        : Promise.resolve([])
+    )
   ]);
 
-  const cols = ['YOU', ...competitors.map((c) => c.name.toUpperCase())];
+  const observedSuggestions = observedCompetitors.map((row) => ({
+    name: row.competitorShop.name,
+    websiteUrl: row.competitorShop.websiteUrl,
+    note:
+      row.competitorShop.city && row.competitorShop.state
+        ? `${row.competitorShop.city}, ${row.competitorShop.state}`
+        : row.notes || 'Observed in prior competitor tracking.',
+    source: 'cached' as const
+  }));
+
+  const canonicalCompetitors = competitors.map((competitor) => ({
+    ...competitor,
+    displayName: competitor.shop?.name || competitor.name,
+    displayWebsite: competitor.shop?.websiteUrl || competitor.websiteUrl || null,
+    marketLabel:
+      competitor.shop?.city && competitor.shop?.state
+        ? `${competitor.shop.city}, ${competitor.shop.state}`
+        : competitor.shop?.city || null
+  }));
+
+  const cols = ['YOU', ...canonicalCompetitors.map((c) => c.displayName.toUpperCase())];
 
   const tableRows = keywords
     .map((kw) => {
       const yourSnap = kw.snapshots.find((s) => !s.competitorId);
       const yourRank = yourSnap?.rankPosition ?? null;
-      const competitorRanks = competitors.map((c) => {
+      const competitorRanks = canonicalCompetitors.map((c) => {
         const snap = kw.snapshots.find((s) => s.competitorId === c.id);
         return snap?.rankPosition ?? null;
       });
@@ -51,14 +121,14 @@ export default async function DashboardCompetitorsPage() {
     return { name, value, trackedRows: trackedRows.length };
   });
 
-  const comparisonCards = competitors.map((competitor) => {
-    const competitorIndex = competitors.findIndex((item) => item.id === competitor.id) + 1;
+  const comparisonCards = canonicalCompetitors.map((competitor) => {
+    const competitorIndex = canonicalCompetitors.findIndex((item) => item.id === competitor.id) + 1;
     const rowsWithData = tableRows.filter((row) => row.ranks[competitorIndex] !== null);
     const top3Count = rowsWithData.filter((row) => (row.ranks[competitorIndex] || 999) <= 3).length;
     return {
-      title: competitor.name,
-      subtitle: competitor.websiteUrl || 'No website URL saved',
-      href: competitor.websiteUrl,
+      title: competitor.displayName,
+      subtitle: competitor.displayWebsite || competitor.marketLabel || 'No canonical shop URL saved',
+      href: competitor.displayWebsite || undefined,
       hrefLabel: 'Visit site',
       metrics: [
         { label: 'Tracked terms', value: String(rowsWithData.length) },
@@ -70,6 +140,20 @@ export default async function DashboardCompetitorsPage() {
         : rowsWithData.slice(0, 3).map((row) => `${row.kw}: rank ${row.ranks[competitorIndex]}`)
     };
   });
+  const competitorSuggestions = latestScan
+    ? deriveCompetitorSuggestions({
+        shopName: latestScan.shopName,
+        city: latestScan.city,
+        websiteUrl: latestScan.websiteUrl,
+        competitorsJson: latestScan.competitorsJson,
+        rawChecksJson: latestScan.rawChecksJson
+      })
+    : [];
+  const suggestedCompetitors = [...observedSuggestions, ...competitorSuggestions].filter(
+    (suggestion, index, all) =>
+      !canonicalCompetitors.some((competitor) => competitor.displayName.toLowerCase() === suggestion.name.toLowerCase()) &&
+      all.findIndex((row) => row.name.toLowerCase() === suggestion.name.toLowerCase()) === index
+  );
 
   return (
     <div className="dashboard-main-inner">
@@ -85,7 +169,7 @@ export default async function DashboardCompetitorsPage() {
       />
 
       <section className="mb-5 grid gap-3 lg:grid-cols-4">
-        <DashboardKpiCard label="Tracked rivals" value={competitors.length} detail="Active competitor records in the workspace." />
+        <DashboardKpiCard label="Tracked rivals" value={canonicalCompetitors.length} detail="Active competitor records in the workspace." />
         <DashboardKpiCard label="Overlap terms" value={tableRows.length} detail="Keywords where at least one side has stored ranking data." />
         <DashboardKpiCard
           label="Your SOV"
@@ -159,6 +243,30 @@ export default async function DashboardCompetitorsPage() {
           </table>
         </div>
       </section>
+
+      {suggestedCompetitors.length > 0 ? (
+        <section className="dashboard-panel mb-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="dashboard-section-title">Latest scan suggestions</h2>
+              <p className="dashboard-body-sm mt-1">
+                These competitor names came from source-backed scan data and can be imported into tracking from settings.
+              </p>
+            </div>
+            <Link href="/dashboard/settings" className="dashboard-button">
+              Import in settings
+            </Link>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {suggestedCompetitors.slice(0, 4).map((competitor) => (
+              <div key={competitor.name} className="dashboard-subpanel rounded-[22px] p-4">
+                <p className="text-[var(--dashboard-text)]">{competitor.name}</p>
+                <p className="dashboard-caption mt-1">{competitor.websiteUrl || competitor.note}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="dashboard-panel">
         <div className="flex items-start justify-between gap-3">

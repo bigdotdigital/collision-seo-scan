@@ -9,6 +9,7 @@ import {
 } from '@/lib/client-auth';
 import { createStripePortalSession } from '@/lib/stripe';
 import { seedDashboardFromScan } from '@/lib/dashboard-prefill';
+import { claimShopForOrganization } from '@/lib/shop-data';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -88,7 +89,7 @@ function slugify(input: string): string {
     .slice(0, 48);
 }
 
-async function ensureSelfServeOrg(input: { email: string; name?: string; password: string }) {
+async function ensureSelfServeOrg(input: { email: string; name?: string; password: string; shopId?: string | null }) {
   const email = input.email.trim().toLowerCase();
   const existingUser = await prisma.user.findUnique({
     where: { email },
@@ -119,6 +120,7 @@ async function ensureSelfServeOrg(input: { email: string; name?: string; passwor
   const orgName = input.name?.trim() || `${email.split('@')[0]} Collision`;
   const org = await prisma.organization.create({
     data: {
+      shopId: input.shopId || undefined,
       name: orgName,
       slug: `${slugify(orgName) || 'shop'}-${Math.random().toString(36).slice(2, 8)}`
     }
@@ -238,11 +240,13 @@ export async function POST(req: Request) {
 
     let requestedOrgId = '';
     let requestedScan:
-      | {
-          organizationId: string | null;
-          email: string | null;
-          shopName: string;
-          websiteUrl: string;
+        | {
+            id: string;
+            shopId: string | null;
+            organizationId: string | null;
+            email: string | null;
+            shopName: string;
+            websiteUrl: string;
           city: string;
           moneyKeywordsJson: string;
           competitorsJson: string;
@@ -253,6 +257,8 @@ export async function POST(req: Request) {
       requestedScan = await prisma.scan.findUnique({
         where: { id: publicData.scanId },
         select: {
+          id: true,
+          shopId: true,
           organizationId: true,
           email: true,
           shopName: true,
@@ -294,7 +300,8 @@ export async function POST(req: Request) {
         const created = await ensureSelfServeOrg({
           email: publicData.email,
           password: publicData.password,
-          name: publicData.name
+          name: publicData.name,
+          shopId: requestedScan?.shopId || null
         });
         if (!created.ok) {
           return NextResponse.json(
@@ -361,6 +368,7 @@ export async function POST(req: Request) {
       })();
       await seedDashboardFromScan({
         organizationId: ctx.orgId,
+        scanId: requestedScan.id,
         shopName: requestedScan.shopName || '',
         websiteUrl: requestedScan.websiteUrl || '',
         city: requestedScan.city || '',
@@ -379,6 +387,15 @@ export async function POST(req: Request) {
           websiteUrl: requestedScan.websiteUrl || undefined
         }
       });
+      if (requestedScan.shopId) {
+        await claimShopForOrganization({
+          orgId: ctx.orgId,
+          shopId: requestedScan.shopId,
+          name: requestedScan.shopName,
+          websiteUrl: requestedScan.websiteUrl,
+          city: requestedScan.city
+        });
+      }
     }
 
     const org = await prisma.organization.findUnique({
