@@ -30,11 +30,52 @@ function hostnameOf(value?: string | null) {
   }
 }
 
+export class ShopClaimConflictError extends Error {
+  constructor(message = 'organization_already_claimed_different_shop') {
+    super(message);
+    this.name = 'ShopClaimConflictError';
+  }
+}
+
 export async function upsertShopFromInput(input: ShopInput) {
   const name = clean(input.name) || 'Unknown Shop';
   const websiteUrl = clean(input.websiteUrl);
   const city = clean(input.city);
   const state = clean(input.state);
+  const websiteHost = hostnameOf(websiteUrl);
+
+  const exactWebsiteMatch = websiteUrl
+    ? await prisma.shop.findFirst({
+        where: { websiteUrl }
+      })
+    : null;
+  const sameHostMatch =
+    !exactWebsiteMatch && websiteHost
+      ? (
+          await prisma.shop.findMany({
+            where: {
+              websiteUrl: {
+                not: null
+              }
+            },
+            select: {
+              id: true,
+              name: true,
+              websiteUrl: true,
+              phone: true,
+              address: true,
+              city: true,
+              state: true,
+              zip: true,
+              lat: true,
+              lng: true,
+              googlePlaceId: true,
+              primaryCategory: true,
+              verticalDefault: true
+            }
+          })
+        ).find((shop) => hostnameOf(shop.websiteUrl) === websiteHost) || null
+      : null;
 
   const existing =
     (input.googlePlaceId
@@ -42,21 +83,8 @@ export async function upsertShopFromInput(input: ShopInput) {
           where: { googlePlaceId: input.googlePlaceId }
         })
       : null) ||
-    (websiteUrl
-      ? await prisma.shop.findFirst({
-          where: {
-            OR: [
-              { websiteUrl },
-              {
-                websiteUrl: {
-                  contains: hostnameOf(websiteUrl),
-                  mode: 'insensitive'
-                }
-              }
-            ]
-          }
-        })
-      : null) ||
+    exactWebsiteMatch ||
+    sameHostMatch ||
     (await prisma.shop.findFirst({
       where: {
         name,
@@ -127,6 +155,19 @@ export async function claimShopForOrganization(args: {
   city?: string | null;
   state?: string | null;
 }) {
+  const organization = await prisma.organization.findUnique({
+    where: { id: args.orgId },
+    select: { shopId: true }
+  });
+
+  if (!organization) {
+    throw new Error('organization_not_found');
+  }
+
+  if (organization.shopId && organization.shopId !== args.shopId) {
+    throw new ShopClaimConflictError();
+  }
+
   return prisma.organization.update({
     where: { id: args.orgId },
     data: {

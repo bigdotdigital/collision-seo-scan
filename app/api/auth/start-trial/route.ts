@@ -7,7 +7,7 @@ import {
   verifyPortalPassword
 } from '@/lib/client-auth';
 import { seedDashboardFromScan } from '@/lib/dashboard-prefill';
-import { claimShopForOrganization } from '@/lib/shop-data';
+import { claimShopForOrganization, ShopClaimConflictError } from '@/lib/shop-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -174,13 +174,23 @@ export async function POST(req: Request) {
     await ensureOrgDefaults(targetOrgId, org?.name || 'Primary Location', email);
 
     if (requestedScan?.shopId) {
-      await claimShopForOrganization({
-        orgId: targetOrgId,
-        shopId: requestedScan.shopId,
-        name: requestedScan.shopName,
-        websiteUrl: requestedScan.websiteUrl,
-        city: requestedScan.city
-      });
+      try {
+        await claimShopForOrganization({
+          orgId: targetOrgId,
+          shopId: requestedScan.shopId,
+          name: requestedScan.shopName,
+          websiteUrl: requestedScan.websiteUrl,
+          city: requestedScan.city
+        });
+      } catch (error) {
+        if (error instanceof ShopClaimConflictError) {
+          return NextResponse.json(
+            { error: 'This workspace is already linked to a different shop record. Please contact support before claiming this scan.' },
+            { status: 409 }
+          );
+        }
+        throw error;
+      }
     }
 
     if (requestedScan) {

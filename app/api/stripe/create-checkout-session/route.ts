@@ -9,7 +9,7 @@ import {
 } from '@/lib/client-auth';
 import { createStripePortalSession } from '@/lib/stripe';
 import { seedDashboardFromScan } from '@/lib/dashboard-prefill';
-import { claimShopForOrganization } from '@/lib/shop-data';
+import { claimShopForOrganization, ShopClaimConflictError } from '@/lib/shop-data';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -388,13 +388,23 @@ export async function POST(req: Request) {
         }
       });
       if (requestedScan.shopId) {
-        await claimShopForOrganization({
-          orgId: ctx.orgId,
-          shopId: requestedScan.shopId,
-          name: requestedScan.shopName,
-          websiteUrl: requestedScan.websiteUrl,
-          city: requestedScan.city
-        });
+        try {
+          await claimShopForOrganization({
+            orgId: ctx.orgId,
+            shopId: requestedScan.shopId,
+            name: requestedScan.shopName,
+            websiteUrl: requestedScan.websiteUrl,
+            city: requestedScan.city
+          });
+        } catch (error) {
+          if (error instanceof ShopClaimConflictError) {
+            return NextResponse.json(
+              { error: 'This workspace is already linked to a different shop record. Contact support before using this scan to start billing.' },
+              { status: 409 }
+            );
+          }
+          throw error;
+        }
       }
     }
 
