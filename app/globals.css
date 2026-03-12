@@ -2491,6 +2491,9 @@ body {
     linear-gradient(180deg, rgba(31, 10, 13, 0.98), rgba(24, 7, 10, 0.94)),
     rgba(17, 4, 6, 0.94);
   padding: 1.5rem 1.1rem 1.1rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   backdrop-filter: blur(18px);
 }
 
