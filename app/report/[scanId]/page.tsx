@@ -126,6 +126,9 @@ function sourcePill(
   if (state === 'modeled') {
     return { label: 'Modeled', className: 'border-amber-500/30 bg-amber-500/10 text-amber-200' };
   }
+  if (state === 'fallback') {
+    return { label: 'Fallback', className: 'border-rose-500/30 bg-rose-500/10 text-rose-200' };
+  }
   return { label: 'Unavailable', className: 'border-white/15 bg-white/5 text-white/60' };
 }
 
@@ -321,6 +324,7 @@ function normalizePlan(input: unknown): ThirtyDayPlanItem[] {
 
 function normalizeCategoryScores(input: unknown, fallback: { website: number; local: number; intent: number; total: number }): CategoryScoreSet {
   const row = (input || {}) as Partial<CategoryScoreSet>;
+  const derivedCoverage = Math.round((fallback.website + fallback.intent) / 2);
   return {
     technicalSeo: typeof row.technicalSeo === 'number' ? row.technicalSeo : fallback.website,
     localSeo: typeof row.localSeo === 'number' ? row.localSeo : fallback.local,
@@ -328,7 +332,7 @@ function normalizeCategoryScores(input: unknown, fallback: { website: number; lo
       typeof row.collisionAuthority === 'number' ? row.collisionAuthority : fallback.intent,
     speedPerformance:
       typeof row.speedPerformance === 'number' ? row.speedPerformance : fallback.website,
-    contentCoverage: typeof row.contentCoverage === 'number' ? row.contentCoverage : 68,
+    contentCoverage: typeof row.contentCoverage === 'number' ? row.contentCoverage : derivedCoverage,
     overall: typeof row.overall === 'number' ? row.overall : fallback.total,
     explanations: {
       technicalSeo:
@@ -698,8 +702,8 @@ export default async function ReportPage({ params }: { params: { scanId: string 
     pagespeed: 'fallback',
     serp: 'fallback',
     aiSummary: 'fallback',
-    reviews: 'modeled',
-    mapPack: 'modeled',
+    reviews: 'fallback',
+    mapPack: 'fallback',
     competitors: 'fallback',
     keywords: 'modeled'
   };
@@ -745,7 +749,9 @@ export default async function ReportPage({ params }: { params: { scanId: string 
     hasUsableReviewGap
       ? (sourceConfidence.reviews as 'live' | 'cached')
       : ownGoogleReviewLabel
-        ? 'modeled'
+        ? hasLiveReviewData
+          ? (sourceConfidence.reviews as 'live' | 'cached')
+          : 'fallback'
         : 'unavailable'
   );
   const competitorSource = sourcePill(
@@ -1660,15 +1666,15 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         </p>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <div className="rounded-lg bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Monthly search demand</p>
+            <p className="text-xs uppercase tracking-wide text-slate-500">Monthly search demand estimate</p>
             <p className="mt-1 text-2xl font-bold">{vm.opportunity.monthlySearchDemand.toLocaleString()}</p>
           </div>
           <div className="rounded-lg bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Missed leads/month</p>
+            <p className="text-xs uppercase tracking-wide text-slate-500">Modeled missed leads/month</p>
             <p className="mt-1 text-2xl font-bold">{vm.opportunity.missedLeads.toLocaleString()}</p>
           </div>
           <div className="rounded-lg bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Revenue opportunity</p>
+            <p className="text-xs uppercase tracking-wide text-slate-500">Modeled revenue opportunity</p>
             <p className="mt-1 text-2xl font-bold">${vm.opportunity.revenueOpportunity.toLocaleString()}</p>
             <p className="text-xs text-slate-500">
               ARO: ${vm.opportunity.averageRepairOrder.toLocaleString()}

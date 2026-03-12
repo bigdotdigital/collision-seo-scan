@@ -51,6 +51,18 @@ export default async function DashboardOnboardingPage({
         title="Set Up Your Monitoring Workspace"
         subtitle="This route still writes through the same onboarding endpoints. The redesign just makes readiness and missing inputs easier to see."
         eyebrow="Onboarding"
+        badges={[
+          {
+            label: `Prefill ${(location || org) ? 'cached' : 'unavailable'}`,
+            tone: location || org ? 'cached' : 'unknown',
+            title: 'Fields may be prefilled from existing org, location, or earlier scan-linked workspace data.'
+          },
+          {
+            label: `Readiness ${ready ? 'live' : 'unavailable'}`,
+            tone: ready ? 'live' : 'unknown',
+            title: 'Readiness is based only on the current completion rule: website + 3 keywords + 1 competitor.'
+          }
+        ]}
       />
 
       <section className="mb-5 grid gap-3 lg:grid-cols-4">

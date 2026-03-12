@@ -253,7 +253,7 @@ export default async function AdminPage({
         <div className="border-b border-slate-200 p-4">
           <h2 className="text-lg font-bold">Duplicate Shop Review</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Merge canonical shop records before they fragment benchmark and competitor intelligence.
+            Only strong-identifier duplicate groups are shown here. Name-only guesses are excluded from merge actions.
           </p>
         </div>
         <div className="space-y-4 p-4">

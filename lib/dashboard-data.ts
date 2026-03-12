@@ -73,11 +73,18 @@ export function calculateRevenueImpact(
 
   const estimatedLeads = estimatedTraffic * 0.08;
   const estimatedRevenue = estimatedLeads * 1200;
+  const hasKeywordVolume = keywords.some((kw) => typeof kw.volume === 'number' && kw.volume > 0);
 
   return {
     traffic: Math.round(estimatedTraffic),
     leads: Math.round(estimatedLeads),
     revenue: Math.round(estimatedRevenue),
-    trend: score >= 70 ? { value: '↑ 12%', type: 'up' as const } : { value: '↓ 8%', type: 'down' as const }
+    assumptions: {
+      ctrModel:
+        score >= 80 ? '30% modeled CTR' : score >= 60 ? '15% modeled CTR' : '5% modeled CTR',
+      leadRate: '8% assumed lead conversion',
+      averageOrderValue: '$1,200 assumed repair value'
+    },
+    confidence: hasKeywordVolume ? 'modeled' as const : 'unknown' as const
   };
 }

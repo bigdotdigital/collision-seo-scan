@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { sendReportEmail } from '@/lib/email';
 import { recordConversionObservation } from '@/lib/shop-data';
+import { checkReportActionRateLimit } from '@/lib/security/rate-limit';
 
 const schema = z.object({
   email: z.string().email()
@@ -13,8 +14,35 @@ export async function POST(
   { params }: { params: { scanId: string } }
 ) {
   try {
+    const forwarded = req.headers.get('x-forwarded-for');
+    const ip = forwarded ? forwarded.split(',')[0].trim() : req.headers.get('x-real-ip') || 'unknown';
+    const limit = checkReportActionRateLimit(`capture-email:${ip}:${params.scanId}`);
+    if (!limit.ok) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again shortly.' },
+        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSec || 60) } }
+      );
+    }
+
     const body = await req.json();
     const { email } = schema.parse(body);
+
+    const existing = await prisma.scan.findUnique({
+      where: { id: params.scanId },
+      select: {
+        id: true,
+        email: true,
+        shopName: true,
+        scoreTotal: true
+      }
+    });
+    if (!existing) {
+      return NextResponse.json({ error: 'Scan not found' }, { status: 404 });
+    }
+
+    if (existing.email && existing.email.toLowerCase() === email.toLowerCase()) {
+      return NextResponse.json({ ok: true, sent: false, reason: 'Email already captured', deduped: true });
+    }
 
     const scan = await prisma.scan.update({
       where: { id: params.scanId },

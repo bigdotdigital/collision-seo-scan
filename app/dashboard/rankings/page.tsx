@@ -112,6 +112,23 @@ export default async function DashboardRankingsPage() {
         title="Keyword Rankings"
         subtitle="Row-level ranking data only. Where there is no baseline snapshot, the table stays explicit about that gap."
         eyebrow="Collision Repair SEO"
+        badges={[
+          {
+            label: `Rank snapshots ${hasSnapshotData ? 'live' : 'unavailable'}`,
+            tone: hasSnapshotData ? 'live' : 'unknown',
+            title: 'Current and previous positions are shown only when saved rank snapshots exist.'
+          },
+          {
+            label: `Shop observations ${observedKeywords.length > 0 ? 'cached' : 'unavailable'}`,
+            tone: observedKeywords.length > 0 ? 'cached' : 'unknown',
+            title: 'Observed keyword terms come from canonical shop history when live snapshots are sparse.'
+          },
+          {
+            label: `Suggestions ${suggestedTerms.length > 0 ? 'fallback' : 'unavailable'}`,
+            tone: suggestedTerms.length > 0 ? 'fallback' : 'unknown',
+            title: 'Fallback suggestions come from the latest scan and AI-assisted keyword suggestion flow.'
+          }
+        ]}
         actions={<p className="dashboard-chip">Tracking {rows.length} keywords</p>}
       />
 

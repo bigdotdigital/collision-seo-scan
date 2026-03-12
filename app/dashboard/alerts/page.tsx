@@ -45,6 +45,23 @@ export default async function DashboardAlertsPage() {
         title="Alerts Feed"
         subtitle="Stored alert records and saved preferences only. Controls below do not imply extra channels beyond what already exists."
         eyebrow="Notifications & Activity"
+        badges={[
+          {
+            label: `Alert feed ${alerts.length > 0 ? 'cached' : 'unavailable'}`,
+            tone: alerts.length > 0 ? 'cached' : 'unknown',
+            title: 'This page only reflects alert rows that were already persisted.'
+          },
+          {
+            label: `Preferences ${prefs ? 'live' : 'unavailable'}`,
+            tone: prefs ? 'live' : 'unknown',
+            title: 'Toggle state comes from saved alert preference records.'
+          },
+          {
+            label: 'SMS unavailable',
+            tone: 'unknown',
+            title: 'SMS remains unimplemented and is intentionally shown as unavailable.'
+          }
+        ]}
         actions={<p className="dashboard-chip">{unread} unread alerts</p>}
       />
 

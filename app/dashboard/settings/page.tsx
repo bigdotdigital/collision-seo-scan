@@ -124,6 +124,23 @@ export default async function DashboardSettingsPage({
         title="Account Settings"
         subtitle="The route keeps the same settings actions and payloads. This update only reorganizes them into a clearer operator workspace."
         eyebrow="Settings"
+        badges={[
+          {
+            label: `Location ${location || org ? 'live' : 'unavailable'}`,
+            tone: location || org ? 'live' : 'unknown',
+            title: 'Location fields persist directly to the existing workspace location and organization records.'
+          },
+          {
+            label: `Keyword suggestions ${keywordSuggestionTerms.length > 0 ? 'fallback' : 'unavailable'}`,
+            tone: keywordSuggestionTerms.length > 0 ? 'fallback' : 'unknown',
+            title: 'Suggestion imports come from the latest scan and only use AI as fallback when scan keywords are sparse.'
+          },
+          {
+            label: `Competitor suggestions ${competitorSuggestionTerms.length > 0 ? 'fallback' : 'unavailable'}`,
+            tone: competitorSuggestionTerms.length > 0 ? 'fallback' : 'unknown',
+            title: 'Competitor suggestions come from the latest scan or canonical shop observations.'
+          }
+        ]}
         actions={
           <Link href="/dashboard/onboarding" className="dashboard-button">
             Open onboarding

@@ -56,6 +56,18 @@ export default async function DashboardBillingPage({
         title="Plans & Billing"
         subtitle="Stripe-backed billing state is preserved. This page only reworks the presentation around the existing subscription and invoice records."
         eyebrow="Organization Settings"
+        badges={[
+          {
+            label: `Subscription ${subscription ? 'live' : 'unavailable'}`,
+            tone: subscription ? 'live' : 'unknown',
+            title: 'Billing state comes from the synced subscription record.'
+          },
+          {
+            label: `Invoices ${displayInvoices.length > 0 ? 'cached' : 'unavailable'}`,
+            tone: displayInvoices.length > 0 ? 'cached' : 'unknown',
+            title: 'Invoice rows come from synced invoice records already saved in the database.'
+          }
+        ]}
       />
 
       {portalState === 'missing-customer' ? (

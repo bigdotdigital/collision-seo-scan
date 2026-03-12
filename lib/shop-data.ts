@@ -125,31 +125,11 @@ export async function upsertShopFromInput(input: ShopInput) {
     : null;
   const sameHostMatch =
     !exactWebsiteMatch && websiteHost
-      ? (
-          await prisma.shop.findMany({
-            where: {
-              websiteUrl: {
-                not: null
-              }
-            },
-            select: {
-              id: true,
-              name: true,
-              websiteUrl: true,
-              phone: true,
-              address: true,
-              city: true,
-              state: true,
-              zip: true,
-              lat: true,
-              lng: true,
-              googlePlaceId: true,
-              primaryCategory: true,
-              verticalDefault: true,
-              marketId: true
-            }
-          })
-        ).find((shop) => hostnameOf(shop.websiteUrl) === websiteHost) || null
+      ? await prisma.shop.findFirst({
+          where: {
+            normalizedWebsiteHost: websiteHost
+          }
+        })
       : null;
 
   const existing =
@@ -174,6 +154,7 @@ export async function upsertShopFromInput(input: ShopInput) {
       data: {
         name,
         websiteUrl: websiteUrl || existing.websiteUrl,
+        normalizedWebsiteHost: websiteHost || existing.normalizedWebsiteHost,
         phone: clean(input.phone) || existing.phone,
         address: clean(input.address) || existing.address,
         city: city || existing.city,
@@ -193,6 +174,7 @@ export async function upsertShopFromInput(input: ShopInput) {
     data: {
       name,
       websiteUrl: websiteUrl || undefined,
+      normalizedWebsiteHost: websiteHost || undefined,
       phone: clean(input.phone) || undefined,
       address: clean(input.address) || undefined,
       city: city || undefined,
@@ -494,9 +476,9 @@ export async function findDuplicateShopCandidates(limit = 24) {
   const groups = new Map<string, typeof shops>();
   for (const shop of shops) {
     const host = hostnameOf(shop.websiteUrl);
-    const key = host
-      ? `host:${host}`
-      : `name:${normalizedShopName(shop.name)}:${clean(shop.city)?.toLowerCase() || ''}:${normalizedState(shop.state)?.toLowerCase() || ''}`;
+    const placeKey = clean(shop.googlePlaceId);
+    const key = placeKey ? `place:${placeKey}` : host ? `host:${host}` : null;
+    if (!key) continue;
     const current = groups.get(key) || [];
     current.push(shop);
     groups.set(key, current);
@@ -508,6 +490,7 @@ export async function findDuplicateShopCandidates(limit = 24) {
     .slice(0, limit)
     .map((group) => ({
       dedupeKey:
+        clean(group[0].googlePlaceId) ||
         hostnameOf(group[0].websiteUrl) ||
         `${normalizedShopName(group[0].name)}:${clean(group[0].city) || ''}:${normalizedState(group[0].state) || ''}`,
       shops: [...group].sort((a, b) => {
@@ -555,6 +538,11 @@ export async function mergeShopRecords(args: {
       data: {
         name: destination.name || source.name,
         websiteUrl: destination.websiteUrl || source.websiteUrl,
+        normalizedWebsiteHost:
+          hostnameOf(destination.websiteUrl) ||
+          hostnameOf(source.websiteUrl) ||
+          destination.normalizedWebsiteHost ||
+          source.normalizedWebsiteHost,
         phone: destination.phone || source.phone,
         address: destination.address || source.address,
         city: destination.city || source.city,

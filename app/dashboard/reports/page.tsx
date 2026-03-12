@@ -43,6 +43,18 @@ export default async function ReportsPage() {
         title="Reports & Scan History"
         subtitle="Historical reports come directly from stored scans. If no scan exists, this page stays explicit about the missing history."
         eyebrow="Reporting"
+        badges={[
+          {
+            label: `Stored scans ${scans.length > 0 ? 'cached' : 'unavailable'}`,
+            tone: scans.length > 0 ? 'cached' : 'unknown',
+            title: 'Report history comes from scans already saved for this workspace.'
+          },
+          {
+            label: `Trend line ${trend.length > 0 && scans.length > 0 ? 'cached' : 'unavailable'}`,
+            tone: trend.length > 0 && scans.length > 0 ? 'cached' : 'unknown',
+            title: 'The chart only reflects saved scan scores, not synthetic monthly interpolation.'
+          }
+        ]}
         actions={
           <Link href="/scan" className="dashboard-button-primary">
             Generate new report

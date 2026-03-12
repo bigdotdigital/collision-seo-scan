@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { upsertLead } from '@/lib/org-data';
 import { prisma } from '@/lib/prisma';
 import { recordConversionObservation } from '@/lib/shop-data';
+import { checkLeadRateLimit } from '@/lib/security/rate-limit';
 
 const schema = z.object({
   orgId: z.string().min(1).optional(),
@@ -18,6 +19,16 @@ const schema = z.object({
 
 export async function POST(req: Request) {
   try {
+    const forwarded = req.headers.get('x-forwarded-for');
+    const ip = forwarded ? forwarded.split(',')[0].trim() : req.headers.get('x-real-ip') || 'unknown';
+    const limit = checkLeadRateLimit(`lead:${ip}`);
+    if (!limit.ok) {
+      return NextResponse.json(
+        { error: 'Too many submissions from this network. Please try again shortly.' },
+        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSec || 60) } }
+      );
+    }
+
     const body = await req.json();
     const input = schema.parse(body);
     let organizationId = input.orgId;
@@ -32,6 +43,27 @@ export async function POST(req: Request) {
 
     if (!organizationId) {
       return NextResponse.json({ error: 'organizationId or scanId is required' }, { status: 400 });
+    }
+
+    if (input.email || input.phone) {
+      const contactMatchers: Array<{ email: string } | { phone: string }> = [];
+      if (input.email) contactMatchers.push({ email: input.email });
+      if (input.phone) contactMatchers.push({ phone: input.phone });
+
+      const duplicateLead = await prisma.lead.findFirst({
+        where: {
+          organizationId,
+          scanId: input.scanId || undefined,
+          OR: contactMatchers,
+          createdAt: {
+            gte: new Date(Date.now() - 10 * 60 * 1000)
+          }
+        },
+        select: { id: true }
+      });
+      if (duplicateLead) {
+        return NextResponse.json({ ok: true, leadId: duplicateLead.id, deduped: true });
+      }
     }
 
     const lead = await upsertLead({

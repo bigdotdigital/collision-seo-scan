@@ -146,6 +146,7 @@ model Shop {
   marketId         String?
   name             String
   websiteUrl       String?
+  normalizedWebsiteHost String?
   phone            String?
   address          String?
   city             String?
@@ -172,6 +173,7 @@ model Shop {
   @@index([name])
   @@index([city, state])
   @@index([websiteUrl])
+  @@index([normalizedWebsiteHost])
   @@index([marketId])
 }
 

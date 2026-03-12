@@ -161,6 +161,23 @@ export default async function DashboardCompetitorsPage() {
         title="Head-to-Head Comparison"
         subtitle="Competitor tables only show saved overlaps from tracked keywords and snapshots. No synthetic rank estimates are introduced."
         eyebrow="Market Analysis"
+        badges={[
+          {
+            label: `Tracked competitors ${canonicalCompetitors.length > 0 ? 'live' : 'unavailable'}`,
+            tone: canonicalCompetitors.length > 0 ? 'live' : 'unknown',
+            title: 'Tracked competitors are workspace records linked to canonical shops when available.'
+          },
+          {
+            label: `Observed rivals ${observedSuggestions.length > 0 ? 'cached' : 'unavailable'}`,
+            tone: observedSuggestions.length > 0 ? 'cached' : 'unknown',
+            title: 'Observed rivals come from canonical shop competitor observations.'
+          },
+          {
+            label: `Scan suggestions ${competitorSuggestions.length > 0 ? 'fallback' : 'unavailable'}`,
+            tone: competitorSuggestions.length > 0 ? 'fallback' : 'unknown',
+            title: 'Scan suggestions are source-backed candidates from the latest saved scan.'
+          }
+        ]}
         actions={
           <Link href="/dashboard/onboarding" className="dashboard-button-primary">
             Add competitor
