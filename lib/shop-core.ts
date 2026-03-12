@@ -1,0 +1,258 @@
+import { prisma } from '@/lib/prisma';
+
+export type ShopInput = {
+  name: string;
+  websiteUrl?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  googlePlaceId?: string | null;
+  primaryCategory?: string | null;
+  vertical?: string | null;
+};
+
+export function clean(value?: string | null) {
+  const trimmed = (value || '').trim();
+  return trimmed || null;
+}
+
+export function hostnameOf(value?: string | null) {
+  if (!value) return '';
+  try {
+    return new URL(value).hostname.replace(/^www\./i, '').toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+function titleCase(value: string) {
+  return value
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+export function normalizedState(value?: string | null) {
+  const cleaned = clean(value);
+  return cleaned ? cleaned.toUpperCase() : null;
+}
+
+function buildRegionKey(args: {
+  city?: string | null;
+  state?: string | null;
+  vertical?: string | null;
+  country?: string | null;
+}) {
+  const city = clean(args.city)?.toLowerCase() || 'unknown-city';
+  const state = normalizedState(args.state)?.toLowerCase() || 'unknown-state';
+  const vertical = clean(args.vertical)?.toLowerCase() || 'collision';
+  const country = clean(args.country)?.toUpperCase() || 'US';
+  return `${vertical}:${country}:${state}:${city}`;
+}
+
+export class ShopClaimConflictError extends Error {
+  constructor(message = 'organization_already_claimed_different_shop') {
+    super(message);
+    this.name = 'ShopClaimConflictError';
+  }
+}
+
+export class ShopMergeConflictError extends Error {
+  constructor(message = 'shop_merge_conflict') {
+    super(message);
+    this.name = 'ShopMergeConflictError';
+  }
+}
+
+export async function upsertMarketFromInput(input: {
+  city?: string | null;
+  state?: string | null;
+  vertical?: string | null;
+  country?: string | null;
+}) {
+  const city = clean(input.city);
+  if (!city) return null;
+
+  const state = normalizedState(input.state);
+  const vertical = clean(input.vertical) || 'collision';
+  const country = clean(input.country)?.toUpperCase() || 'US';
+  const regionKey = buildRegionKey({ city, state, vertical, country });
+
+  return prisma.market.upsert({
+    where: { regionKey },
+    create: {
+      city: titleCase(city),
+      state: state || undefined,
+      vertical,
+      country,
+      regionKey
+    },
+    update: {
+      city: titleCase(city),
+      state: state || undefined,
+      vertical,
+      country
+    }
+  });
+}
+
+function normalizedShopInput(input: ShopInput) {
+  const name = clean(input.name) || 'Unknown Shop';
+  const websiteUrl = clean(input.websiteUrl);
+  const city = clean(input.city);
+  const state = normalizedState(input.state);
+  const websiteHost = hostnameOf(websiteUrl);
+
+  return { name, websiteUrl, city, state, websiteHost };
+}
+
+async function findExistingShop(args: {
+  name: string;
+  websiteUrl: string | null;
+  websiteHost: string;
+  city: string | null;
+  state: string | null;
+  googlePlaceId?: string | null;
+}) {
+  if (args.googlePlaceId) {
+    const byPlaceId = await prisma.shop.findUnique({
+      where: { googlePlaceId: args.googlePlaceId }
+    });
+    if (byPlaceId) return byPlaceId;
+  }
+
+  if (args.websiteUrl) {
+    const byWebsite = await prisma.shop.findFirst({
+      where: { websiteUrl: args.websiteUrl }
+    });
+    if (byWebsite) return byWebsite;
+  }
+
+  if (args.websiteHost) {
+    const byHost = await prisma.shop.findFirst({
+      where: { normalizedWebsiteHost: args.websiteHost }
+    });
+    if (byHost) return byHost;
+  }
+
+  return prisma.shop.findFirst({
+    where: {
+      name: args.name,
+      city: args.city || undefined,
+      state: args.state || undefined
+    }
+  });
+}
+
+export async function upsertShopFromInput(input: ShopInput) {
+  const { name, websiteUrl, city, state, websiteHost } = normalizedShopInput(input);
+  const market = await upsertMarketFromInput({
+    city,
+    state,
+    vertical: input.vertical
+  });
+  const existing = await findExistingShop({
+    name,
+    websiteUrl,
+    websiteHost,
+    city,
+    state,
+    googlePlaceId: clean(input.googlePlaceId)
+  });
+
+  if (existing) {
+    return prisma.shop.update({
+      where: { id: existing.id },
+      data: {
+        name,
+        websiteUrl: websiteUrl || existing.websiteUrl,
+        normalizedWebsiteHost: websiteHost || existing.normalizedWebsiteHost,
+        phone: clean(input.phone) || existing.phone,
+        address: clean(input.address) || existing.address,
+        city: city || existing.city,
+        state: state || existing.state,
+        zip: clean(input.zip) || existing.zip,
+        marketId: market?.id || existing.marketId,
+        lat: input.lat ?? existing.lat,
+        lng: input.lng ?? existing.lng,
+        googlePlaceId: clean(input.googlePlaceId) || existing.googlePlaceId,
+        primaryCategory: clean(input.primaryCategory) || existing.primaryCategory,
+        verticalDefault: clean(input.vertical) || existing.verticalDefault
+      }
+    });
+  }
+
+  return prisma.shop.create({
+    data: {
+      name,
+      websiteUrl: websiteUrl || undefined,
+      normalizedWebsiteHost: websiteHost || undefined,
+      phone: clean(input.phone) || undefined,
+      address: clean(input.address) || undefined,
+      city: city || undefined,
+      state: state || undefined,
+      zip: clean(input.zip) || undefined,
+      marketId: market?.id || undefined,
+      lat: input.lat ?? undefined,
+      lng: input.lng ?? undefined,
+      googlePlaceId: clean(input.googlePlaceId) || undefined,
+      primaryCategory: clean(input.primaryCategory) || undefined,
+      verticalDefault: clean(input.vertical) || undefined
+    }
+  });
+}
+
+export async function resolveCompetitorShop(args: {
+  name: string;
+  websiteUrl?: string | null;
+  city?: string | null;
+  state?: string | null;
+  vertical?: string | null;
+}) {
+  return upsertShopFromInput({
+    name: args.name,
+    websiteUrl: args.websiteUrl,
+    city: args.city,
+    state: args.state,
+    vertical: args.vertical
+  });
+}
+
+export async function claimShopForOrganization(args: {
+  orgId: string;
+  shopId: string;
+  name?: string | null;
+  websiteUrl?: string | null;
+  city?: string | null;
+  state?: string | null;
+}) {
+  const organization = await prisma.organization.findUnique({
+    where: { id: args.orgId },
+    select: { shopId: true }
+  });
+
+  if (!organization) {
+    throw new Error('organization_not_found');
+  }
+
+  if (organization.shopId && organization.shopId !== args.shopId) {
+    throw new ShopClaimConflictError();
+  }
+
+  return prisma.organization.update({
+    where: { id: args.orgId },
+    data: {
+      shopId: args.shopId,
+      name: clean(args.name) || undefined,
+      websiteUrl: clean(args.websiteUrl) || undefined,
+      city: clean(args.city) || undefined,
+      state: clean(args.state) || undefined
+    }
+  });
+}

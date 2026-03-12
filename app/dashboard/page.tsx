@@ -13,16 +13,18 @@ import { parseReportPayload } from '@/lib/report-payload';
 import type { Issue } from '@/lib/types';
 import { deriveCompetitorSuggestions } from '@/lib/dashboard-suggestions';
 import { calculateRevenueImpact, calculateTrends, prepareCategoryDistribution } from '@/lib/dashboard-data';
+import {
+  buildMapPoints,
+  buildOverviewBadges,
+  buildOverviewCompetitors,
+  buildVisibilitySegments,
+  buildYourShop,
+  hasKeywordVolume,
+  parseMoneyKeywords,
+  summarizeRankedKeywords
+} from '@/lib/dashboard-overview';
 
 export const dynamic = 'force-dynamic';
-
-function sourceTone(state: string | null | undefined): 'live' | 'cached' | 'modeled' | 'fallback' | 'unknown' {
-  if (state === 'live') return 'live';
-  if (state === 'cached') return 'cached';
-  if (state === 'modeled') return 'modeled';
-  if (state === 'fallback') return 'fallback';
-  return 'unknown';
-}
 
 export default async function DashboardOverviewPage() {
   const ctx = await requireDashboardContext();
@@ -84,65 +86,12 @@ export default async function DashboardOverviewPage() {
 
   const trends = latestScan && previousScan ? calculateTrends(latestScan, previousScan) : null;
   const categories = prepareCategoryDistribution(reportPayload);
-  const moneyKeywords = Array.isArray(rawMoneyKeywords)
-    ? rawMoneyKeywords
-        .filter((row): row is { keyword: string; volume?: number | null } => typeof row?.keyword === 'string')
-        .map((row) => ({ keyword: row.keyword, volume: row.volume ?? undefined }))
-    : [];
+  const moneyKeywords = parseMoneyKeywords(rawMoneyKeywords);
   const revenueImpact = calculateRevenueImpact(latestScan?.scoreTotal ?? 0, moneyKeywords);
-  const hasRevenueInputs = moneyKeywords.some((row) => typeof row.volume === 'number' && row.volume > 0);
-  const rankedKeywords = keywordRows
-    .map((keyword) => {
-      const current = keyword.snapshots[0]?.rankPosition ?? null;
-      const previous = keyword.snapshots[1]?.rankPosition ?? null;
-      const delta = current !== null && previous !== null ? previous - current : null;
-      return {
-        term: keyword.term,
-        current,
-        delta
-      };
-    })
-    .filter((row) => row.current !== null)
-    .sort((a, b) => (a.current ?? 999) - (b.current ?? 999));
-  const keywordBarData = rankedKeywords.slice(0, 7).map((row) => Math.max(10, 100 - (row.current ?? 100) * 3));
-  const avgTrackedPosition =
-    rankedKeywords.length > 0
-      ? Number((rankedKeywords.reduce((sum, row) => sum + (row.current ?? 0), 0) / rankedKeywords.length).toFixed(1))
-      : null;
-  const avgTrackedDeltaRows = rankedKeywords.filter((row) => row.delta !== null);
-  const avgTrackedDelta =
-    avgTrackedDeltaRows.length > 0
-      ? Number(
-          (
-            avgTrackedDeltaRows.reduce((sum, row) => sum + (row.delta ?? 0), 0) /
-            avgTrackedDeltaRows.length
-          ).toFixed(1)
-        )
-      : null;
-
-  const yourShop = {
-    name: reportPayload?.googlePlace?.name || latestScan?.shopName || 'Your Shop',
-    score: latestScan?.scoreTotal ?? null,
-    hasOemCerts: Boolean(reportPayload?.checks.oemSignals?.length),
-    hasOnlineEstimate: Boolean(reportPayload?.checks.onlineEstimateFlow || reportPayload?.checks.estimateCtaDetected),
-    reviewCount: reportPayload?.googlePlace?.userRatingCount ?? null,
-    reviewRating: reportPayload?.googlePlace?.rating ?? null
-  };
-
-  const competitors = (reportPayload?.competitorAdvantages || []).slice(0, 4).map((competitor, index) => ({
-    name: competitor.name,
-    score: null,
-    hasOemCerts: competitor.oemSignalCount > 0,
-    hasOnlineEstimate: competitor.estimateCta,
-    reviewCount:
-      index === 0 && typeof reportPayload?.reviewGap?.competitorReviews === 'number'
-        ? reportPayload.reviewGap.competitorReviews
-        : null,
-    reviewRating:
-      index === 0 && typeof reportPayload?.reviewGap?.competitorRating === 'number'
-        ? reportPayload.reviewGap.competitorRating
-        : null
-  }));
+  const hasRevenueInputs = hasKeywordVolume(moneyKeywords);
+  const keywordSummary = summarizeRankedKeywords(keywordRows);
+  const yourShop = buildYourShop(latestScan, reportPayload);
+  const competitors = buildOverviewCompetitors(reportPayload);
   const competitorSuggestions = latestScan
     ? deriveCompetitorSuggestions({
         shopName: latestScan.shopName || '',
@@ -156,39 +105,8 @@ export default async function DashboardOverviewPage() {
   const hasGeographicPoints =
     typeof reportPayload?.googlePlace?.lat === 'number' &&
     typeof reportPayload?.googlePlace?.lng === 'number';
-  const mapPoints = [
-    {
-      id: 'shop',
-      label: yourShop.name,
-      detail:
-        typeof yourShop.score === 'number'
-          ? `SEO score ${yourShop.score}/100${typeof yourShop.reviewRating === 'number' ? ` • ${yourShop.reviewRating.toFixed(1)}★` : ''}`
-          : 'Primary shop record',
-      x: hasGeographicPoints ? 50 : 28,
-      y: hasGeographicPoints ? 50 : Math.max(18, 100 - (yourShop.score || 50)),
-      tone: 'shop' as const
-    },
-    ...competitors.map((competitor, index) => ({
-      id: `competitor-${index}`,
-      label: competitor.name,
-      detail: [
-        'Source-backed competitor suggestion',
-        competitor.hasOemCerts ? 'Has OEM signals' : 'No OEM signals detected',
-        competitor.hasOnlineEstimate ? 'Estimate CTA detected' : 'No estimate CTA detected'
-      ].join(' • '),
-      x: hasGeographicPoints ? 20 + index * 18 : 54 + index * 10,
-      y: hasGeographicPoints ? 22 + index * 14 : 30 + index * 12,
-      tone: 'competitor' as const
-    }))
-  ];
-
-  const visibilitySegments = [
-    { color: 'var(--accent-blue)', value: categories[0]?.value ?? 0, label: categories[0]?.label ?? 'Technical SEO' },
-    { color: 'var(--accent-green)', value: categories[1]?.value ?? 0, label: categories[1]?.label ?? 'Local SEO' },
-    { color: 'var(--accent-orange)', value: categories[2]?.value ?? 0, label: categories[2]?.label ?? 'Authority' },
-    { color: 'var(--accent-purple)', value: categories[3]?.value ?? 0, label: categories[3]?.label ?? 'Performance' },
-    { color: 'var(--accent-pink)', value: categories[4]?.value ?? 0, label: categories[4]?.label ?? 'Coverage' }
-  ];
+  const mapPoints = buildMapPoints({ yourShop, competitors, geographic: hasGeographicPoints });
+  const visibilitySegments = buildVisibilitySegments(categories);
 
   return (
     <div className="space-y-6">
@@ -196,31 +114,7 @@ export default async function DashboardOverviewPage() {
         title="SEO Revenue Dashboard"
         subtitle="Priority metrics are shown with explicit source status. Measured scores stay separate from modeled traffic, lead, and revenue opportunity."
         eyebrow="Overview"
-        badges={[
-          {
-            label: `Keywords ${moneyKeywords.length > 0 ? 'modeled' : 'unavailable'}`,
-            tone: moneyKeywords.length > 0 ? 'modeled' : 'unknown',
-            title:
-              moneyKeywords.length > 0
-                ? 'Opportunity metrics use keyword-volume inputs from the latest scan payload.'
-                : 'No money-keyword volume was captured in the latest scan.'
-          },
-          {
-            label: `Reviews ${reportPayload?.sources?.reviews || 'unavailable'}`,
-            tone: sourceTone(reportPayload?.sources?.reviews),
-            title: 'Google profile and review cards use the latest scan source label.'
-          },
-          {
-            label: `Competitors ${reportPayload?.sources?.competitors || 'unavailable'}`,
-            tone: sourceTone(reportPayload?.sources?.competitors),
-            title: 'Competitor sections only show saved or source-backed competitor data.'
-          },
-          {
-            label: `Map pack ${reportPayload?.sources?.mapPack || 'unavailable'}`,
-            tone: sourceTone(reportPayload?.sources?.mapPack),
-            title: 'Map positioning is only precise when geo-backed source data exists.'
-          }
-        ]}
+        badges={buildOverviewBadges({ hasModeledKeywords: hasRevenueInputs, sources: reportPayload?.sources })}
         actions={
           <button className="rounded-md border border-[var(--border-color)] px-4 py-2 text-sm font-medium hover:bg-[var(--bg-body)]">
             Last 30 Days ▼
@@ -299,23 +193,23 @@ export default async function DashboardOverviewPage() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
-            {avgTrackedPosition !== null ? `Avg. tracked position ${avgTrackedPosition}` : 'No tracked keyword positions yet'}
+            {keywordSummary.averagePosition !== null ? `Avg. tracked position ${keywordSummary.averagePosition}` : 'No tracked keyword positions yet'}
           </div>
           <div className="ranking-subtext">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="10"></circle>
               <polyline points="12 6 12 12 16 14"></polyline>
             </svg>
-            {avgTrackedDelta !== null
-              ? `${avgTrackedDelta >= 0 ? 'Up' : 'Down'} ${Math.abs(avgTrackedDelta)} positions on average`
+            {keywordSummary.averageDelta !== null
+              ? `${keywordSummary.averageDelta >= 0 ? 'Up' : 'Down'} ${Math.abs(keywordSummary.averageDelta)} positions on average`
               : 'Need two keyword snapshots to show movement'}
           </div>
           <BarChart
-            data={keywordBarData.length > 0 ? keywordBarData : [10, 10, 10, 10, 10, 10, 10]}
-            activeIndex={keywordBarData.length > 0 ? 0 : -1}
+            data={keywordSummary.barData.length > 0 ? keywordSummary.barData : [10, 10, 10, 10, 10, 10, 10]}
+            activeIndex={keywordSummary.barData.length > 0 ? 0 : -1}
             labels={
-              rankedKeywords.slice(0, 7).length > 0
-                ? rankedKeywords.slice(0, 7).map((row) => row.term.slice(0, 1).toUpperCase())
+              keywordSummary.ranked.slice(0, 7).length > 0
+                ? keywordSummary.ranked.slice(0, 7).map((row) => row.term.slice(0, 1).toUpperCase())
                 : ['K', 'E', 'Y', 'W', 'O', 'R', 'D']
             }
           />
