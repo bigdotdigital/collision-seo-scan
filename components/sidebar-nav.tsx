@@ -34,11 +34,8 @@ export function SidebarNav({ lastScanAt }: SidebarNavProps) {
   return (
     <aside className="dashboard-sidebar">
       <div className="dashboard-sidebar-brand">
-        <span className="dashboard-sidebar-brand-mark">BD</span>
-        <div>
-          <p className="dashboard-sidebar-kicker">Maroon Console</p>
-          <p className="dashboard-sidebar-title">Big Dot Dashboard</p>
-        </div>
+        <span className="dashboard-sidebar-brand-mark" aria-hidden="true" />
+        <p className="dashboard-sidebar-title">Big Dot Dashboard</p>
       </div>
 
       <div className="dashboard-subpanel rounded-[24px] p-4">
