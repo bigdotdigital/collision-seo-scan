@@ -47,7 +47,11 @@ model Scan {
   rawResponses      RawProviderResponse[]
   leads             Lead[]
   keywordObservations ShopKeywordObservation[]
+  reviewObservations ShopReviewObservation[]
   competitorObservations ShopCompetitorObservation[]
+  serpObservations ShopSerpObservation[]
+  conversionObservations ShopConversionObservation[]
+  siteFeatureObservations ShopSiteFeatureObservation[]
 
   @@index([shopId])
   @@index([organizationId])
@@ -115,10 +119,31 @@ model QueueJob {
   client      Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
 }
 
+model Market {
+  id                  String   @id @default(cuid())
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  vertical            String   @default("collision")
+  country             String   @default("US")
+  city                String
+  state               String?
+  regionKey           String   @unique
+  shops               Shop[]
+  reviewObservations  ShopReviewObservation[]
+  rankObservations    ShopRankObservation[]
+  serpObservations    ShopSerpObservation[]
+  conversionObservations ShopConversionObservation[]
+  siteFeatureObservations ShopSiteFeatureObservation[]
+  benchmarkSnapshots  BenchmarkSnapshot[]
+
+  @@index([vertical, state, city])
+}
+
 model Shop {
   id               String   @id @default(cuid())
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+  marketId         String?
   name             String
   websiteUrl       String?
   phone            String?
@@ -131,16 +156,23 @@ model Shop {
   googlePlaceId    String?  @unique
   primaryCategory  String?
   verticalDefault  String   @default("collision")
+  market           Market?  @relation(fields: [marketId], references: [id], onDelete: SetNull)
   scans            Scan[]
   organizations    Organization[]
   trackedAsCompetitor TrackedCompetitor[]
   keywordObservations ShopKeywordObservation[]
+  reviewObservations  ShopReviewObservation[]
+  rankObservations    ShopRankObservation[]
+  serpObservations    ShopSerpObservation[]
+  conversionObservations ShopConversionObservation[]
+  siteFeatureObservations ShopSiteFeatureObservation[]
   competitorSourceObservations ShopCompetitorObservation[] @relation("ObservationSourceShop")
   competitorTargetObservations ShopCompetitorObservation[] @relation("ObservationTargetShop")
 
   @@index([name])
   @@index([city, state])
   @@index([websiteUrl])
+  @@index([marketId])
 }
 
 model ShopKeywordObservation {
@@ -165,6 +197,29 @@ model ShopKeywordObservation {
   @@index([keyword, city, observedAt])
 }
 
+model ShopReviewObservation {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now())
+  observedAt     DateTime
+  shopId         String
+  marketId       String?
+  scanId         String?
+  source         String
+  confidence     String   @default("modeled")
+  rating         Float?
+  reviewCount    Int?
+  googlePlaceId  String?
+  googleMapsUri  String?
+  rawJson        String?
+  shop           Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  market         Market?  @relation(fields: [marketId], references: [id], onDelete: SetNull)
+  scan           Scan?    @relation(fields: [scanId], references: [id], onDelete: SetNull)
+
+  @@index([shopId, observedAt])
+  @@index([marketId, observedAt])
+  @@index([googlePlaceId])
+}
+
 model ShopCompetitorObservation {
   id             String   @id @default(cuid())
   createdAt      DateTime @default(now())
@@ -183,6 +238,141 @@ model ShopCompetitorObservation {
   @@index([sourceShopId, observedAt])
   @@index([competitorShopId, observedAt])
   @@index([sourceShopId, competitorShopId, observedAt])
+}
+
+model ShopRankObservation {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now())
+  observedAt     DateTime
+  shopId         String
+  marketId       String?
+  orgId          String?
+  locationId     String?
+  keyword        String
+  rankPosition   Int?
+  delta          Int?
+  searchType     String   @default("organic")
+  source         String
+  confidence     String   @default("modeled")
+  rawJson        String?
+  shop           Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  market         Market?  @relation(fields: [marketId], references: [id], onDelete: SetNull)
+
+  @@index([shopId, observedAt])
+  @@index([marketId, observedAt])
+  @@index([keyword, observedAt])
+  @@index([orgId, locationId, observedAt])
+}
+
+model ShopSerpObservation {
+  id               String   @id @default(cuid())
+  createdAt        DateTime @default(now())
+  observedAt       DateTime
+  shopId           String
+  marketId         String?
+  scanId           String?
+  query            String
+  searchSurface    String   @default("map_pack")
+  source           String
+  confidence       String   @default("modeled")
+  yourRankLabel    String?
+  yourRankPosition Int?
+  topResultsJson   String
+  rawJson          String?
+  shop             Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  market           Market?  @relation(fields: [marketId], references: [id], onDelete: SetNull)
+  scan             Scan?    @relation(fields: [scanId], references: [id], onDelete: SetNull)
+
+  @@index([shopId, observedAt])
+  @@index([marketId, observedAt])
+  @@index([query, observedAt])
+}
+
+model ShopConversionObservation {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now())
+  observedAt     DateTime
+  shopId         String
+  marketId       String?
+  organizationId String?
+  scanId         String?
+  leadId         String?
+  eventType      String
+  source         String
+  confidence     String   @default("live")
+  valueJson      String?
+  shop           Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  market         Market?  @relation(fields: [marketId], references: [id], onDelete: SetNull)
+  scan           Scan?    @relation(fields: [scanId], references: [id], onDelete: SetNull)
+  lead           Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@index([shopId, observedAt])
+  @@index([marketId, observedAt])
+  @@index([eventType, observedAt])
+  @@index([organizationId, observedAt])
+  @@index([scanId, observedAt])
+}
+
+model ShopSiteFeatureObservation {
+  id                    String   @id @default(cuid())
+  createdAt             DateTime @default(now())
+  observedAt            DateTime
+  shopId                String
+  marketId              String?
+  scanId                String?
+  source                String
+  confidence            String   @default("modeled")
+  checkedUrlCount       Int?
+  servicePageCount      Int?
+  oemSignalCount        Int      @default(0)
+  hasEstimateCta        Boolean  @default(false)
+  hasOnlineEstimateFlow Boolean  @default(false)
+  hasReviewProof        Boolean  @default(false)
+  hasReviewSchema       Boolean  @default(false)
+  hasMapEmbed           Boolean  @default(false)
+  hasDirectionsCta      Boolean  @default(false)
+  hasLocationFinder     Boolean  @default(false)
+  hasInsuranceGuidance  Boolean  @default(false)
+  hasWarranty           Boolean  @default(false)
+  hasAdasContent        Boolean  @default(false)
+  hasCertificationPage  Boolean  @default(false)
+  schemaTypesJson       String?
+  missingPagesJson      String?
+  rawChecksJson         String?
+  shop                  Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  market                Market?  @relation(fields: [marketId], references: [id], onDelete: SetNull)
+  scan                  Scan?    @relation(fields: [scanId], references: [id], onDelete: SetNull)
+
+  @@index([shopId, observedAt])
+  @@index([marketId, observedAt])
+  @@index([source, observedAt])
+}
+
+model BenchmarkSnapshot {
+  id                    String   @id @default(cuid())
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  observedAt            DateTime
+  marketId              String
+  snapshotType          String   @default("city_market")
+  source                String   @default("aggregated")
+  vertical              String   @default("collision")
+  shopCount             Int
+  scanCount             Int
+  avgOverallScore       Float?
+  avgWebsiteScore       Float?
+  avgLocalScore         Float?
+  avgIntentScore        Float?
+  avgReviewCount        Float?
+  avgReviewRating       Float?
+  featureRatesJson      String
+  keywordHighlightsJson String?
+  competitorStatsJson   String?
+  market                Market   @relation(fields: [marketId], references: [id], onDelete: Cascade)
+
+  @@index([marketId, observedAt])
+  @@index([snapshotType, observedAt])
+  @@unique([marketId, snapshotType, observedAt])
 }
 
 model Organization {
@@ -302,6 +492,7 @@ model Lead {
   source         String?
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   scan           Scan?     @relation(fields: [scanId], references: [id], onDelete: SetNull)
+  conversionObservations ShopConversionObservation[]
 
   @@index([email])
   @@index([organizationId, createdAt])

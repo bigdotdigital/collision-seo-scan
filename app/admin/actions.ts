@@ -3,19 +3,13 @@
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { ADMIN_COOKIE_NAME, adminCookieMatches } from '@/lib/admin-auth';
 import { createPortalPassword, hashPortalPassword } from '@/lib/client-auth';
 import { sendFollowupEmail, sendPortalInviteEmail } from '@/lib/email';
 import { buildDefaultKeywords, createMetricSnapshot, oemSignalsFromScan } from '@/lib/client-services';
 import { upsertOrganizationFromInput } from '@/lib/org-data';
 import { seedDashboardFromScan } from '@/lib/dashboard-prefill';
-
-const COOKIE_NAME = 'collision_admin_auth';
-
-function adminCookieMatches() {
-  const expected = process.env.ADMIN_PASSWORD || '';
-  const current = cookies().get(COOKIE_NAME)?.value || '';
-  return Boolean(expected && current && current === expected);
-}
+import { mergeShopRecords, ShopMergeConflictError } from '@/lib/shop-data';
 
 export async function loginAdmin(
   _prevState: { ok: boolean; message?: string },
@@ -27,7 +21,7 @@ export async function loginAdmin(
     return { ok: false, message: 'Invalid password' };
   }
 
-  cookies().set(COOKIE_NAME, pwd, {
+  cookies().set(ADMIN_COOKIE_NAME, pwd, {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
@@ -39,7 +33,7 @@ export async function loginAdmin(
 }
 
 export async function logoutAdmin() {
-  cookies().delete(COOKIE_NAME);
+  cookies().delete(ADMIN_COOKIE_NAME);
 }
 
 export async function isAdminAuthed() {
@@ -295,4 +289,32 @@ export async function resetDemoClient() {
   });
 
   await seedDemoClient();
+}
+
+export async function mergeDuplicateShops(formData: FormData) {
+  if (!adminCookieMatches()) return;
+
+  const sourceShopId = String(formData.get('sourceShopId') || '');
+  const destinationShopId = String(formData.get('destinationShopId') || '');
+  if (!sourceShopId || !destinationShopId) return;
+
+  try {
+    await mergeShopRecords({
+      sourceShopId,
+      destinationShopId
+    });
+  } catch (error) {
+    if (error instanceof ShopMergeConflictError) {
+      console.warn('[admin:merge-shop-conflict]', {
+        sourceShopId,
+        destinationShopId,
+        error: error.message
+      });
+      return;
+    }
+    throw error;
+  }
+
+  revalidatePath('/admin');
+  revalidatePath('/markets');
 }

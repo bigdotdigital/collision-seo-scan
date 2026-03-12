@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { upsertLead } from '@/lib/org-data';
 import { prisma } from '@/lib/prisma';
+import { recordConversionObservation } from '@/lib/shop-data';
 
 const schema = z.object({
   orgId: z.string().min(1).optional(),
@@ -46,6 +47,37 @@ export async function POST(req: Request) {
       source: 'cta_form',
       consented: true
     });
+
+    const organization = await prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: {
+        shopId: true,
+        city: true,
+        state: true,
+        verticalDefault: true
+      }
+    });
+
+    if (organization?.shopId) {
+      await recordConversionObservation({
+        shopId: organization.shopId,
+        organizationId,
+        scanId: input.scanId || null,
+        leadId: lead.id,
+        city: organization.city,
+        state: organization.state,
+        vertical: organization.verticalDefault,
+        eventType: 'lead_submitted',
+        source: 'cta_form',
+        value: {
+          intent: input.intent || null,
+          budgetRange: input.budgetRange || null,
+          timeline: input.timeline || null,
+          emailCaptured: Boolean(input.email),
+          phoneCaptured: Boolean(input.phone)
+        }
+      });
+    }
 
     return NextResponse.json({ ok: true, leadId: lead.id });
   } catch (error) {

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { sendReportEmail } from '@/lib/email';
+import { recordConversionObservation } from '@/lib/shop-data';
 
 const schema = z.object({
   email: z.string().email()
@@ -18,8 +19,37 @@ export async function POST(
     const scan = await prisma.scan.update({
       where: { id: params.scanId },
       data: { email },
-      select: { id: true, shopName: true, scoreTotal: true }
+      select: {
+        id: true,
+        shopId: true,
+        organizationId: true,
+        shopName: true,
+        scoreTotal: true,
+        city: true,
+        vertical: true,
+        organization: {
+          select: {
+            state: true
+          }
+        }
+      }
     });
+
+    if (scan.shopId) {
+      await recordConversionObservation({
+        shopId: scan.shopId,
+        organizationId: scan.organizationId,
+        scanId: scan.id,
+        city: scan.city,
+        state: scan.organization?.state || null,
+        vertical: scan.vertical,
+        eventType: 'report_email_captured',
+        source: 'report_gate',
+        value: {
+          emailDomain: email.split('@')[1] || null
+        }
+      });
+    }
 
     const origin =
       req.headers.get('origin') || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';

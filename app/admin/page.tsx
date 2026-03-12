@@ -1,11 +1,14 @@
 import Link from 'next/link';
+import { parseJson } from '@/lib/json';
 import { prisma } from '@/lib/prisma';
+import { findDuplicateShopCandidates } from '@/lib/shop-data';
 import { formatDateTime } from '@/lib/utils';
 import { AdminLoginForm } from './admin-login-form';
 import {
   createDemoClient,
   convertScanToClient,
   isAdminAuthed,
+  mergeDuplicateShops,
   resetDemoClient,
   sendScanFollowupNow
 } from './actions';
@@ -70,7 +73,7 @@ export default async function AdminPage({
   const authed = await isAdminAuthed();
   if (!authed) return <AdminLoginForm />;
 
-  const [scans, clients] = await Promise.all([
+  const [scans, clients, benchmarkSnapshots, duplicateGroups] = await Promise.all([
     prisma.scan.findMany({
       orderBy: { createdAt: 'desc' },
       take: 100,
@@ -87,14 +90,28 @@ export default async function AdminPage({
       include: {
         metricSnapshots: { orderBy: { createdAt: 'desc' }, take: 1 }
       }
-    })
+    }),
+    prisma.benchmarkSnapshot.findMany({
+      orderBy: [{ observedAt: 'desc' }, { createdAt: 'desc' }],
+      take: 8,
+      include: {
+        market: {
+          select: {
+            id: true,
+            city: true,
+            state: true,
+            vertical: true
+          }
+        }
+      }
+    }),
+    findDuplicateShopCandidates(8)
   ]);
   const allowDemoTools = process.env.ALLOW_ADMIN_DEMO_TOOLS === '1';
 
   const showRealOnly = searchParams?.view === 'real';
   const realScans = scans.filter((scan) => !isLikelyTestScan(scan));
   const displayedScans = showRealOnly ? realScans : scans;
-
   return (
     <main className="container-shell py-10">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -152,6 +169,140 @@ export default async function AdminPage({
             >
               Show all scans
             </Link>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="card mb-8">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
+          <div>
+            <h2 className="text-lg font-bold">Benchmark Snapshots</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Latest city-market rollups from canonical shop observations.
+            </p>
+          </div>
+          <Link
+            href="/api/admin/benchmark-report?take=8"
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700"
+          >
+            Open JSON report
+          </Link>
+        </div>
+        <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
+          {benchmarkSnapshots.map((snapshot) => {
+            const featureRates = parseJson<Record<string, number | null>>(snapshot.featureRatesJson, {});
+            const keywordHighlights = parseJson<Array<{ keyword: string; totalVolume?: number }>>(
+              snapshot.keywordHighlightsJson,
+              []
+            );
+            return (
+              <div key={snapshot.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                  {snapshot.market.city}
+                  {snapshot.market.state ? `, ${snapshot.market.state}` : ''} · {snapshot.market.vertical}
+                </p>
+                <p className="mt-2 text-2xl font-bold text-slate-900">
+                  {typeof snapshot.avgOverallScore === 'number' ? snapshot.avgOverallScore.toFixed(1) : 'N/A'}
+                </p>
+                <p className="mt-1 text-sm text-slate-600">
+                  Avg score across {snapshot.shopCount} shops / {snapshot.scanCount} scans
+                </p>
+                <dl className="mt-4 space-y-1 text-sm text-slate-700">
+                  <div className="flex items-center justify-between gap-3">
+                    <dt>Estimate CTA rate</dt>
+                    <dd>{typeof featureRates.estimateCtaRate === 'number' ? `${Math.round(featureRates.estimateCtaRate * 100)}%` : 'N/A'}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <dt>Review proof rate</dt>
+                    <dd>{typeof featureRates.reviewProofRate === 'number' ? `${Math.round(featureRates.reviewProofRate * 100)}%` : 'N/A'}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <dt>Certification page rate</dt>
+                    <dd>{typeof featureRates.certificationPageRate === 'number' ? `${Math.round(featureRates.certificationPageRate * 100)}%` : 'N/A'}</dd>
+                  </div>
+                </dl>
+                <p className="mt-4 text-xs text-slate-500">
+                  Top keyword: {keywordHighlights[0]?.keyword || 'Not enough keyword observations yet'}
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Link
+                    href={`/api/admin/benchmark-report?marketId=${snapshot.market.id}&take=12`}
+                    className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700"
+                  >
+                    Drill down
+                  </Link>
+                  <Link
+                    href={`/api/admin/benchmark-report?marketId=${snapshot.market.id}&take=12&format=csv`}
+                    className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700"
+                  >
+                    CSV
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
+          {benchmarkSnapshots.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 md:col-span-2 xl:col-span-4">
+              No benchmark snapshots exist yet. Run the benchmark rollup cron after new scans land.
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="card mb-8">
+        <div className="border-b border-slate-200 p-4">
+          <h2 className="text-lg font-bold">Duplicate Shop Review</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Merge canonical shop records before they fragment benchmark and competitor intelligence.
+          </p>
+        </div>
+        <div className="space-y-4 p-4">
+          {duplicateGroups.map((group, groupIndex) => {
+            const [primary] = group.shops;
+            return (
+              <div key={`${primary.id}-${groupIndex}`} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="mb-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                    Candidate group
+                  </p>
+                  <p className="mt-1 text-sm text-slate-700">
+                    {primary.city || 'Unknown city'}
+                    {primary.state ? `, ${primary.state}` : ''} · {group.shops.length} records
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  {group.shops.map((shop, index) => (
+                    <div key={shop.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3">
+                      <div>
+                        <p className="font-semibold text-slate-900">
+                          {shop.name} {index === 0 ? '(suggested primary)' : ''}
+                        </p>
+                        <p className="text-sm text-slate-600">
+                          {shop.websiteUrl || 'No website'} · scans {shop._count.scans} · orgs {shop._count.organizations} · competitor refs {shop._count.trackedAsCompetitor}
+                        </p>
+                      </div>
+                      {index > 0 ? (
+                        <form action={mergeDuplicateShops}>
+                          <input type="hidden" name="sourceShopId" value={shop.id} />
+                          <input type="hidden" name="destinationShopId" value={primary.id} />
+                          <button
+                            type="submit"
+                            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700"
+                          >
+                            Merge into primary
+                          </button>
+                        </form>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          {duplicateGroups.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
+              No obvious duplicate canonical shops detected from current name/domain heuristics.
+            </div>
           ) : null}
         </div>
       </div>

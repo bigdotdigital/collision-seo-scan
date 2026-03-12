@@ -1,15 +1,29 @@
 import { prisma } from '@/lib/prisma';
 import type { RankProvider } from '@/lib/rank-providers/provider';
 import { StubRankProvider } from '@/lib/rank-providers/stub-provider';
+import { recordRankObservations } from '@/lib/shop-data';
 
 export async function collectRankSnapshotsForOrg(args: {
   orgId: string;
   provider?: RankProvider;
   snapshotDate?: Date;
 }) {
-  const location = await prisma.location.findFirst({
-    where: { orgId: args.orgId, isPrimary: true }
-  });
+  const [organization, location] = await Promise.all([
+    prisma.organization.findUnique({
+      where: { id: args.orgId },
+      select: {
+        shopId: true,
+        shop: {
+          select: {
+            marketId: true
+          }
+        }
+      }
+    }),
+    prisma.location.findFirst({
+      where: { orgId: args.orgId, isPrimary: true }
+    })
+  ]);
   if (!location) return { ok: false as const, reason: 'no_primary_location' as const };
 
   const [keywords, competitors] = await Promise.all([
@@ -19,7 +33,16 @@ export async function collectRankSnapshotsForOrg(args: {
     }),
     prisma.trackedCompetitor.findMany({
       where: { orgId: args.orgId, locationId: location.id, isActive: true },
-      select: { id: true, name: true }
+      select: {
+        id: true,
+        name: true,
+        shopId: true,
+        shop: {
+          select: {
+            marketId: true
+          }
+        }
+      }
     })
   ]);
 
@@ -78,6 +101,71 @@ export async function collectRankSnapshotsForOrg(args: {
     data: rowsToInsert,
     skipDuplicates: true
   });
+
+  if (organization?.shopId) {
+    const focalShopId = organization.shopId;
+    const competitorShopById = new Map(
+      competitors
+        .filter((competitor) => competitor.shopId)
+        .map((competitor) => [
+          competitor.id,
+          {
+            shopId: competitor.shopId as string,
+            marketId: competitor.shop?.marketId || null
+          }
+        ])
+    );
+
+    const rankRows: Array<{
+      shopId: string;
+      marketId?: string | null;
+      keyword: string;
+      rankPosition?: number | null;
+      delta?: number | null;
+      raw?: unknown;
+    }> = rowsToInsert
+      .map((row) => {
+        if (row.competitorId) {
+          const competitor = competitorShopById.get(row.competitorId);
+          if (!competitor) return null;
+          return {
+            shopId: competitor.shopId,
+            marketId: competitor.marketId,
+            keyword: JSON.parse(row.rawJson || '{}').keyword || '',
+            rankPosition: row.rankPosition,
+            delta: row.delta,
+            raw: {
+              competitorId: row.competitorId,
+              orgId: row.orgId,
+              keywordId: row.keywordId,
+              source: row.source
+            }
+          };
+        }
+
+        return {
+          shopId: focalShopId,
+          marketId: organization.shop?.marketId || null,
+          keyword: JSON.parse(row.rawJson || '{}').keyword || '',
+          rankPosition: row.rankPosition,
+          delta: row.delta,
+          raw: {
+            orgId: row.orgId,
+            keywordId: row.keywordId,
+            source: row.source
+          }
+        };
+      })
+      .filter((row): row is NonNullable<typeof row> => Boolean(row && row.keyword));
+
+    await recordRankObservations({
+      observedAt: snapshotDate,
+      orgId: args.orgId,
+      locationId: location.id,
+      source: result.source,
+      rows: rankRows
+    });
+  }
 
   return {
     ok: true as const,

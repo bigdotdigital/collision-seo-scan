@@ -29,8 +29,12 @@ import {
 import { seedDashboardFromScan } from '@/lib/dashboard-prefill';
 import {
   claimShopForOrganization,
+  recordConversionObservation,
   recordCompetitorObservations,
-  recordKeywordObservations
+  recordKeywordObservations,
+  recordReviewObservation,
+  recordSerpObservations,
+  recordSiteFeatureObservation
 } from '@/lib/shop-data';
 
 export const dynamic = 'force-dynamic';
@@ -356,6 +360,38 @@ export async function POST(req: Request) {
             city: normalizedCity,
             keywords: result.moneyKeywords
           }),
+          recordSiteFeatureObservation({
+            shopId: org.shopId,
+            scanId: scan.id,
+            observedAt: scan.createdAt,
+            city: googlePlaceResult.profile?.city || normalizedCity,
+            state: googlePlaceResult.profile?.state || null,
+            vertical: input.vertical,
+            checks: result.checks,
+            missingPages: result.missingPages
+          }),
+          googlePlaceResult.profile
+            ? recordReviewObservation({
+                shopId: org.shopId,
+                scanId: scan.id,
+                observedAt: scan.createdAt,
+                city: googlePlaceResult.profile.city || normalizedCity,
+                state: googlePlaceResult.profile.state || null,
+                vertical: input.vertical,
+                profile: googlePlaceResult.profile,
+                confidence: googlePlaceResult.source
+              })
+            : Promise.resolve(null),
+          recordSerpObservations({
+            shopId: org.shopId,
+            scanId: scan.id,
+            observedAt: scan.createdAt,
+            city: normalizedCity,
+            state: googlePlaceResult.profile?.state || null,
+            vertical: input.vertical,
+            mapPack: result.mapPack,
+            confidence: result.sources.mapPack
+          }),
           recordCompetitorObservations({
             sourceShopId: org.shopId,
             scanId: scan.id,
@@ -364,6 +400,22 @@ export async function POST(req: Request) {
             state: googlePlaceResult.profile?.state || null,
             vertical: input.vertical,
             competitors: result.competitors
+          }),
+          recordConversionObservation({
+            shopId: org.shopId,
+            organizationId: org.id,
+            scanId: scan.id,
+            observedAt: scan.createdAt,
+            city: normalizedCity,
+            state: googlePlaceResult.profile?.state || null,
+            vertical: input.vertical,
+            eventType: 'scan_completed',
+            source: 'scan_submission',
+            value: {
+              scoreTotal: result.scores.total,
+              emailCaptured: Boolean(normalizedEmail),
+              phoneCaptured: Boolean(normalizedPhone)
+            }
           })
         ]);
       }
