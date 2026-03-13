@@ -7,130 +7,45 @@ import { PieChart } from '@/components/pie-chart';
 import { HeroMetric } from '@/components/hero-metric';
 import { PageHeader } from '@/components/page-header';
 import { DashboardModuleCard, LockedModuleTeaser } from '@/components/dashboard-module-card';
-import { prisma } from '@/lib/prisma';
+import { RefreshDashboardButton } from '@/components/refresh-dashboard-button';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
-import { parseJson } from '@/lib/json';
-import { parseReportPayload } from '@/lib/report-payload';
-import type { Issue } from '@/lib/types';
-import { deriveCompetitorSuggestions } from '@/lib/dashboard-suggestions';
-import { calculateRevenueImpact, calculateTrends, prepareCategoryDistribution } from '@/lib/dashboard-data';
-import {
-  buildMapPoints,
-  buildOverviewBadges,
-  buildOverviewCompetitors,
-  buildVisibilitySegments,
-  buildYourShop,
-  hasKeywordVolume,
-  parseMoneyKeywords,
-  summarizeRankedKeywords
-} from '@/lib/dashboard-overview';
-import {
-  buildCollisionArchitectureSummary,
-  buildCompetitorGapSummary,
-  buildMapsAuthoritySummary,
-  buildRepairPlan,
-  buildRevenueLeakSummary,
-  premiumEntitlement
-} from '@/lib/dashboard-intelligence';
+import { refreshDashboardData } from './actions';
+import { buildDashboardOverviewPageState } from '@/lib/dashboard-overview-page';
 
 export const dynamic = 'force-dynamic';
 
-export default async function DashboardOverviewPage() {
+export default async function DashboardOverviewPage({
+  searchParams
+}: {
+  searchParams?: { refresh?: string };
+}) {
   const ctx = await requireDashboardContext();
-
-  const [latestScan, previousScan, activeKeywords, keywordRows, subscription] = await Promise.all([
-    prisma.scan.findFirst({
-      where: { organizationId: ctx.orgId },
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        createdAt: true,
-        scoreTotal: true,
-        scoreWebsite: true,
-        scoreLocal: true,
-        scoreIntent: true,
-        issuesJson: true,
-        moneyKeywordsJson: true,
-        competitorsJson: true,
-        rawChecksJson: true,
-        websiteUrl: true,
-        city: true,
-        shopName: true
-      }
-    }),
-    prisma.scan.findFirst({
-      where: { organizationId: ctx.orgId },
-      orderBy: { createdAt: 'desc' },
-      skip: 1,
-      select: {
-        scoreTotal: true,
-        scoreWebsite: true,
-        scoreLocal: true
-      }
-    }),
-    prisma.trackedKeyword.count({
-      where: { orgId: ctx.orgId, isActive: true }
-    }),
-    prisma.trackedKeyword.findMany({
-      where: { orgId: ctx.orgId, isActive: true },
-      orderBy: { createdAt: 'asc' },
-      take: 10,
-      include: {
-        snapshots: {
-          orderBy: { snapshotDate: 'desc' },
-          take: 2
-        }
-      }
-    }),
-    prisma.subscription.findUnique({
-      where: { orgId: ctx.orgId },
-      select: { planTier: true, status: true, trialEndsAt: true }
-    })
-  ]);
-
-  const rawPayload = latestScan ? parseJson<unknown>(latestScan.rawChecksJson, null) : null;
-  const reportPayload = parseReportPayload(rawPayload);
-  const rawMoneyKeywords = parseJson<Array<{ keyword?: string; volume?: number | null }>>(latestScan?.moneyKeywordsJson || '', []);
-  const issues = latestScan ? parseJson<Issue[]>(latestScan.issuesJson, []) : [];
-
-  const trends = latestScan && previousScan ? calculateTrends(latestScan, previousScan) : null;
-  const categories = prepareCategoryDistribution(reportPayload);
-  const moneyKeywords = parseMoneyKeywords(rawMoneyKeywords);
-  const revenueImpact = calculateRevenueImpact(latestScan?.scoreTotal ?? 0, moneyKeywords);
-  const hasRevenueInputs = hasKeywordVolume(moneyKeywords);
-  const keywordSummary = summarizeRankedKeywords(keywordRows);
-  const yourShop = buildYourShop(latestScan, reportPayload);
-  const competitors = buildOverviewCompetitors(reportPayload);
-  const competitorSuggestions = latestScan
-    ? deriveCompetitorSuggestions({
-        shopName: latestScan.shopName || '',
-        city: latestScan.city || '',
-        websiteUrl: latestScan.websiteUrl || '',
-        competitorsJson: latestScan.competitorsJson,
-        rawChecksJson: latestScan.rawChecksJson
-      })
-    : [];
-
-  const hasGeographicPoints =
-    typeof reportPayload?.googlePlace?.lat === 'number' &&
-    typeof reportPayload?.googlePlace?.lng === 'number';
-  const mapPoints = buildMapPoints({ yourShop, competitors, geographic: hasGeographicPoints });
-  const visibilitySegments = buildVisibilitySegments(categories);
-  const entitlement = premiumEntitlement(subscription?.status);
-  const architecture = buildCollisionArchitectureSummary(reportPayload, latestScan?.city || 'your market');
-  const mapsAuthority = buildMapsAuthoritySummary(reportPayload);
-  const competitorGap = buildCompetitorGapSummary(reportPayload, latestScan?.scoreTotal ?? 0);
-  const repairPlan = buildRepairPlan({
+  const {
+    latestScan,
+    activeKeywords,
+    subscription,
+    reportPayload,
+    issues,
+    trends,
+    categories,
+    revenueImpact,
+    hasRevenueInputs,
+    keywordSummary,
+    yourShop,
+    competitors,
+    competitorSuggestions,
+    hasGeographicPoints,
+    mapPoints,
+    visibilitySegments,
+    entitlement,
     architecture,
-    maps: mapsAuthority,
-    topFixes: reportPayload?.topFixes || []
-  });
-  const revenueLeak = buildRevenueLeakSummary({
-    architecture,
-    maps: mapsAuthority,
-    competitor: competitorGap,
-    topFixes: reportPayload?.topFixes || []
-  });
+    mapsAuthority,
+    competitorGap,
+    repairPlan,
+    revenueLeak,
+    overviewBadges
+  } = await buildDashboardOverviewPageState(ctx.orgId);
+  const refreshState = searchParams?.refresh || '';
 
   return (
     <div className="space-y-6">
@@ -138,13 +53,34 @@ export default async function DashboardOverviewPage() {
         title="SEO Revenue Dashboard"
         subtitle="Priority metrics are shown with explicit source status. Measured scores stay separate from modeled traffic, lead, and revenue opportunity."
         eyebrow="Overview"
-        badges={buildOverviewBadges({ hasModeledKeywords: hasRevenueInputs, sources: reportPayload?.sources })}
+        badges={overviewBadges}
         actions={
-          <button className="rounded-md border border-[var(--border-color)] px-4 py-2 text-sm font-medium hover:bg-[var(--bg-body)]">
-            Last 30 Days ▼
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <form action={refreshDashboardData}>
+              <RefreshDashboardButton />
+            </form>
+            <button className="rounded-md border border-[var(--border-color)] px-4 py-2 text-sm font-medium hover:bg-[var(--bg-body)]">
+              Last 30 Days ▼
+            </button>
+          </div>
         }
       />
+
+      {refreshState === 'done' ? (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          Fresh scan complete. The dashboard is now using the latest workspace data and provider results.
+        </div>
+      ) : null}
+      {refreshState === 'missing' ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Add a shop name, website, and city in dashboard settings before refreshing data.
+        </div>
+      ) : null}
+      {refreshState === 'error' ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          Refresh failed. Check the workspace details and try again.
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard

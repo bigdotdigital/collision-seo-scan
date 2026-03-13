@@ -32,6 +32,7 @@ const PLANS = [
       'Monitoring dashboard',
       'Keyword tracking',
       'Competitor watchlist',
+      'AI search visibility basics',
       'Alerts + scan history',
       'Free setup call included'
     ]
@@ -44,10 +45,13 @@ const PLANS = [
     accent: 'dark',
     ctaLabel: 'Talk about Pro',
     ctaHref: '/monitoring',
-    subcopy: 'For deeper reporting, more tracked signals, and a tighter white-glove workflow.',
+    subcopy: 'For shops and operators who want stronger visibility in Google and AI-driven answers, with deeper strategic guidance.',
     features: [
       'Everything in Shop Manager',
       'More keywords and competitors',
+      'AI Search Visibility',
+      'ChatGPT / Gemini answer readiness',
+      'AI answer gap analysis',
       'Priority refreshes',
       'White-label style reporting',
       'Agency-ready billing path',
@@ -63,6 +67,7 @@ const COMPARE_ROWS = [
   ['Monitoring dashboard', 'No', 'Yes', 'Yes'],
   ['Keyword tracking', 'No', 'Core set', 'Expanded'],
   ['Competitor tracking', 'No', 'Yes', 'Expanded'],
+  ['AI search visibility', 'No', 'Basics', 'Full module'],
   ['Alert feed', 'No', 'Yes', 'Yes'],
   ['Reports & history', 'Basic report only', 'Yes', 'Yes'],
   ['Setup call', 'Optional', 'Included', 'Included'],
@@ -81,6 +86,10 @@ const FAQS = [
   {
     q: 'Can you help customize the dashboard for my shop?',
     a: 'Yes. The paid monitoring plans include a free setup call, and ongoing consult support is available if you want hands-on help.'
+  },
+  {
+    q: 'What is AI Search Visibility?',
+    a: 'It means helping your shop show up more clearly when people ask ChatGPT, Gemini, Google, or other AI-powered search tools where to get collision work done. The $49 plan includes the basics. The $199 plan includes deeper answer-readiness and competitor gap analysis.'
   },
   {
     q: 'Is this only for collision repair shops?',
@@ -109,7 +118,7 @@ export default function PricingPage() {
           <h1 className="pricing-title">Free to start. Upgrade when the dashboard starts paying for itself.</h1>
           <p className="pricing-copy">
             Start with free scans, move into monitoring when you want recurring visibility, and
-            step up to Pro when you need more reporting depth and support.
+            step up to Pro when you need stronger AI search visibility, deeper reporting, and more hands-on support.
           </p>
         </section>
 

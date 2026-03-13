@@ -8,6 +8,11 @@ import {
 } from '@/lib/client-auth';
 import { seedDashboardFromScan } from '@/lib/dashboard-prefill';
 import { claimShopForOrganization, ShopClaimConflictError } from '@/lib/shop-data';
+import {
+  createOrganizationSlug,
+  seededCompetitorsFromJson,
+  seededKeywordsFromJson
+} from '@/lib/self-serve';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,15 +23,6 @@ const schema = z.object({
   scanId: z.string().optional(),
   orgId: z.string().optional()
 });
-
-function slugify(input: string): string {
-  return input
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '')
-    .slice(0, 48);
-}
 
 function plusDays(days: number): Date {
   const d = new Date();
@@ -131,7 +127,7 @@ export async function POST(req: Request) {
           name: fallbackName,
           city: requestedScan?.city || undefined,
           websiteUrl: requestedScan?.websiteUrl || undefined,
-          slug: `${slugify(fallbackName) || 'shop'}-${Math.random().toString(36).slice(2, 8)}`
+          slug: createOrganizationSlug(fallbackName)
         }
       });
       targetOrgId = org.id;
@@ -194,41 +190,14 @@ export async function POST(req: Request) {
     }
 
     if (requestedScan) {
-      const seededKeywords = (() => {
-        try {
-          const parsed = JSON.parse(requestedScan.moneyKeywordsJson || '[]');
-          if (!Array.isArray(parsed)) return [];
-          return parsed
-            .map((row) => ({ keyword: typeof row?.keyword === 'string' ? row.keyword : '' }))
-            .filter((row) => row.keyword);
-        } catch {
-          return [];
-        }
-      })();
-
-      const seededCompetitors = (() => {
-        try {
-          const parsed = JSON.parse(requestedScan.competitorsJson || '[]');
-          if (!Array.isArray(parsed)) return [];
-          return parsed
-            .map((row) => ({
-              name: typeof row?.name === 'string' ? row.name : '',
-              url: typeof row?.url === 'string' ? row.url : ''
-            }))
-            .filter((row) => row.name);
-        } catch {
-          return [];
-        }
-      })();
-
       await seedDashboardFromScan({
         organizationId: targetOrgId,
         scanId: requestedScan.id,
         shopName: requestedScan.shopName || '',
         websiteUrl: requestedScan.websiteUrl || '',
         city: requestedScan.city || '',
-        keywords: seededKeywords,
-        competitors: seededCompetitors
+        keywords: seededKeywordsFromJson(requestedScan.moneyKeywordsJson),
+        competitors: seededCompetitorsFromJson(requestedScan.competitorsJson)
       });
 
       await prisma.scan.update({

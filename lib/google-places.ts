@@ -20,6 +20,8 @@ export async function fetchGooglePlaceProfile(args: {
   shopName: string;
   city: string;
   websiteUrl?: string | null;
+  addressHint?: string | null;
+  stateHint?: string | null;
 }): Promise<{ source: 'live' | 'fallback'; profile: GooglePlaceProfile | null; detail: string }> {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY || '';
   if (!apiKey) {
@@ -30,7 +32,10 @@ export async function fetchGooglePlaceProfile(args: {
     };
   }
 
-  const query = `${args.shopName} ${args.city}`.trim();
+  const query = [args.shopName, args.addressHint, args.city, args.stateHint]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
   if (!query) {
     return {
       source: 'fallback',
@@ -112,10 +117,26 @@ export async function fetchGooglePlaceProfile(args: {
     const score = (row: Record<string, unknown>) => {
       const name = String((row.displayName as { text?: string } | undefined)?.text || '').toLowerCase();
       const website = String(row.websiteUri || '').toLowerCase();
+      const formattedAddress = String(row.formattedAddress || '').toLowerCase();
+      const cityHint = args.city.toLowerCase();
+      const stateHint = (args.stateHint || '').toLowerCase();
+      const addressHint = (args.addressHint || '').toLowerCase();
       let points = 0;
       if (name.includes(args.shopName.toLowerCase().split(' ')[0] || '')) points += 2;
       if (targetHost && website.includes(targetHost)) points += 3;
-      if (name.includes(args.city.toLowerCase())) points += 1;
+      if (name.includes(cityHint) || formattedAddress.includes(cityHint)) points += 1;
+      if (stateHint && formattedAddress.includes(stateHint)) points += 1;
+      if (addressHint) {
+        const streetNumber = addressHint.match(/\b\d{2,6}\b/)?.[0] || '';
+        if (streetNumber && formattedAddress.includes(streetNumber)) points += 2;
+        const addressWords = addressHint
+          .split(/\s+/)
+          .map((part) => part.replace(/[^a-z0-9]/gi, '').toLowerCase())
+          .filter((part) => part.length >= 4)
+          .slice(0, 4);
+        const matchedWords = addressWords.filter((part) => formattedAddress.includes(part)).length;
+        points += matchedWords;
+      }
       return points;
     };
 

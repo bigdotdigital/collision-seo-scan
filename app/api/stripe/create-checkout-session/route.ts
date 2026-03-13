@@ -1,15 +1,14 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import {
-  getAuthedClient,
-  getDashboardSession,
-  hashPortalPassword,
-  setDashboardSession,
-  verifyPortalPassword
-} from '@/lib/client-auth';
-import { createStripePortalSession } from '@/lib/stripe';
-import { seedDashboardFromScan } from '@/lib/dashboard-prefill';
-import { claimShopForOrganization, ShopClaimConflictError } from '@/lib/shop-data';
+  ensureSelfServeOrg,
+  ensureStripeCustomer,
+  ensureUserMembershipForOrg,
+  existingBillingPortalUrl,
+  loadCheckoutOrg,
+  loadRequestedScan,
+  resolveOrgContext,
+  seedOrgFromRequestedScan
+} from '@/lib/billing-checkout';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -59,168 +58,6 @@ async function stripePost(path: string, form: URLSearchParams): Promise<StripeRe
   return data || {};
 }
 
-async function resolveOrgContext() {
-  const session = await getDashboardSession();
-  if (session?.orgId) {
-    const user = await prisma.user.findUnique({
-      where: { id: session.userId },
-      select: { email: true }
-    });
-    return { orgId: session.orgId, email: user?.email || null };
-  }
-
-  const client = await getAuthedClient();
-  if (!client) return null;
-  const scan = await prisma.scan.findFirst({
-    where: { clientId: client.id, organizationId: { not: null } },
-    orderBy: { createdAt: 'desc' },
-    select: { organizationId: true }
-  });
-  if (!scan?.organizationId) return null;
-  return { orgId: scan.organizationId, email: client.ownerEmail || null };
-}
-
-function slugify(input: string): string {
-  return input
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '')
-    .slice(0, 48);
-}
-
-async function ensureSelfServeOrg(input: { email: string; name?: string; password: string; shopId?: string | null }) {
-  const email = input.email.trim().toLowerCase();
-  const existingUser = await prisma.user.findUnique({
-    where: { email },
-    include: {
-      memberships: {
-        where: { status: 'active' },
-        orderBy: { createdAt: 'asc' },
-        take: 1
-      }
-    }
-  });
-
-  if (existingUser) {
-    if (!verifyPortalPassword(input.password, existingUser.passwordHash)) {
-      return { ok: false as const, reason: 'invalid_password' as const };
-    }
-    const existingMembership = existingUser.memberships[0];
-    if (existingMembership) {
-      setDashboardSession({
-        userId: existingUser.id,
-        orgId: existingMembership.orgId,
-        membershipRole: existingMembership.role
-      });
-      return { ok: true as const, orgId: existingMembership.orgId, email };
-    }
-  }
-
-  const orgName = input.name?.trim() || `${email.split('@')[0]} Collision`;
-  const org = await prisma.organization.create({
-    data: {
-      shopId: input.shopId || undefined,
-      name: orgName,
-      slug: `${slugify(orgName) || 'shop'}-${Math.random().toString(36).slice(2, 8)}`
-    }
-  });
-
-  const user =
-    existingUser ||
-    (await prisma.user.create({
-      data: {
-        email,
-        passwordHash: hashPortalPassword(input.password),
-        name: input.name?.trim() || orgName,
-        isActive: true
-      }
-    }));
-
-  const membership = await prisma.orgMembership.create({
-    data: {
-      orgId: org.id,
-      userId: user.id,
-      role: 'owner',
-      status: 'active'
-    }
-  });
-
-  await prisma.location.create({
-    data: {
-      orgId: org.id,
-      isPrimary: true,
-      name: orgName
-    }
-  });
-
-  await prisma.alertPreference.upsert({
-    where: { orgId: org.id },
-    update: {},
-    create: { orgId: org.id, digestEmail: email }
-  });
-
-  setDashboardSession({
-    userId: user.id,
-    orgId: org.id,
-    membershipRole: membership.role
-  });
-
-  return { ok: true as const, orgId: org.id, email };
-}
-
-async function ensureUserMembershipForOrg(input: {
-  orgId: string;
-  email: string;
-  password: string;
-  name?: string;
-}) {
-  const email = input.email.trim().toLowerCase();
-  let user = await prisma.user.findUnique({ where: { email } });
-
-  if (user) {
-    if (!verifyPortalPassword(input.password, user.passwordHash)) {
-      return { ok: false as const, reason: 'invalid_password' as const };
-    }
-  } else {
-    user = await prisma.user.create({
-      data: {
-        email,
-        passwordHash: hashPortalPassword(input.password),
-        name: input.name?.trim() || email.split('@')[0],
-        isActive: true
-      }
-    });
-  }
-
-  const membership = await prisma.orgMembership.upsert({
-    where: {
-      orgId_userId: {
-        orgId: input.orgId,
-        userId: user.id
-      }
-    },
-    update: {
-      role: 'owner',
-      status: 'active'
-    },
-    create: {
-      orgId: input.orgId,
-      userId: user.id,
-      role: 'owner',
-      status: 'active'
-    }
-  });
-
-  setDashboardSession({
-    userId: user.id,
-    orgId: input.orgId,
-    membershipRole: membership.role
-  });
-
-  return { ok: true as const };
-}
-
 export async function POST(req: Request) {
   try {
     const priceId = process.env.STRIPE_PRICE_MONTHLY_ID || '';
@@ -239,35 +76,10 @@ export async function POST(req: Request) {
     const publicData = input.success ? input.data : {};
 
     let requestedOrgId = '';
-    let requestedScan:
-        | {
-            id: string;
-            shopId: string | null;
-            organizationId: string | null;
-            email: string | null;
-            shopName: string;
-            websiteUrl: string;
-          city: string;
-          moneyKeywordsJson: string;
-          competitorsJson: string;
-        }
-      | null = null;
+    let requestedScan = null;
 
     if (publicData.scanId) {
-      requestedScan = await prisma.scan.findUnique({
-        where: { id: publicData.scanId },
-        select: {
-          id: true,
-          shopId: true,
-          organizationId: true,
-          email: true,
-          shopName: true,
-          websiteUrl: true,
-          city: true,
-          moneyKeywordsJson: true,
-          competitorsJson: true
-        }
-      });
+      requestedScan = await loadRequestedScan(publicData.scanId);
       if (!requestedScan?.organizationId) {
         return NextResponse.json({ error: 'Invalid scan context for trial checkout.' }, { status: 400 });
       }
@@ -341,125 +153,41 @@ export async function POST(req: Request) {
     }
 
     if (requestedScan && requestedScan.organizationId === ctx.orgId) {
-      const seededKeywords = (() => {
-        try {
-          const parsed = JSON.parse(requestedScan.moneyKeywordsJson || '[]');
-          if (!Array.isArray(parsed)) return [];
-          return parsed
-            .map((row) => ({ keyword: typeof row?.keyword === 'string' ? row.keyword : '' }))
-            .filter((row) => row.keyword);
-        } catch {
-          return [];
-        }
-      })();
-      const seededCompetitors = (() => {
-        try {
-          const parsed = JSON.parse(requestedScan.competitorsJson || '[]');
-          if (!Array.isArray(parsed)) return [];
-          return parsed
-            .map((row) => ({
-              name: typeof row?.name === 'string' ? row.name : '',
-              url: typeof row?.url === 'string' ? row.url : ''
-            }))
-            .filter((row) => row.name);
-        } catch {
-          return [];
-        }
-      })();
-      await seedDashboardFromScan({
-        organizationId: ctx.orgId,
-        scanId: requestedScan.id,
-        shopName: requestedScan.shopName || '',
-        websiteUrl: requestedScan.websiteUrl || '',
-        city: requestedScan.city || '',
-        keywords: seededKeywords,
-        competitors: seededCompetitors
-      });
-
-      await prisma.organization.update({
-        where: { id: ctx.orgId },
-        data: {
-          name:
-            requestedScan.shopName && requestedScan.shopName.trim().length > 0
-              ? requestedScan.shopName.trim()
-              : undefined,
-          city: requestedScan.city || undefined,
-          websiteUrl: requestedScan.websiteUrl || undefined
-        }
-      });
-      if (requestedScan.shopId) {
-        try {
-          await claimShopForOrganization({
-            orgId: ctx.orgId,
-            shopId: requestedScan.shopId,
-            name: requestedScan.shopName,
-            websiteUrl: requestedScan.websiteUrl,
-            city: requestedScan.city
-          });
-        } catch (error) {
-          if (error instanceof ShopClaimConflictError) {
-            return NextResponse.json(
-              { error: 'This workspace is already linked to a different shop record. Contact support before using this scan to start billing.' },
-              { status: 409 }
-            );
-          }
-          throw error;
-        }
+      const seeded = await seedOrgFromRequestedScan(ctx.orgId, requestedScan);
+      if (seeded?.ok === false && seeded.conflict) {
+        return NextResponse.json(
+          { error: 'This workspace is already linked to a different shop record. Contact support before using this scan to start billing.' },
+          { status: 409 }
+        );
       }
     }
 
-    const org = await prisma.organization.findUnique({
-      where: { id: ctx.orgId },
-      select: {
-        id: true,
-        name: true,
-        stripeCustomerId: true
-      }
-    });
-    if (!org) {
+    const checkoutOrg = await loadCheckoutOrg(ctx.orgId);
+    if (!checkoutOrg) {
       return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
     }
+    const { org, subscription } = checkoutOrg;
 
-    const existingSub = await prisma.subscription.findUnique({
-      where: { orgId: org.id },
-      select: { status: true }
-    });
-    if (existingSub && ['trialing', 'active', 'past_due', 'incomplete'].includes(existingSub.status)) {
-      const portalSession = org.stripeCustomerId
-        ? await createStripePortalSession({
-            customerId: org.stripeCustomerId,
-            returnPath: '/dashboard/billing'
-          })
-        : null;
+    if (subscription && ['trialing', 'active', 'past_due', 'incomplete'].includes(subscription.status)) {
+      const portalUrl = await existingBillingPortalUrl(org.stripeCustomerId);
       return NextResponse.json(
         {
           error: 'This organization already has billing set up. Use Manage Billing instead.',
-          portalUrl: portalSession?.ok
-            ? portalSession.url
-            : '/api/stripe/create-portal-session?returnTo=/dashboard/billing'
+          portalUrl: portalUrl || '/api/stripe/create-portal-session?returnTo=/dashboard/billing'
         },
         { status: 409 }
       );
     }
 
-    let customerId = org.stripeCustomerId || '';
-    if (!customerId) {
-      const customerForm = new URLSearchParams();
-      customerForm.set('name', publicData.name || org.name || 'Shop SEO Scan Client');
-      if (ctx.email) customerForm.set('email', ctx.email);
-      customerForm.set('metadata[org_id]', org.id);
-      const customer = await stripePost('customers', customerForm);
-      if (!customer.id) {
-        return NextResponse.json(
-          { error: customer.error?.message || 'Unable to create billing profile' },
-          { status: 502 }
-        );
-      }
-      customerId = customer.id;
-      await prisma.organization.update({
-        where: { id: org.id },
-        data: { stripeCustomerId: customerId }
-      });
+    const customerId = await ensureStripeCustomer({
+      orgId: org.id,
+      orgName: publicData.name || org.name || 'Shop SEO Scan Client',
+      email: ctx.email,
+      stripeCustomerId: org.stripeCustomerId,
+      stripePost
+    });
+    if (typeof customerId !== 'string') {
+      return NextResponse.json({ error: customerId.error || 'Unable to create billing profile' }, { status: 502 });
     }
 
     const form = new URLSearchParams();

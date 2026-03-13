@@ -1,57 +1,19 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { prisma } from '@/lib/prisma';
 import { ScoreRing } from '@/components/score-ring';
-import { parseJson } from '@/lib/json';
-import type {
-  CategoryScoreSet,
-  CollisionSignal,
-  Competitor,
-  CompetitorAdvantage,
-  Issue,
-  MoneyKeyword,
-  NationalBenchmarkResult,
-  PageFetchMeta,
-  PrioritizedFix,
-  ThirtyDayPlanItem
-} from '@/lib/types';
 import { ReportEmailCapture } from '@/components/report-email-capture';
 import { ReportCtaActions, ReportShareActions } from '@/components/report-cta-actions';
-import { buildReportViewModel, type ReportData } from '@/lib/report-view-model';
-import { parseReportPayload } from '@/lib/report-payload';
 import { formatCls, formatMilliseconds, formatScore } from '@/lib/metric-format';
-import { getScanRecord } from '@/lib/scan-store';
 import { logEnvWarningsOnce } from '@/lib/env-check';
 import {
-  buildExecutiveSummaryFallback,
-  buildFallbackPreviewUrl,
-  buildSourceConfidenceState,
   checksScore,
   impactClass,
-  isSyntheticPathProbe,
-  isUnavailableCompetitorLine,
   isValidScanId,
-  normalizeCategoryScores,
-  normalizeCompetitorAdvantages,
-  normalizeCompetitors,
-  normalizeIssues,
-  normalizeKeywords,
-  normalizeMissingSignals,
-  normalizeNationalBenchmark,
-  normalizePageMeta,
-  normalizePageSpeed,
-  normalizePlan,
-  normalizeSignals,
-  normalizeTopFixes,
-  ownerIssueTitle,
-  ownerText,
   sanitizeEvidenceSnippet,
-  sanitizeExecutiveSummary,
-  sanitizeKeywordsForSignals,
   scoreDot,
   severityClass,
-  withBusinessImpact
 } from '@/lib/report-page-helpers';
+import { loadReportPageState } from '@/lib/report-page-state';
 
 export default async function ReportPage({ params }: { params: { scanId: string } }) {
   logEnvWarningsOnce();
@@ -59,352 +21,68 @@ export default async function ReportPage({ params }: { params: { scanId: string 
   if (!isValidScanId(scanId)) return notFound();
 
   try {
-    const scanRecord = await getScanRecord(scanId);
-    if (!scanRecord) return notFound();
+    const state = await loadReportPageState(scanId);
+    if (!state) return notFound();
 
-    const dbScan = await prisma.scan.findUnique({ where: { id: scanId } }).catch(() => null);
-
-  const snapshot = dbScan?.latestSnapshotId
-    ? await prisma.scanSnapshot.findUnique({ where: { id: dbScan.latestSnapshotId } }).catch(() => null)
-    : dbScan
-      ? await prisma.scanSnapshot
-          .findFirst({
-            where: { scanId: dbScan.id },
-            orderBy: { createdAt: 'desc' }
-          })
-          .catch(() => null)
-      : null;
-
-  const issues = normalizeIssues(
-    dbScan ? parseJson<unknown>(dbScan.issuesJson, scanRecord.issues) : scanRecord.issues
-  );
-  const raw = dbScan
-    ? parseJson<Record<string, unknown>>(dbScan.rawChecksJson, scanRecord.rawChecks || {})
-    : scanRecord.rawChecks || {};
-  const keywords = sanitizeKeywordsForSignals(
-    normalizeKeywords(
-      dbScan
-        ? parseJson<unknown>(dbScan.moneyKeywordsJson, scanRecord.moneyKeywords)
-        : scanRecord.moneyKeywords
-    ),
-    scanRecord.city,
-    raw
-  );
-  const competitors = normalizeCompetitors(
-    snapshot
-      ? parseJson<unknown>(
-          snapshot.topCompetitorsJson,
-          dbScan
-            ? parseJson<unknown>(dbScan.competitorsJson, scanRecord.competitors)
-            : scanRecord.competitors
-        )
-      : dbScan
-        ? parseJson<unknown>(dbScan.competitorsJson, scanRecord.competitors)
-        : scanRecord.competitors
-  );
-  const plan = normalizePlan(
-    dbScan
-      ? parseJson<unknown>(dbScan.thirtyDayPlanJson, scanRecord.thirtyDayPlan)
-      : scanRecord.thirtyDayPlan
-  );
-  const payload = parseReportPayload(raw);
-
-  const payloadOverallScore =
-    typeof payload?.categoryScores?.overall === 'number' ? payload.categoryScores.overall : null;
-  const scoreTotal = payloadOverallScore ?? scanRecord.scoreTotal ?? snapshot?.visibilityScore ?? 0;
-  const scoreWebsite = scanRecord.scoreWebsite ?? 0;
-  const scoreLocal = scanRecord.scoreLocal ?? 0;
-  const scoreIntent = scanRecord.scoreIntent ?? 0;
-  const categoryScores = normalizeCategoryScores(payload?.categoryScores || raw.categoryScores, {
-    website: scoreWebsite,
-    local: scoreLocal,
-    intent: scoreIntent,
-    total: scoreTotal
-  });
-  const detectedSignals = normalizeSignals(payload?.detectedSignals || raw.detectedSignals);
-  const missingSignals = normalizeMissingSignals(payload?.missingSignals || raw.missingSignals);
-  const topFixes = normalizeTopFixes(payload?.topFixes || raw.topFixes, issues);
-  const competitorAdvantages = normalizeCompetitorAdvantages(
-    payload?.competitorAdvantages || raw.competitorAdvantages
-  );
-  const nationalBenchmark = normalizeNationalBenchmark(
-    payload?.nationalBenchmark || raw.nationalBenchmark
-  );
-  const pageMeta = normalizePageMeta(payload?.pageFetchMeta || raw.pageFetchMeta);
-  const scanDurationMs =
-    typeof payload?.scanDurationMs === 'number'
-      ? payload.scanDurationMs
-      : typeof raw.scanDurationMs === 'number'
-        ? raw.scanDurationMs
-        : 0;
-  const timestampLabel = dbScan?.createdAt
-    ? new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(
-        dbScan.createdAt
-      )
-    : new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(
-        new Date(scanRecord.createdAt)
-      );
-  const domainLabel = (() => {
-    try {
-      return new URL(scanRecord.url).hostname;
-    } catch {
-      return scanRecord.url;
-    }
-  })();
-  const pagespeed = normalizePageSpeed(scanRecord.pagespeed, scoreWebsite);
-  const hasMeasuredSpeedDiagnostics =
-    typeof pagespeed.lcpMs === 'number' ||
-    typeof pagespeed.cls === 'number' ||
-    typeof pagespeed.tbtMs === 'number' ||
-    typeof pagespeed.speedIndexMs === 'number';
-  const websiteCardScore = pagespeed.performanceScore ?? scoreWebsite;
-  const healthChecks = [
-    { label: 'Title tags', score: checksScore(raw, 'title') ? 90 : 45 },
-    { label: 'Speed', score: categoryScores.speedPerformance },
-    { label: 'Certifications', score: categoryScores.collisionAuthority },
-    { label: 'Mobile UX', score: websiteCardScore },
-    { label: 'Local signals', score: categoryScores.localSeo },
-    { label: 'Estimate CTA', score: checksScore(raw, 'estimate') ? 88 : 48 }
-  ];
-  const callConversionScore = Math.max(
-    0,
-    Math.min(
-      100,
-      Math.round(
-        (checksScore(raw, 'estimate') ? 40 : 10) +
-          (checksScore(raw, 'reviews') ? 20 : 0) +
-          (checksScore(raw, 'map') ? 20 : 0) +
-          (checksScore(raw, 'phone') ? 20 : 10)
-      )
-    )
-  );
-  const ownerIssues = issues.map((issue) => ({
-    ...issue,
-    title: ownerIssueTitle(issue.title),
-    why: withBusinessImpact(issue.why),
-    fix: ownerText(issue.fix)
-  }));
-  const ownerTopFixes = topFixes.map((fix) => ({
-    ...fix,
-    title: ownerIssueTitle(fix.title),
-    why: withBusinessImpact(fix.why),
-    steps: fix.steps.map((step) => ownerText(step))
-  }));
-  const categoryCards = [
-    {
-      label: 'Website Basics',
-      hint: 'Can Google understand your main pages?',
-      score: categoryScores.technicalSeo
-    },
-    {
-      label: 'Map Visibility',
-      hint: 'How visible you are in local map searches',
-      score: categoryScores.localSeo
-    },
-    {
-      label: 'Trust & Certifications',
-      hint: 'Signals that make shoppers choose your shop',
-      score: categoryScores.collisionAuthority
-    },
-    {
-      label: 'Speed on Mobile',
-      hint: 'Page speed for customers on phones',
-      score: categoryScores.speedPerformance
-    },
-    {
-      label: 'Service Page Coverage',
-      hint: 'How well your pages match collision search intent',
-      score: categoryScores.contentCoverage
-    },
-    {
-      label: 'Call Conversion',
-      hint: 'How ready the site is to turn searchers into estimate requests',
-      score: callConversionScore
-    }
-  ];
-
-  const calendly = process.env.CALENDLY_LINK || 'https://calendly.com/bigdotdigital/30min';
-  const salesPhone = process.env.SALES_PHONE || '+13035551234';
-
-  const reportData: ReportData = {
-    scanId: scanRecord.id,
-    shopName: scanRecord.shopName,
-    city: scanRecord.city,
-    websiteUrl: scanRecord.url,
-    scoreTotal,
-    scoreWebsite,
-    scoreLocal,
-    scoreIntent,
-    issues,
-    moneyKeywords: keywords,
-    competitors,
-    thirtyDayPlan: plan,
-    aiSummary: scanRecord.aiSummary,
-    calendlyBase: calendly,
-    salesPhone,
-    rawChecks: {
-      reviews: (raw.reviews as { rating?: number; reviews?: number } | undefined) || undefined,
-      competitorReviews:
-        (raw.competitorReviews as { rating?: number; reviews?: number } | undefined) || undefined
-    }
-  };
-
-  const vm = buildReportViewModel(reportData);
-  const filteredCompetitorAdvantages = competitorAdvantages
-    .map((row) => ({
-      ...row,
-      advantages: row.advantages.filter((line) => !isUnavailableCompetitorLine(line))
-    }))
-    .filter((row) => row.advantages.length > 0);
-
-  const competitorDisplayRows = filteredCompetitorAdvantages.length > 0 ? filteredCompetitorAdvantages : [];
-  const crawlEvidenceRows = pageMeta.filter(
-    (row) => !(row.status >= 400 && isSyntheticPathProbe(row.url))
-  );
-  const teardownIntakeUrl = (() => {
-    const p = new URLSearchParams();
-    p.set('scanId', scanRecord.id);
-    if (dbScan?.organizationId) p.set('orgId', dbScan.organizationId);
-    if (dbScan?.vertical) p.set('vertical', dbScan.vertical);
-    if (scanRecord.email) p.set('email', scanRecord.email);
-    if (scanRecord.phone) p.set('phone', scanRecord.phone);
-    return `/teardown-intake?${p.toString()}`;
-  })();
-  const monitoringLandingUrl = (() => {
-    const p = new URLSearchParams();
-    p.set('scanId', scanRecord.id);
-    if (dbScan?.organizationId) p.set('orgId', dbScan.organizationId);
-    if (scanRecord.email) p.set('email', scanRecord.email);
-    if (scanRecord.shopName) p.set('shop', scanRecord.shopName);
-    if (scanRecord.city) p.set('city', scanRecord.city);
-    return `/monitoring?${p.toString()}`;
-  })();
-  const reviewGap = payload?.reviewGap ?? vm.reviewGap;
-  const mapPack = payload?.mapPack ?? vm.mapPack;
-  const googlePlace = payload?.googlePlace;
-  const {
-    sourceConfidence,
-    hasLiveKeywordData,
-    hasUsableReviewGap,
-    ownGoogleReviewLabel,
-    hasUsableCompetitorData,
-    hasUsableMapPackData,
-    reviewSource,
-    competitorSource,
-    mapPackSource,
-    keywordSource,
-    opportunitySource
-  } = buildSourceConfidenceState({
-    payloadSources: payload?.sources,
-    reviewGap,
-    mapPack,
-    googlePlace,
-    competitors
-  });
-  const fallbackFetch = (() => {
-    const preferred = pageMeta.find((row) => {
-      try {
-        const target = new URL(scanRecord.url);
-        const probe = new URL(row.url);
-        const targetPath = target.pathname.replace(/\/+$/, '') || '/';
-        const probePath = probe.pathname.replace(/\/+$/, '') || '/';
-        return probe.hostname === target.hostname && probePath === targetPath && row.status >= 200 && row.status < 400;
-      } catch {
-        return false;
-      }
-    });
-    if (preferred) return preferred;
-    return pageMeta.find((row) => row.status >= 200 && row.status < 400) || pageMeta[0];
-  })();
-  const scannerPreview = payload?.scannerPreview || {
-    screenshotUrl: buildFallbackPreviewUrl(scanRecord.url),
-    captureSource: 'fallback' as const,
-      metadata: {
-      title: payload?.checks?.title || scanRecord.shopName || null,
-      metaDescription: payload?.checks?.metaDescription || null,
-      url: scanRecord.url,
-      statusCode: fallbackFetch?.status ?? null,
-      responseTimeMs: fallbackFetch?.fetchMs ?? null,
-      fileSizeBytes: fallbackFetch?.bytes ?? null,
-        wordCount:
-        typeof raw.homeWordCount === 'number'
-          ? raw.homeWordCount
-          : typeof payload?.checks?.homeWordCount === 'number'
-            ? payload.checks.homeWordCount
-            : typeof raw.wordCount === 'number'
-            ? raw.wordCount
-            : null
-    }
-  };
-  const scannerMetadata =
-    scannerPreview.metadata.statusCode && scannerPreview.metadata.statusCode < 400
-      ? scannerPreview.metadata
-      : fallbackFetch && fallbackFetch.status >= 200 && fallbackFetch.status < 400
-        ? {
-            ...scannerPreview.metadata,
-            statusCode: fallbackFetch.status,
-            responseTimeMs: fallbackFetch.fetchMs ?? scannerPreview.metadata.responseTimeMs,
-            fileSizeBytes: fallbackFetch.bytes ?? scannerPreview.metadata.fileSizeBytes,
-            url: fallbackFetch.url || scannerPreview.metadata.url
-          }
-        : scannerPreview.metadata;
-  const scannerPreviewUrl =
-    scannerPreview.screenshotUrl || buildFallbackPreviewUrl(scannerPreview.metadata.url || scanRecord.url);
-  const scannerSteps = [
-    { label: 'Capturing homepage snapshot', state: 'verified' as const },
-    { label: 'Checking mobile responsiveness', state: 'verified' as const },
-    { label: 'Detecting trust signals', state: 'verified' as const },
-    { label: 'Evaluating CTA visibility', state: checksScore(raw, 'estimate') ? ('verified' as const) : ('issue' as const) },
-    {
-      label: 'Measuring LCP / Speed index',
-      state: categoryScores.speedPerformance >= 60 ? ('verified' as const) : ('issue' as const)
-    },
-    { label: 'Comparing competitor positioning', state: 'verified' as const },
-    { label: 'Building action plan', state: 'analyzing' as const }
-  ];
-  const trustedAiSummary =
-    sourceConfidence.aiSummary === 'live'
-      ? sanitizeExecutiveSummary(scanRecord.aiSummary, scoreTotal)
-      : null;
-  const executiveSummary = trustedAiSummary
-    ? trustedAiSummary
-    : buildExecutiveSummaryFallback({
-        shopName: scanRecord.shopName,
-        city: scanRecord.city,
-        overall: scoreTotal,
-        categoryScores,
-        topFixes
-      });
-    const reportUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/report/${scanRecord.id}`;
-    const printedAt = new Intl.DateTimeFormat('en-US', {
-      dateStyle: 'medium',
-      timeStyle: 'short'
-    }).format(new Date());
-    const scoreCondition = scoreTotal >= 85 ? 'Excellent Condition' : scoreTotal >= 70 ? 'Good Condition' : 'Needs Repair';
-    const competitorRows = hasUsableCompetitorData
-      ? [
-          {
-            name: 'Your Shop',
-            score: scoreTotal,
-            reviews:
-              ownGoogleReviewLabel ??
-              (hasUsableReviewGap && reviewGap && typeof reviewGap.shopRating === 'number'
-                ? `${reviewGap.shopRating.toFixed(1)} ★`
-                : '—')
-          },
-          ...vm.competitors.slice(0, 2).map((comp, idx) => ({
-            name: comp.name,
-            score: Math.max(48, scoreTotal - (idx + 1) * 8),
-            reviews:
-              hasUsableReviewGap &&
-              reviewGap &&
-              idx === 0 &&
-              typeof reviewGap.competitorRating === 'number'
-                ? `${reviewGap.competitorRating.toFixed(1)} ★`
-                : '—'
-          }))
-        ]
-      : [];
+    const {
+      scanRecord,
+      dbScan,
+      snapshot,
+      raw,
+      keywords,
+      competitors,
+      plan,
+      payload,
+      scoreTotal,
+      scoreLocal,
+      scoreIntent,
+      categoryScores,
+      detectedSignals,
+      missingSignals,
+      topFixes,
+      competitorAdvantages,
+      nationalBenchmark,
+      pageMeta,
+      scanDurationMs,
+      timestampLabel,
+      domainLabel,
+      pagespeed,
+      hasMeasuredSpeedDiagnostics,
+      websiteCardScore,
+      healthChecks,
+      ownerIssues,
+      ownerTopFixes,
+      categoryCards,
+      salesPhone,
+      vm,
+      competitorDisplayRows,
+      crawlEvidenceRows,
+      teardownIntakeUrl,
+      monitoringLandingUrl,
+      reviewGap,
+      mapPack,
+      googlePlace,
+      sourceConfidence,
+      hasLiveKeywordData,
+      hasUsableReviewGap,
+      ownGoogleReviewLabel,
+      hasUsableCompetitorData,
+      hasUsableMapPackData,
+      reviewSource,
+      competitorSource,
+      mapPackSource,
+      keywordSource,
+      opportunitySource,
+      scannerPreview,
+      scannerMetadata,
+      scannerPreviewUrl,
+      scannerSteps,
+      executiveSummary,
+      reportUrl,
+      printedAt,
+      scoreCondition,
+      competitorRows
+    } = state;
 
     return (
       <main className="container-shell report-print report-diagnostic report-variant pb-24 pt-10 md:pb-10">
