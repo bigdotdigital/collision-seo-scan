@@ -6,6 +6,7 @@ import { BarChart } from '@/components/bar-chart';
 import { PieChart } from '@/components/pie-chart';
 import { HeroMetric } from '@/components/hero-metric';
 import { PageHeader } from '@/components/page-header';
+import { DashboardModuleCard, LockedModuleTeaser } from '@/components/dashboard-module-card';
 import { prisma } from '@/lib/prisma';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
 import { parseJson } from '@/lib/json';
@@ -23,6 +24,14 @@ import {
   parseMoneyKeywords,
   summarizeRankedKeywords
 } from '@/lib/dashboard-overview';
+import {
+  buildCollisionArchitectureSummary,
+  buildCompetitorGapSummary,
+  buildMapsAuthoritySummary,
+  buildRepairPlan,
+  buildRevenueLeakSummary,
+  premiumEntitlement
+} from '@/lib/dashboard-intelligence';
 
 export const dynamic = 'force-dynamic';
 
@@ -107,6 +116,21 @@ export default async function DashboardOverviewPage() {
     typeof reportPayload?.googlePlace?.lng === 'number';
   const mapPoints = buildMapPoints({ yourShop, competitors, geographic: hasGeographicPoints });
   const visibilitySegments = buildVisibilitySegments(categories);
+  const entitlement = premiumEntitlement(subscription?.status);
+  const architecture = buildCollisionArchitectureSummary(reportPayload, latestScan?.city || 'your market');
+  const mapsAuthority = buildMapsAuthoritySummary(reportPayload);
+  const competitorGap = buildCompetitorGapSummary(reportPayload, latestScan?.scoreTotal ?? 0);
+  const repairPlan = buildRepairPlan({
+    architecture,
+    maps: mapsAuthority,
+    topFixes: reportPayload?.topFixes || []
+  });
+  const revenueLeak = buildRevenueLeakSummary({
+    architecture,
+    maps: mapsAuthority,
+    competitor: competitorGap,
+    topFixes: reportPayload?.topFixes || []
+  });
 
   return (
     <div className="space-y-6">
@@ -275,6 +299,63 @@ export default async function DashboardOverviewPage() {
         </div>
       ) : null}
 
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <DashboardModuleCard
+          title="Collision SEO Architecture"
+          subtitle="Page structure, collision-service coverage, trust layers, and conversion readiness."
+          score={architecture.score}
+          badge={<span className={`dashboard-status ${entitlement === 'premium' ? 'dashboard-status-live' : 'dashboard-status-modeled'}`}>{entitlement === 'premium' ? 'Premium' : 'Teaser'}</span>}
+        >
+          {entitlement === 'premium' ? (
+            <div className="space-y-4">
+              <div>
+                <p className="dashboard-label">Key findings</p>
+                <ul className="mt-2 space-y-2 text-sm text-[var(--dashboard-text)]">
+                  {architecture.findings.concat(architecture.trustWeaknesses).slice(0, 4).map((item) => (
+                    <li key={item}>• {item}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <p className="dashboard-label">Page opportunities</p>
+                <div className="mt-2 space-y-2">
+                  {architecture.pageOpportunities.slice(0, 3).map((item) => (
+                    <div key={item.title} className="dashboard-subpanel rounded-[18px] p-3">
+                      <p className="text-sm font-semibold text-[var(--dashboard-text)]">{item.title}</p>
+                      <p className="dashboard-body-sm mt-1">{item.reason}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <LockedModuleTeaser title="High-intent page opportunities detected" body={architecture.teaser} />
+          )}
+        </DashboardModuleCard>
+
+        <DashboardModuleCard
+          title="Maps Authority"
+          subtitle="Google profile and local pack strength using the current provider data."
+          score={mapsAuthority.score}
+          badge={<span className={`dashboard-status ${entitlement === 'premium' ? 'dashboard-status-live' : 'dashboard-status-modeled'}`}>{entitlement === 'premium' ? 'Premium' : 'Teaser'}</span>}
+        >
+          {entitlement === 'premium' ? (
+            <div className="space-y-4">
+              <p className="dashboard-body-sm">{mapsAuthority.competitorComparison}</p>
+              <div className="grid gap-3 md:grid-cols-2">
+                {mapsAuthority.highLevelGaps.slice(0, 4).map((item) => (
+                  <div key={item} className="dashboard-subpanel rounded-[18px] p-3">
+                    <p className="text-sm text-[var(--dashboard-text)]">{item}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <LockedModuleTeaser title="Maps and GBP gap signals detected" body={mapsAuthority.teaser} />
+          )}
+        </DashboardModuleCard>
+      </div>
+
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
         <CompetitorComparison
           yourShop={yourShop}
@@ -287,6 +368,87 @@ export default async function DashboardOverviewPage() {
           title={hasGeographicPoints ? 'Interactive Market Map' : 'Interactive Relative Position Map'}
         />
       </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <DashboardModuleCard
+          title="Competitor Gap Snapshot"
+          subtitle="How nearby competitors appear to out-cover or out-convert your site."
+          badge={<span className={`dashboard-status ${entitlement === 'premium' ? 'dashboard-status-live' : 'dashboard-status-modeled'}`}>{entitlement === 'premium' ? 'Premium' : 'Teaser'}</span>}
+        >
+          {entitlement === 'premium' ? (
+            <div className="space-y-3">
+              <p className="text-sm text-[var(--dashboard-text)]">{competitorGap.summary}</p>
+              <p className="dashboard-body-sm">{competitorGap.servicePageDelta}</p>
+              <div className="flex flex-wrap gap-2">
+                {competitorGap.strongestSignals.slice(0, 4).map((item) => (
+                  <span key={item} className="dashboard-chip">{item}</span>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <LockedModuleTeaser title="Local competitors appear stronger in several areas" body={competitorGap.teaser} />
+          )}
+        </DashboardModuleCard>
+
+        <DashboardModuleCard
+          title="Recommended Service Page Opportunities"
+          subtitle="Highest-value collision pages missing from the current architecture."
+          badge={<span className={`dashboard-status ${entitlement === 'premium' ? 'dashboard-status-live' : 'dashboard-status-modeled'}`}>{entitlement === 'premium' ? 'Paid only' : 'Locked'}</span>}
+        >
+          {entitlement === 'premium' ? (
+            <div className="space-y-2">
+              {architecture.pageOpportunities.slice(0, 4).map((item) => (
+                <div key={item.title} className="dashboard-subpanel rounded-[18px] p-3">
+                  <p className="text-sm font-semibold text-[var(--dashboard-text)]">{item.title}</p>
+                  <p className="dashboard-body-sm mt-1">{item.reason}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <LockedModuleTeaser title="High-intent page opportunities detected" body="Upgrade to unlock the exact service, OEM, and specialty page recommendations." />
+          )}
+        </DashboardModuleCard>
+
+        <DashboardModuleCard
+          title="Revenue Leak Indicator"
+          subtitle="Severity of current visibility and conversion leakage."
+          score={revenueLeak.severity}
+          badge={<span className={`dashboard-status ${revenueLeak.severity === 'High' ? 'dashboard-status-warning' : revenueLeak.severity === 'Moderate' ? 'dashboard-status-modeled' : 'dashboard-status-live'}`}>{revenueLeak.severity}</span>}
+        >
+          {entitlement === 'premium' ? (
+            <div className="space-y-3">
+              <p className="text-sm text-[var(--dashboard-text)]">{revenueLeak.summary}</p>
+              <ul className="space-y-2 text-sm text-[var(--dashboard-text)]">
+                {revenueLeak.drivers.map((driver) => (
+                  <li key={driver}>• {driver}</li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <LockedModuleTeaser title={`Leak severity: ${revenueLeak.severity}`} body="Upgrade to see the drivers behind the missed opportunity and which fixes matter most." />
+          )}
+        </DashboardModuleCard>
+      </div>
+
+      <DashboardModuleCard
+        title="30-Day Repair Plan"
+        subtitle="Collision-shop language, sequenced into a practical four-week sprint."
+        badge={<span className={`dashboard-status ${entitlement === 'premium' ? 'dashboard-status-live' : 'dashboard-status-modeled'}`}>{entitlement === 'premium' ? 'Paid only' : 'Locked'}</span>}
+      >
+        {entitlement === 'premium' ? (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {repairPlan.map((item) => (
+              <div key={item.week} className="dashboard-subpanel rounded-[18px] p-4">
+                <p className="dashboard-label">{item.week}</p>
+                <p className="mt-2 text-sm font-semibold text-[var(--dashboard-text)]">{item.focus}</p>
+                <p className="dashboard-body-sm mt-2">{item.action}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <LockedModuleTeaser title="A prioritized 4-week repair plan is ready" body="Upgrade to unlock the exact weekly sequence instead of a generic summary." />
+        )}
+      </DashboardModuleCard>
 
       {competitors.length === 0 && competitorSuggestions.length > 0 ? (
         <div className="card">
