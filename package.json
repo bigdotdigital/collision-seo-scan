@@ -5,9 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
+    "start:web": "next start",
+    "start:worker": "node --import ./scripts/register-path-alias.mjs --experimental-strip-types --experimental-specifier-resolution=node scripts/worker.ts",
     "start": "next start",
     "lint": "next lint",
-    "test:core": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/test-core.ts",
+    "test:core": "node --import ./scripts/register-path-alias.mjs --experimental-strip-types --experimental-specifier-resolution=node scripts/test-core.ts",
     "smoke:scan": "node scripts/smoke-scan.mjs",
     "seed:beta": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/seed-beta-testers.ts",
     "prisma:generate": "prisma generate",

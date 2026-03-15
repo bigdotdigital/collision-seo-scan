@@ -15,6 +15,7 @@ import {
   clearScanObservationArtifacts,
   recordCompetitorObservations,
   recordConversionObservation,
+  recordInsuranceRelationshipObservations,
   recordKeywordObservations,
   recordReviewObservation,
   recordSerpObservations,
@@ -465,6 +466,12 @@ export async function savePreparedScan(args: {
       vertical,
       checks: args.prepared.result.checks,
       missingPages: args.prepared.result.missingPages
+    }),
+    recordInsuranceRelationshipObservations({
+      shopId: shop.id,
+      scanId: scan.id,
+      observedAt: scan.createdAt,
+      signals: args.prepared.result.insuranceRelationshipSignals
     }),
     googlePlace
       ? recordReviewObservation({

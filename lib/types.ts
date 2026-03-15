@@ -72,6 +72,15 @@ export type SignalEvidence = {
   selector?: string;
 };
 
+export type InsuranceRelationshipSignal = {
+  insurerName: string;
+  relationshipType: string | null;
+  signalType: 'logo' | 'page_text' | 'badge' | 'structured_data' | 'outbound_link';
+  confidence: number;
+  sourceUrl: string | null;
+  sourceText: string | null;
+};
+
 export type CollisionSignal = {
   signal_name: string;
   confidence: number;
@@ -202,6 +211,7 @@ export type ScanResult = {
   moneyKeywords: MoneyKeyword[];
   competitors: Competitor[];
   mapPack: MapPackResult;
+  insuranceRelationshipSignals: InsuranceRelationshipSignal[];
   aiSummary?: string;
   thirtyDayPlan: ThirtyDayPlanItem[];
 };

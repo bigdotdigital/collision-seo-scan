@@ -1,6 +1,6 @@
 # Operations
 
-This repo now has a DB-backed scan queue and daily observation refresh jobs.
+This repo now has a DB-backed scan queue, a dedicated worker entrypoint, and daily observation refresh jobs.
 
 ## Scan Execution Model
 
@@ -21,11 +21,25 @@ Important:
 - the report URL is created immediately and stays stable
 - report pages can now show queued/running/failed states
 
+## Runtime Roles
+
+- `npm run start:web`
+  Runs the Next.js app for web/API/report/dashboard traffic.
+
+- `npm run start:worker`
+  Runs the long-lived queue worker process that drains `QueueJob`.
+
+The web app and worker share the same database and business logic, but they are separate runtime roles.
+
 ## Key Queue Files
 
 - [app/api/scan/route.ts](/Users/alexklinger/Desktop/big%20dot%20portfolio/app/api/scan/route.ts)
 - [lib/scan-queue.ts](/Users/alexklinger/Desktop/big%20dot%20portfolio/lib/scan-queue.ts)
 - [lib/scan-job-runner.ts](/Users/alexklinger/Desktop/big%20dot%20portfolio/lib/scan-job-runner.ts)
+- [lib/queue/worker.ts](/Users/alexklinger/Desktop/big%20dot%20portfolio/lib/queue/worker.ts)
+- [lib/queue/handlers.ts](/Users/alexklinger/Desktop/big%20dot%20portfolio/lib/queue/handlers.ts)
+- [lib/queue/claim-jobs.ts](/Users/alexklinger/Desktop/big%20dot%20portfolio/lib/queue/claim-jobs.ts)
+- [scripts/worker.ts](/Users/alexklinger/Desktop/big%20dot%20portfolio/scripts/worker.ts)
 - [app/api/cron/process-queue/route.ts](/Users/alexklinger/Desktop/big%20dot%20portfolio/app/api/cron/process-queue/route.ts)
 - [lib/jobs.ts](/Users/alexklinger/Desktop/big%20dot%20portfolio/lib/jobs.ts)
 
@@ -37,17 +51,20 @@ Important:
   Sends post-report followup email
 - `dashboard_support_ticket`
   Existing support ticket queue entry
+- `daily_observation_refresh`
+  Refreshes review snapshots and tracked competitor graph edges
+- `rank_snapshot_collect`
+  Collects rank snapshots through the existing rank pipeline
 
 ## Cron Routes
 
 - [app/api/cron/process-queue/route.ts](/Users/alexklinger/Desktop/big%20dot%20portfolio/app/api/cron/process-queue/route.ts)
-  Processes queued scans and due followup emails
+  Manual/fallback queue tick for draining jobs on demand
 
 - [app/api/cron/daily-observation-refresh/route.ts](/Users/alexklinger/Desktop/big%20dot%20portfolio/app/api/cron/daily-observation-refresh/route.ts)
-  Runs:
-  - daily review observation refresh
-  - tracked competitor graph edge refresh
-  - rank snapshot collection
+  Schedules:
+  - `daily_observation_refresh`
+  - `rank_snapshot_collect`
 
 - [app/api/cron/benchmark-rollup/route.ts](/Users/alexklinger/Desktop/big%20dot%20portfolio/app/api/cron/benchmark-rollup/route.ts)
   Rebuilds benchmark snapshots
@@ -61,11 +78,11 @@ Cron routes expect:
 
 ## Recommended Schedule
 
-- `process-queue`
-  every 1 minute
+- `worker`
+  always on
 
 - `daily-observation-refresh`
-  once daily during low-traffic hours
+  once daily during low-traffic hours to enqueue daily work
 
 - `benchmark-rollup`
   once daily after observation refresh completes
@@ -84,11 +101,26 @@ Admin page now shows:
 
 Use [app/admin/page.tsx](/Users/alexklinger/Desktop/big%20dot%20portfolio/app/admin/page.tsx) as the first operational check.
 
+## Queue Safety
+
+- jobs are claimed with a lease (`lockedAt`, `lockOwner`)
+- stale processing jobs can be reclaimed if a worker dies
+- the worker refreshes the lease while long jobs run
+- the worker shuts down gracefully on `SIGTERM` / `SIGINT`
+
 ## Retry Behavior
 
 - queue jobs track `attempts` and `maxAttempts`
 - failed scan jobs are rescheduled automatically until `maxAttempts`
 - scan-linked observations are cleared before retry writes, to reduce duplicate artifacts
+
+## Recommended Worker Env Vars
+
+- `QUEUE_BATCH_SIZE`
+- `QUEUE_POLL_INTERVAL_MS`
+- `QUEUE_LEASE_MS`
+- `QUEUE_HEARTBEAT_MS`
+- `WORKER_ID`
 
 ## Daily Observation Coverage
 

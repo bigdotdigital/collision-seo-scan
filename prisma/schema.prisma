@@ -64,6 +64,7 @@ model Scan {
   serpObservations ShopSerpObservation[]
   conversionObservations ShopConversionObservation[]
   siteFeatureObservations ShopSiteFeatureObservation[]
+  insuranceRelationshipObservations ShopInsuranceRelationshipObservation[]
   graphEdges        ShopGraphEdge[]
 
   @@index([shopId])
@@ -130,6 +131,8 @@ model QueueJob {
   payloadJson String?
   attempts    Int       @default(0)
   maxAttempts Int       @default(3)
+  lockedAt    DateTime?
+  lockOwner   String?
   startedAt   DateTime?
   processedAt DateTime?
   finishedAt  DateTime?
@@ -139,6 +142,7 @@ model QueueJob {
   client      Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   @@index([type, status, runAt])
+  @@index([status, lockedAt])
 }
 
 model Market {
@@ -191,6 +195,7 @@ model Shop {
   serpObservations    ShopSerpObservation[]
   conversionObservations ShopConversionObservation[]
   siteFeatureObservations ShopSiteFeatureObservation[]
+  insuranceRelationshipObservations ShopInsuranceRelationshipObservation[]
   competitorSourceObservations ShopCompetitorObservation[] @relation("ObservationSourceShop")
   competitorTargetObservations ShopCompetitorObservation[] @relation("ObservationTargetShop")
   outgoingGraphEdges ShopGraphEdge[] @relation("ShopGraphEdgeSource")
@@ -222,6 +227,29 @@ model ShopGraphEdge {
 
   @@index([sourceShopId, observedAt])
   @@index([targetShopId, observedAt])
+}
+
+model ShopInsuranceRelationshipObservation {
+  id               String   @id @default(cuid())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  shopId           String
+  scanId           String?
+  insurerName      String
+  relationshipType String?
+  signalType       String
+  confidence       Float    @default(0)
+  sourceUrl        String?
+  sourceText       String?  @db.Text
+  observedAt       DateTime
+  shop             Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  scan             Scan?    @relation(fields: [scanId], references: [id], onDelete: SetNull)
+
+  @@index([shopId])
+  @@index([insurerName])
+  @@index([observedAt])
+  @@index([shopId, insurerName])
+  @@index([scanId])
 }
 
 model ShopKeywordObservation {

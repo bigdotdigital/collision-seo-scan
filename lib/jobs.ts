@@ -1,12 +1,10 @@
 import { prisma } from '@/lib/prisma';
 import { createMetricSnapshot } from '@/lib/client-services';
-import { sendFollowupEmail } from '@/lib/email';
-import { parseJson } from '@/lib/json';
 import { collectRankSnapshotsForOrg } from '@/lib/rank-snapshot-engine';
 import { generateAlertsForOrg } from '@/lib/alerts';
 import { fetchGooglePlaceProfile } from '@/lib/google-places';
-import { runScanExecutionJob } from '@/lib/scan-job-runner';
-import { claimQueueJobs } from '@/lib/scan-queue';
+import { enqueueScheduledJob } from '@/lib/queue/enqueue';
+import { runQueueWorkerOnce } from '@/lib/queue/worker';
 import { recordReviewObservation } from '@/lib/shop-data';
 import { recordTrackedCompetitorEdgesForOrg } from '@/lib/shop-graph';
 
@@ -21,101 +19,30 @@ function average(values: Array<number | null | undefined>) {
 }
 
 export async function processQueuedScans() {
-  const jobs = await claimQueueJobs({ type: 'scan_execute', take: 5 });
+  const result = await runQueueWorkerOnce({
+    types: ['scan_execute'],
+    take: 5
+  });
 
-  let processed = 0;
-  let completed = 0;
-  let failed = 0;
-
-  for (const job of jobs) {
-    processed += 1;
-    const result = await runScanExecutionJob({
-      id: job.id,
-      scanId: job.scanId,
-      traceId: job.traceId,
-      attempts: job.attempts,
-      maxAttempts: job.maxAttempts
-    });
-
-    if (result.ok) completed += 1;
-    else failed += 1;
-  }
-
-  return { processed, completed, failed };
+  return {
+    processed: result.claimed,
+    completed: result.completed,
+    failed: result.failed
+  };
 }
 
 export async function processFollowupQueue(baseUrl: string) {
-  const dueJobs = await prisma.queueJob.findMany({
-    where: {
-      status: 'pending',
-      type: 'followup_email',
-      runAt: { lte: new Date() }
-    },
-    orderBy: { runAt: 'asc' },
-    take: 50
+  const result = await runQueueWorkerOnce({
+    types: ['followup_email'],
+    take: 20
   });
 
-  let processed = 0;
-
-  for (const job of dueJobs) {
-    processed += 1;
-    try {
-      await prisma.queueJob.update({
-        where: { id: job.id },
-        data: { status: 'processing', attempts: { increment: 1 } }
-      });
-
-      const scan = job.scanId
-        ? await prisma.scan.findUnique({ where: { id: job.scanId } })
-        : null;
-
-      if (!scan || !scan.email || scan.bookedClicked || scan.followupSent) {
-        await prisma.queueJob.update({
-          where: { id: job.id },
-          data: {
-            status: 'done',
-            processedAt: new Date(),
-            error: 'Skipped (missing email / already booked / already sent)'
-          }
-        });
-        continue;
-      }
-
-      const payload = parseJson<{ reportUrl?: string } | null>(job.payloadJson, null);
-      const reportUrl = payload?.reportUrl || `${baseUrl}/report/${scan.id}`;
-
-      await sendFollowupEmail({
-        to: scan.email,
-        shopName: scan.shopName,
-        reportUrl
-      });
-
-      await prisma.scan.update({
-        where: { id: scan.id },
-        data: { followupSent: true }
-      });
-
-      await prisma.queueJob.update({
-        where: { id: job.id },
-        data: {
-          status: 'done',
-          processedAt: new Date(),
-          error: null
-        }
-      });
-    } catch (error) {
-      await prisma.queueJob.update({
-        where: { id: job.id },
-        data: {
-          status: 'failed',
-          error: error instanceof Error ? error.message : 'Unknown failure',
-          processedAt: new Date()
-        }
-      });
-    }
-  }
-
-  return { processed };
+  return {
+    processed: result.claimed,
+    completed: result.completed,
+    failed: result.failed,
+    baseUrlUsed: baseUrl
+  };
 }
 
 export async function runWeeklyRefresh() {
@@ -247,6 +174,21 @@ export async function runDailyObservationRefresh(args?: { shopBatch?: number; or
     graphEdges,
     graphSkipped
   };
+}
+
+export async function queueDailyObservationRefreshJobs() {
+  const [observationRefresh, rankRefresh] = await Promise.all([
+    enqueueScheduledJob({
+      type: 'daily_observation_refresh',
+      uniqueWindowHours: 20
+    }),
+    enqueueScheduledJob({
+      type: 'rank_snapshot_collect',
+      uniqueWindowHours: 20
+    })
+  ]);
+
+  return { observationRefresh, rankRefresh };
 }
 
 export async function runAlertGeneration() {

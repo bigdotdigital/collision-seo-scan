@@ -3,6 +3,7 @@ import { toJson } from '@/lib/json';
 import type { Competitor, MoneyKeyword, ScanChecks } from '@/lib/types';
 import type { GooglePlaceProfile } from '@/lib/google-places';
 import type { MapPackResult } from '@/lib/types';
+import type { InsuranceRelationshipSignal } from '@/lib/types';
 import { clean, resolveCompetitorShop, upsertMarketFromInput } from '@/lib/shop-core';
 
 export async function clearScanObservationArtifacts(scanId: string) {
@@ -13,6 +14,7 @@ export async function clearScanObservationArtifacts(scanId: string) {
     prisma.shopSerpObservation.deleteMany({ where: { scanId } }),
     prisma.shopConversionObservation.deleteMany({ where: { scanId } }),
     prisma.shopSiteFeatureObservation.deleteMany({ where: { scanId } }),
+    prisma.shopInsuranceRelationshipObservation.deleteMany({ where: { scanId } }),
     prisma.shopGraphEdge.deleteMany({ where: { scanId } })
   ]);
 }
@@ -259,6 +261,33 @@ export async function recordConversionObservation(args: {
       valueJson: args.value ? toJson(args.value) : undefined
     }
   });
+}
+
+export async function recordInsuranceRelationshipObservations(args: {
+  shopId: string;
+  scanId?: string;
+  observedAt?: Date;
+  signals: InsuranceRelationshipSignal[];
+}) {
+  if (args.signals.length === 0) return { count: 0 };
+
+  const observedAt = args.observedAt || new Date();
+
+  await prisma.shopInsuranceRelationshipObservation.createMany({
+    data: args.signals.map((signal) => ({
+      shopId: args.shopId,
+      scanId: args.scanId || undefined,
+      insurerName: signal.insurerName,
+      relationshipType: signal.relationshipType || undefined,
+      signalType: signal.signalType,
+      confidence: signal.confidence,
+      sourceUrl: signal.sourceUrl || undefined,
+      sourceText: signal.sourceText || undefined,
+      observedAt
+    }))
+  });
+
+  return { count: args.signals.length };
 }
 
 export async function recordKeywordObservations(args: {

@@ -47,7 +47,11 @@ This is the quick explanation of what each major technology/service does in this
   Used for:
   - queued scan execution
   - followup emails
+  - daily observation refresh jobs
   - internal background work
+
+- Dedicated worker process
+  A separate Node runtime role that polls `QueueJob`, claims work with a lease, executes handlers, and writes results back through Prisma.
 
 ## Billing
 

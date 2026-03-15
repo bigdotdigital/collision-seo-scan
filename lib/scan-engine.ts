@@ -5,6 +5,7 @@ import { buildTopFixes } from '@/lib/scoring/top-fixes';
 import { buildCompetitorComparison } from '@/lib/competitors/compare';
 import { runNationalCollisionBenchmark } from '@/lib/benchmark/national-collision';
 import type { PageFetchMeta, ScanResult } from '@/lib/types';
+import { extractInsuranceRelationshipSignals } from '@/lib/insurance-signals';
 import {
   extractSitemapUrls,
   fetchText,
@@ -120,6 +121,7 @@ export async function runScan(
 
   const scores = buildScores(checks);
   const signals = detectCollisionSignals(loaded.htmlByUrl);
+  const insuranceRelationshipSignals = extractInsuranceRelationshipSignals(loaded.htmlByUrl);
   const capabilityMissing = mapCapabilityMissing(
     signals.detected.map((signal) => signal.signal_name),
     capabilities
@@ -193,6 +195,7 @@ export async function runScan(
     moneyKeywords,
     competitors: competitorResult.competitors,
     mapPack,
+    insuranceRelationshipSignals,
     aiSummary: aiSummaryResult.text,
     thirtyDayPlan
   };

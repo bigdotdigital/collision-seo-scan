@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { parseJson } from '@/lib/json';
 import { prisma } from '@/lib/prisma';
+import { getQueueMetrics } from '@/lib/queue/metrics';
 import { findDuplicateShopCandidates } from '@/lib/shop-data';
 import { formatDateTime } from '@/lib/utils';
 import { AdminLoginForm } from './admin-login-form';
@@ -73,7 +74,7 @@ export default async function AdminPage({
   const authed = await isAdminAuthed();
   if (!authed) return <AdminLoginForm />;
 
-  const [scans, clients, benchmarkSnapshots, duplicateGroups, queueJobs] = await Promise.all([
+  const [scans, clients, benchmarkSnapshots, duplicateGroups, queueJobs, queueMetrics] = await Promise.all([
     prisma.scan.findMany({
       orderBy: { createdAt: 'desc' },
       take: 100,
@@ -123,7 +124,8 @@ export default async function AdminPage({
         errorType: true,
         error: true
       }
-    })
+    }),
+    getQueueMetrics()
   ]);
   const allowDemoTools = process.env.ALLOW_ADMIN_DEMO_TOOLS === '1';
 
@@ -221,6 +223,26 @@ export default async function AdminPage({
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Completed</p>
             <p className="mt-2 text-2xl font-bold text-slate-900">{completedScans.length}</p>
           </div>
+        </div>
+        <div className="grid gap-4 border-b border-slate-200 p-4 md:grid-cols-2 xl:grid-cols-4">
+          {Object.entries(queueMetrics.medianDurationMsByType).map(([type, duration]) => (
+            <div key={`duration-${type}`} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                Median Duration
+              </p>
+              <p className="mt-2 text-lg font-bold text-slate-900">{type}</p>
+              <p className="mt-1 text-sm text-slate-600">
+                {typeof duration === 'number' ? `${Math.round(duration / 1000)}s` : 'No completed jobs yet'}
+              </p>
+            </div>
+          ))}
+          {Object.entries(queueMetrics.retriesByType).map(([type, retries]) => (
+            <div key={`retry-${type}`} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Retries</p>
+              <p className="mt-2 text-lg font-bold text-slate-900">{type}</p>
+              <p className="mt-1 text-sm text-slate-600">{retries} extra attempts in recent jobs</p>
+            </div>
+          ))}
         </div>
         <div className="overflow-x-auto p-4">
           <table className="min-w-full text-sm">

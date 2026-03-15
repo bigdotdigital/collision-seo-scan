@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { toJson } from '@/lib/json';
+import { claimNextJobs, heartbeatJobLease, releaseJobLease } from '@/lib/queue/claim-jobs';
 
 const DEFAULT_SCAN_RETRY_DELAY_MS = 2 * 60 * 1000;
 
@@ -27,56 +28,34 @@ export async function enqueueScanExecution(args: {
 }
 
 export async function claimQueueJobs(args: {
-  type: string;
+  type?: string;
+  types?: string[];
   take?: number;
+  lockOwner: string;
 }) {
-  const jobs = await prisma.queueJob.findMany({
-    where: {
-      type: args.type,
-      status: 'pending',
-      runAt: { lte: new Date() }
-    },
-    orderBy: { runAt: 'asc' },
-    take: args.take || 10
-  });
-
-  const claimed = [];
-
-  for (const job of jobs) {
-    const result = await prisma.queueJob.updateMany({
-      where: { id: job.id, status: 'pending' },
-      data: {
-        status: 'processing',
-        startedAt: new Date(),
-        attempts: { increment: 1 },
-        error: null,
-        errorType: null
-      }
-    });
-
-    if (result.count === 1) {
-      claimed.push({
-        ...job,
-        status: 'processing',
-        attempts: job.attempts + 1
-      });
-    }
-  }
-
-  return claimed;
+  const types = args.types || (args.type ? [args.type] : undefined);
+  return claimNextJobs({ types, take: args.take, lockOwner: args.lockOwner });
 }
 
-export async function completeQueueJob(jobId: string) {
-  return prisma.queueJob.update({
+export async function completeQueueJob(jobId: string, lockOwner?: string) {
+  const job = await prisma.queueJob.update({
     where: { id: jobId },
     data: {
       status: 'done',
       processedAt: new Date(),
       finishedAt: new Date(),
       error: null,
-      errorType: null
+      errorType: null,
+      lockedAt: null,
+      lockOwner: null
     }
   });
+
+  if (lockOwner) {
+    await releaseJobLease({ jobId, lockOwner });
+  }
+
+  return job;
 }
 
 export async function failQueueJob(args: {
@@ -85,12 +64,13 @@ export async function failQueueJob(args: {
   maxAttempts: number;
   error: unknown;
   retryDelayMs?: number;
+  lockOwner?: string;
 }) {
   const message = args.error instanceof Error ? args.error.message : 'Unknown failure';
   const errorType = args.error instanceof Error ? args.error.name : 'QueueJobError';
   const shouldRetry = args.attempts < args.maxAttempts;
 
-  return prisma.queueJob.update({
+  const job = await prisma.queueJob.update({
     where: { id: args.id },
     data: shouldRetry
       ? {
@@ -98,14 +78,28 @@ export async function failQueueJob(args: {
           runAt: new Date(Date.now() + (args.retryDelayMs || DEFAULT_SCAN_RETRY_DELAY_MS)),
           error: message,
           errorType,
-          finishedAt: new Date()
+          finishedAt: new Date(),
+          lockedAt: null,
+          lockOwner: null
         }
       : {
           status: 'failed',
           processedAt: new Date(),
           finishedAt: new Date(),
           error: message,
-          errorType
+          errorType,
+          lockedAt: null,
+          lockOwner: null
         }
   });
+
+  if (args.lockOwner) {
+    await releaseJobLease({ jobId: args.id, lockOwner: args.lockOwner });
+  }
+
+  return job;
+}
+
+export async function refreshQueueJobLease(args: { id: string; lockOwner: string }) {
+  return heartbeatJobLease({ jobId: args.id, lockOwner: args.lockOwner });
 }

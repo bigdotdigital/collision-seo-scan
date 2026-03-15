@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { normalizeWebsiteUrl } from '../lib/security/url.ts';
+import { normalizeInsurerName } from '../lib/insurance-normalization.ts';
+import { extractInsuranceRelationshipSignals } from '../lib/insurance-signals.ts';
 import {
   buildCollisionArchitectureSummary,
   buildMapsAuthoritySummary,
@@ -186,6 +188,31 @@ function testPremiumGating() {
   assert.equal(premiumEntitlement(null), 'free');
 }
 
+function testInsuranceNormalization() {
+  assert.equal(normalizeInsurerName('statefarm'), 'State Farm');
+  assert.equal(normalizeInsurerName('State Farm Insurance'), 'State Farm');
+  assert.equal(normalizeInsurerName('GEICO'), 'GEICO');
+  assert.equal(normalizeInsurerName('liberty mutual'), 'Liberty Mutual');
+}
+
+function testInsuranceSignalExtraction() {
+  const signals = extractInsuranceRelationshipSignals({
+    'https://shop.example/insurance': `
+      <html>
+        <body>
+          <img alt="State Farm approved repair" src="/img/state-farm-logo.png" />
+          <p>We work with State Farm, GEICO, and Progressive claims.</p>
+          <a href="https://www.geico.com/claims/">Start your GEICO claim</a>
+        </body>
+      </html>
+    `
+  });
+
+  assert.ok(signals.some((row) => row.insurerName === 'State Farm' && row.signalType === 'logo'));
+  assert.ok(signals.some((row) => row.insurerName === 'GEICO'));
+  assert.ok(signals.some((row) => row.insurerName === 'Progressive'));
+}
+
 function run() {
   testUrlValidation();
   testSignalDetection();
@@ -193,6 +220,8 @@ function run() {
   testMapsFallbackBehavior();
   testRevenueLeakSeverity();
   testPremiumGating();
+  testInsuranceNormalization();
+  testInsuranceSignalExtraction();
   console.log('test-core: all checks passed');
 }
 

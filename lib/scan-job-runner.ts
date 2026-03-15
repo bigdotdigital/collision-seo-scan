@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { sendReportEmail } from '@/lib/email';
 import { toJson } from '@/lib/json';
 import { prepareScan, savePreparedScan } from '@/lib/scan-workflow';
-import { completeQueueJob, failQueueJob, scanLifecycleLog } from '@/lib/scan-queue';
+import { scanLifecycleLog } from '@/lib/scan-queue';
 
 async function queueFollowup(scanId: string, reportUrl: string) {
   await prisma.queueJob.create({
@@ -16,7 +16,7 @@ async function queueFollowup(scanId: string, reportUrl: string) {
   });
 }
 
-export async function runScanExecutionJob(job: {
+export async function runScanExecution(job: {
   id: string;
   scanId: string | null;
   traceId: string | null;
@@ -24,13 +24,7 @@ export async function runScanExecutionJob(job: {
   maxAttempts: number;
 }) {
   if (!job.scanId) {
-    await failQueueJob({
-      id: job.id,
-      attempts: job.attempts,
-      maxAttempts: job.maxAttempts,
-      error: new Error('Missing scan id on scan job')
-    });
-    return { ok: false as const, reason: 'missing_scan_id' };
+    throw new Error('Missing scan id on scan job');
   }
 
   const scan = await prisma.scan.findUnique({
@@ -55,13 +49,7 @@ export async function runScanExecutionJob(job: {
   });
 
   if (!scan?.organizationId) {
-    await failQueueJob({
-      id: job.id,
-      attempts: job.attempts,
-      maxAttempts: job.maxAttempts,
-      error: new Error('Queued scan is missing organization context')
-    });
-    return { ok: false as const, reason: 'missing_org' };
+    throw new Error('Queued scan is missing organization context');
   }
 
   const startedAt = new Date();
@@ -131,7 +119,6 @@ export async function runScanExecutionJob(job: {
       await queueFollowup(saved.scan.id, reportUrl);
     }
 
-    await completeQueueJob(job.id);
     scanLifecycleLog('complete', {
       scanId: saved.scan.id,
       traceId: job.traceId,
@@ -154,13 +141,6 @@ export async function runScanExecutionJob(job: {
       }
     });
 
-    await failQueueJob({
-      id: job.id,
-      attempts: job.attempts,
-      maxAttempts: job.maxAttempts,
-      error
-    });
-
     scanLifecycleLog('failed', {
       scanId: scan.id,
       traceId: job.traceId,
@@ -169,6 +149,6 @@ export async function runScanExecutionJob(job: {
       error: error instanceof Error ? error.message : 'Unknown scan failure'
     });
 
-    return { ok: false as const, reason: 'scan_failed' };
+    throw error;
   }
 }

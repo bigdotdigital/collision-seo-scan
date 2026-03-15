@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { processFollowupQueue, processQueuedScans } from '@/lib/jobs';
+import { runQueueWorkerOnce } from '@/lib/queue/worker';
 
 function authorized(req: Request) {
   const header = req.headers.get('x-cron-secret') || '';
@@ -12,11 +12,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-  const [scanQueue, followupQueue] = await Promise.all([
-    processQueuedScans(),
-    processFollowupQueue(baseUrl)
-  ]);
+  const result = await runQueueWorkerOnce({ take: 10 });
 
-  return NextResponse.json({ ok: true, scanQueue, followupQueue });
+  return NextResponse.json({
+    ok: true,
+    mode: 'manual_fallback',
+    result
+  });
 }

@@ -47,6 +47,7 @@ That model supports both:
 
 - Next.js route handlers under [app/api](/Users/alexklinger/Desktop/big%20dot%20portfolio/app/api)
 - server-side TypeScript modules in [lib](/Users/alexklinger/Desktop/big%20dot%20portfolio/lib)
+- dedicated queue worker entrypoint in [scripts/worker.ts](/Users/alexklinger/Desktop/big%20dot%20portfolio/scripts/worker.ts)
 - `Prisma` as ORM
 - `PostgreSQL` as primary database
 
@@ -133,6 +134,9 @@ Main orchestration:
 Queue layer:
 - [lib/scan-queue.ts](/Users/alexklinger/Desktop/big%20dot%20portfolio/lib/scan-queue.ts)
 - [lib/scan-job-runner.ts](/Users/alexklinger/Desktop/big%20dot%20portfolio/lib/scan-job-runner.ts)
+- [lib/queue/worker.ts](/Users/alexklinger/Desktop/big%20dot%20portfolio/lib/queue/worker.ts)
+- [lib/queue/handlers.ts](/Users/alexklinger/Desktop/big%20dot%20portfolio/lib/queue/handlers.ts)
+- [lib/queue/claim-jobs.ts](/Users/alexklinger/Desktop/big%20dot%20portfolio/lib/queue/claim-jobs.ts)
 
 Scan engine:
 - [lib/scan-engine.ts](/Users/alexklinger/Desktop/big%20dot%20portfolio/lib/scan-engine.ts)
@@ -141,10 +145,12 @@ The scan flow:
 1. validate and rate-limit the request
 2. create a queued `Scan`
 3. enqueue a `scan_execute` job
-4. background worker runs the actual scan
+4. dedicated worker process runs the actual scan
 5. update the same `Scan` row through queued/running/completed/failed
 6. write canonical shop observations and graph edges
 7. expose report/dashboard data from the completed scan
+
+The worker uses Postgres-backed leases on `QueueJob` so multiple workers can run without double-processing the same job.
 
 ### Report Flow
 

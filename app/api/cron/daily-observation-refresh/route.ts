@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { runDailyObservationRefresh, runRankSnapshotCollect } from '@/lib/jobs';
+import { queueDailyObservationRefreshJobs } from '@/lib/jobs';
 
 function authorized(req: Request) {
   const header = req.headers.get('x-cron-secret') || '';
@@ -12,10 +12,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const [observations, ranks] = await Promise.all([
-    runDailyObservationRefresh(),
-    runRankSnapshotCollect()
-  ]);
+  const queued = await queueDailyObservationRefreshJobs();
 
-  return NextResponse.json({ ok: true, observations, ranks });
+  return NextResponse.json({
+    ok: true,
+    mode: 'scheduled',
+    queued
+  });
 }
