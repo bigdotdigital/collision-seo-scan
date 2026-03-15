@@ -29,6 +29,26 @@ export function hostnameOf(value?: string | null) {
   }
 }
 
+function pathnameOf(value?: string | null) {
+  if (!value) return '/';
+  try {
+    return new URL(value).pathname || '/';
+  } catch {
+    return '/';
+  }
+}
+
+function isRootWebsite(value?: string | null) {
+  const pathname = pathnameOf(value);
+  return pathname === '/' || pathname === '';
+}
+
+function normalizeAddress(value?: string | null) {
+  const cleaned = clean(value);
+  if (!cleaned) return null;
+  return cleaned.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
 function titleCase(value: string) {
   return value
     .toLowerCase()
@@ -108,16 +128,34 @@ function normalizedShopInput(input: ShopInput) {
   const city = clean(input.city);
   const state = normalizedState(input.state);
   const websiteHost = hostnameOf(websiteUrl);
+  const isRootDomain = isRootWebsite(websiteUrl);
+  const address = clean(input.address);
+  const normalizedAddress = normalizeAddress(address);
+  const phone = clean(input.phone);
 
-  return { name, websiteUrl, city, state, websiteHost };
+  return {
+    name,
+    websiteUrl,
+    city,
+    state,
+    address,
+    normalizedAddress,
+    phone,
+    websiteHost,
+    isRootDomain
+  };
 }
 
 async function findExistingShop(args: {
   name: string;
   websiteUrl: string | null;
   websiteHost: string;
+  isRootDomain: boolean;
   city: string | null;
   state: string | null;
+  address: string | null;
+  normalizedAddress: string | null;
+  phone: string | null;
   googlePlaceId?: string | null;
 }) {
   if (args.googlePlaceId) {
@@ -134,24 +172,65 @@ async function findExistingShop(args: {
     if (byWebsite) return byWebsite;
   }
 
-  if (args.websiteHost) {
-    const byHost = await prisma.shop.findFirst({
-      where: { normalizedWebsiteHost: args.websiteHost }
+  if (args.normalizedAddress && args.city) {
+    const byAddress = await prisma.shop.findFirst({
+      where: {
+        city: args.city,
+        state: args.state || undefined,
+        address: args.address || undefined
+      }
     });
-    if (byHost) return byHost;
+    if (byAddress) return byAddress;
   }
 
-  return prisma.shop.findFirst({
+  if (args.phone && args.city) {
+    const byPhone = await prisma.shop.findFirst({
+      where: {
+        city: args.city,
+        state: args.state || undefined,
+        phone: args.phone
+      }
+    });
+    if (byPhone) return byPhone;
+  }
+
+  const byNameAndMarket = await prisma.shop.findFirst({
     where: {
       name: args.name,
       city: args.city || undefined,
       state: args.state || undefined
     }
   });
+  if (byNameAndMarket) return byNameAndMarket;
+
+  if (args.websiteHost && args.isRootDomain) {
+    const byHost = await prisma.shop.findFirst({
+      where: {
+        normalizedWebsiteHost: args.websiteHost,
+        OR: [
+          args.city ? { city: args.city } : undefined,
+          { city: null }
+        ].filter(Boolean) as Array<Record<string, unknown>>
+      }
+    });
+    if (byHost) return byHost;
+  }
+
+  return null;
 }
 
 export async function upsertShopFromInput(input: ShopInput) {
-  const { name, websiteUrl, city, state, websiteHost } = normalizedShopInput(input);
+  const {
+    name,
+    websiteUrl,
+    city,
+    state,
+    address,
+    normalizedAddress,
+    phone,
+    websiteHost,
+    isRootDomain
+  } = normalizedShopInput(input);
   const market = await upsertMarketFromInput({
     city,
     state,
@@ -161,8 +240,12 @@ export async function upsertShopFromInput(input: ShopInput) {
     name,
     websiteUrl,
     websiteHost,
+    isRootDomain,
     city,
     state,
+    address,
+    normalizedAddress,
+    phone,
     googlePlaceId: clean(input.googlePlaceId)
   });
 

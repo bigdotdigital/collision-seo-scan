@@ -1,0 +1,210 @@
+[
+  {
+    "shopName": "Werkheiser Collision",
+    "websiteUrl": "https://werkheisercollision.com/",
+    "city": "Denver",
+    "state": "CO",
+    "address": "1609 E 58th Ave Unit F, Denver, CO 80216",
+    "phone": "(720) 638-2907"
+  },
+  {
+    "shopName": "5280 Auto Hail Repair & Collision Center",
+    "websiteUrl": "https://5280autohailrepair.com/",
+    "city": "Englewood",
+    "state": "CO",
+    "address": "2705 S Tejon St, Englewood, CO 80110",
+    "phone": "(720) 899-6633"
+  },
+  {
+    "shopName": "Aurora Collision Center",
+    "websiteUrl": "https://auroracollisioncenter.com/",
+    "city": "Aurora",
+    "state": "CO",
+    "address": "403-A Laredo St, Aurora, CO 80011",
+    "phone": "(303) 340-4100"
+  },
+  {
+    "shopName": "BDC Collision",
+    "websiteUrl": "https://www.bdccollision.com/",
+    "city": "Denver",
+    "state": "CO",
+    "address": "6160 Federal Blvd, Denver, CO 80221",
+    "phone": "(303) 423-6626"
+  },
+  {
+    "shopName": "Golden Coach Works",
+    "websiteUrl": "https://www.goldencoachworks.com/",
+    "city": "Wheat Ridge",
+    "state": "CO",
+    "address": "12100 W 52nd Ave #101, Wheat Ridge, CO 80033",
+    "phone": "(303) 279-9777"
+  },
+  {
+    "shopName": "StormWise Hail & Collision Repair",
+    "websiteUrl": "https://stormwisehailrepair.com/",
+    "city": "Lakewood",
+    "state": "CO",
+    "address": "775 Sheridan Blvd, Lakewood, CO 80214",
+    "phone": "(720) 439-9533"
+  },
+  {
+    "shopName": "Denver Auto Body & Paint",
+    "websiteUrl": "https://www.denverautobody.com/",
+    "city": "Denver",
+    "state": "CO",
+    "address": "5601 E Colfax Ave, Denver, CO 80220",
+    "phone": "(303) 288-6263"
+  },
+  {
+    "shopName": "Steel Auto Body",
+    "websiteUrl": "https://www.steelautobody.com/",
+    "city": "Wheat Ridge",
+    "state": "CO",
+    "address": "6700 W 44th Ave, Wheat Ridge, CO 80033",
+    "phone": "(303) 420-6229"
+  },
+  {
+    "shopName": "J&A Painting and Body Service",
+    "websiteUrl": "https://www.japaintingandbodyservice.com/",
+    "city": "Denver",
+    "state": "CO",
+    "address": "5290 Lincoln St, Denver, CO 80216",
+    "phone": "(303) 295-1702"
+  },
+  {
+    "shopName": "Auto Body & Frame Clinic",
+    "websiteUrl": "https://www.autobodyframeclinic.com/",
+    "city": "Englewood",
+    "state": "CO",
+    "address": "3754 S Jason St, Englewood, CO 80110",
+    "phone": "(720) 849-0388"
+  },
+  {
+    "shopName": "Peak Collision",
+    "websiteUrl": "https://peakcollision.biz/",
+    "city": "Englewood",
+    "state": "CO",
+    "address": "3237 S Santa Fe Dr, Englewood, CO 80110",
+    "phone": "(303) 761-4401"
+  },
+  {
+    "shopName": "HailPro Co",
+    "websiteUrl": "https://hailproco.com/",
+    "city": "Denver",
+    "state": "CO",
+    "address": "6899 N Pecos St Unit B, Denver, CO 80221",
+    "phone": "(720) 280-1100"
+  },
+  {
+    "shopName": "Gerber Collision & Glass - Denver / Santa Fe",
+    "websiteUrl": "https://www.gerbercollision.com/locations/denver-santa-fe-co",
+    "city": "Denver",
+    "state": "CO",
+    "address": "2555 S Santa Fe Dr, Denver, CO 80223",
+    "phone": "(303) 282-0700"
+  },
+  {
+    "shopName": "Gerber Collision & Glass - Denver / Colorado Blvd",
+    "websiteUrl": "https://www.gerbercollision.com/locations/denver-colorado-blvd-co",
+    "city": "Denver",
+    "state": "CO",
+    "address": "2228 S Colorado Blvd, Denver, CO 80222",
+    "phone": "(303) 691-2639"
+  },
+  {
+    "shopName": "Gerber Collision & Glass - Englewood",
+    "websiteUrl": "https://www.gerbercollision.com/locations/englewood-co",
+    "city": "Englewood",
+    "state": "CO",
+    "address": "6750 S Dawson Circle, Englewood, CO 80112",
+    "phone": "(303) 693-6500"
+  },
+  {
+    "shopName": "Gerber Collision & Glass - Lakewood / Cedar Dr",
+    "websiteUrl": "https://www.gerbercollision.com/locations/lakewood-cedar-dr-co",
+    "city": "Lakewood",
+    "state": "CO",
+    "address": "12520 W Cedar Dr, Lakewood, CO 80228",
+    "phone": "(303) 988-2679"
+  },
+  {
+    "shopName": "Caliber Collision - Denver Stapleton",
+    "websiteUrl": "https://www.caliber.com/find-a-location/denver-stapleton",
+    "city": "Denver",
+    "state": "CO",
+    "address": "9255 E Northfield Blvd, Denver, CO 80238",
+    "phone": "(303) 800-0143"
+  },
+  {
+    "shopName": "Caliber Collision - Denver Fox Street",
+    "websiteUrl": "https://www.caliber.com/find-a-location/denver-fox-street",
+    "city": "Denver",
+    "state": "CO",
+    "address": "4909 Fox St, Denver, CO 80216",
+    "phone": "(303) 287-9782"
+  },
+  {
+    "shopName": "Caliber Collision - East Evans",
+    "websiteUrl": "https://www.caliber.com/find-a-location/denver-east-evans",
+    "city": "Denver",
+    "state": "CO",
+    "address": "5101 E Evans Ave, Denver, CO 80222",
+    "phone": "(303) 762-7562"
+  },
+  {
+    "shopName": "Caliber Collision - Aurora",
+    "websiteUrl": "https://www.caliber.com/find-a-location/aurora",
+    "city": "Aurora",
+    "state": "CO",
+    "address": "10600 E Exposition Ave, Aurora, CO 80012",
+    "phone": "(303) 341-7900"
+  },
+  {
+    "shopName": "Caliber Collision - Aurora East Colfax",
+    "websiteUrl": "https://www.caliber.com/find-a-location/aurora-east-colfax-ave",
+    "city": "Aurora",
+    "state": "CO",
+    "address": "15611 E Colfax Ave, Aurora, CO 80011",
+    "phone": "(303) 360-6955"
+  },
+  {
+    "shopName": "Caliber Collision - Aurora S Abilene",
+    "websiteUrl": "https://www.caliber.com/find-a-location/aurora-s-abilene",
+    "city": "Aurora",
+    "state": "CO",
+    "address": "1690 S Abilene St, Aurora, CO 80012",
+    "phone": "(303) 337-1335"
+  },
+  {
+    "shopName": "Caliber Collision - Lakewood",
+    "websiteUrl": "https://www.caliber.com/find-a-location/lakewood-co",
+    "city": "Lakewood",
+    "state": "CO",
+    "address": "2033 S Wadsworth Blvd, Lakewood, CO 80227",
+    "phone": "(303) 935-1100"
+  },
+  {
+    "shopName": "Caliber Collision - Littleton",
+    "websiteUrl": "https://www.caliber.com/find-a-location/littleton",
+    "city": "Littleton",
+    "state": "CO",
+    "address": "5022 S Jellison Way, Littleton, CO 80123",
+    "phone": "(303) 904-1200"
+  },
+  {
+    "shopName": "Caliber Collision - Littleton Chatfield",
+    "websiteUrl": "https://www.caliber.com/find-a-location/littleton-chatfield",
+    "city": "Littleton",
+    "state": "CO",
+    "address": "10128 W Chatfield Ave, Littleton, CO 80127",
+    "phone": "(303) 607-5650"
+  },
+  {
+    "shopName": "Caliber Collision - Centennial",
+    "websiteUrl": "https://www.caliber.com/find-a-location/centennial",
+    "city": "Centennial",
+    "state": "CO",
+    "address": "7436 S Eagle St, Centennial, CO 80112",
+    "phone": "(303) 766-9777"
+  }
+]
