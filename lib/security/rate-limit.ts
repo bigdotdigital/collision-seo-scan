@@ -7,8 +7,8 @@ const globalState = globalThis as typeof globalThis & {
 const store = globalState.__scanRateLimit ?? new Map<string, Entry>();
 if (!globalState.__scanRateLimit) globalState.__scanRateLimit = store;
 
-const WINDOW_MS = 60_000;
-const LIMIT = 8;
+const SCAN_WINDOW_MS = 60 * 60_000;
+const SCAN_LIMIT = 10;
 
 function checkRateLimit(
   key: string,
@@ -32,7 +32,7 @@ function checkRateLimit(
 }
 
 export function checkScanRateLimit(key: string): { ok: boolean; retryAfterSec?: number } {
-  return checkRateLimit(key, { limit: LIMIT, windowMs: WINDOW_MS });
+  return checkRateLimit(key, { limit: SCAN_LIMIT, windowMs: SCAN_WINDOW_MS });
 }
 
 export function checkLeadRateLimit(key: string): { ok: boolean; retryAfterSec?: number } {

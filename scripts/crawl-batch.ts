@@ -22,10 +22,6 @@ function arg(name: string, fallback?: string) {
   return process.argv[idx + 1] || fallback;
 }
 
-function slug(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-}
-
 function batchId() {
   const explicit = arg('batch');
   if (explicit) return explicit;
@@ -161,6 +157,7 @@ async function summarizeBatch(batch: string) {
   const queued = scans.filter((row) => row.executionStatus === 'queued');
   const running = scans.filter((row) => row.executionStatus === 'running');
   const published = scans.filter((row) => row.publicStatus === 'published');
+  const uniqueShopIds = new Set(scans.map((row) => row.shop?.id).filter(Boolean));
   const durations = completed.map((row) => row.durationMs || 0).filter((value) => value > 0).sort((a, b) => a - b);
   const medianDurationMs =
     durations.length === 0
@@ -170,10 +167,23 @@ async function summarizeBatch(batch: string) {
         : durations[Math.floor(durations.length / 2)];
 
   const hostCounts = new Map<string, number>();
+  const shopCounts = new Map<string, { shopName: string; count: number; websites: Set<string> }>();
   for (const scan of scans) {
     const host = scan.shop?.normalizedWebsiteHost;
-    if (!host) continue;
-    hostCounts.set(host, (hostCounts.get(host) || 0) + 1);
+    if (host) {
+      hostCounts.set(host, (hostCounts.get(host) || 0) + 1);
+    }
+
+    const shopId = scan.shop?.id;
+    if (!shopId) continue;
+    const existing = shopCounts.get(shopId) || {
+      shopName: scan.shopName,
+      count: 0,
+      websites: new Set<string>()
+    };
+    existing.count += 1;
+    existing.websites.add(scan.websiteUrl);
+    shopCounts.set(shopId, existing);
   }
 
   return {
@@ -184,7 +194,8 @@ async function summarizeBatch(batch: string) {
       failed: failed.length,
       stillQueued: queued.length,
       running: running.length,
-      published: published.length
+      published: published.length,
+      uniqueShops: uniqueShopIds.size
     },
     observations: {
       siteFeatureCount,
@@ -194,6 +205,14 @@ async function summarizeBatch(batch: string) {
     duplicateWarnings: Array.from(hostCounts.entries())
       .filter(([, count]) => count > 1)
       .map(([host, count]) => ({ host, count })),
+    canonicalizationWarnings: Array.from(shopCounts.entries())
+      .filter(([, row]) => row.count > 1 && row.websites.size > 1)
+      .map(([shopId, row]) => ({
+        shopId,
+        shopName: row.shopName,
+        scanCount: row.count,
+        websiteCount: row.websites.size
+      })),
     failed: failed.map((row) => ({
       scanId: row.id,
       shopName: row.shopName,
@@ -229,6 +248,7 @@ async function main() {
   }
 
   const started = Date.now();
+  let timedOut = false;
   while (Date.now() - started < maxMinutes * 60 * 1000) {
     await runQueueWorkerOnce({ take: workerTake, types: ['scan_execute'] });
 
@@ -238,12 +258,17 @@ async function main() {
     }
   }
 
+  if (Date.now() - started >= maxMinutes * 60 * 1000) {
+    timedOut = true;
+  }
+
   const summary = await summarizeBatch(batch);
   console.log(
     JSON.stringify(
       {
         batchId: batch,
         seedPath,
+        timedOut,
         queuedResults,
         summary
       },

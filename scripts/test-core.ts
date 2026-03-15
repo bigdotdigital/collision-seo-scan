@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { normalizeWebsiteUrl } from '../lib/security/url.ts';
+import { scanHostKey } from '../lib/security/scan-submit-guard.ts';
 import { normalizeInsurerName } from '../lib/insurance-normalization.ts';
 import { extractInsuranceRelationshipSignals } from '../lib/insurance-signals.ts';
 import {
@@ -112,6 +113,12 @@ function testUrlValidation() {
   assert.equal(normalizeWebsiteUrl('http://127.0.0.1'), null);
 }
 
+function testScanHostKey() {
+  assert.equal(scanHostKey('https://www.example.com/about'), 'example.com');
+  assert.equal(scanHostKey('https://sub.example.com/location'), 'sub.example.com');
+  assert.equal(scanHostKey('not-a-url'), '');
+}
+
 function testSignalDetection() {
   const html = `
     <html><body>
@@ -215,6 +222,7 @@ function testInsuranceSignalExtraction() {
 
 function run() {
   testUrlValidation();
+  testScanHostKey();
   testSignalDetection();
   testCollisionArchitectureSummary();
   testMapsFallbackBehavior();

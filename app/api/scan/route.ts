@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { logEnvWarningsOnce } from '@/lib/env-check';
 import { sanitizeInput } from '@/lib/security/url';
 import { checkScanRateLimit } from '@/lib/security/rate-limit';
+import { checkScanSubmissionGuard } from '@/lib/security/scan-submit-guard';
 import { scanInputSchema } from '@/lib/validation';
 import { upsertLead, upsertOrganizationFromInput, createScanRecord } from '@/lib/org-data';
 import { normalizeScanWebsiteUrl } from '@/lib/scan-workflow';
@@ -56,6 +57,29 @@ export async function POST(req: Request) {
 
     if (!websiteUrl) {
       return badRequest('Invalid website URL', traceId);
+    }
+
+    const submissionGuard = await checkScanSubmissionGuard({ websiteUrl });
+    if (!submissionGuard.ok) {
+      const existingReportUrl = submissionGuard.existingScanId ? `/report/${submissionGuard.existingScanId}` : null;
+      const error =
+        submissionGuard.reason === 'scan_in_progress'
+          ? 'A scan for this site is already running. Please check the existing report in a few minutes.'
+          : 'This site was scanned recently. Please try again tomorrow or open the latest report.';
+
+      return NextResponse.json(
+        {
+          error,
+          traceId,
+          reportUrl: existingReportUrl,
+          nextUrl: existingReportUrl,
+          existingScanId: submissionGuard.existingScanId || null
+        },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(submissionGuard.retryAfterSec || 60) }
+        }
+      );
     }
 
     if (clean.city.length < 2 || clean.shop.length < 2) {
