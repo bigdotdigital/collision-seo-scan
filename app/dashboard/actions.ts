@@ -13,6 +13,7 @@ export async function refreshDashboardData() {
     prisma.organization.findUnique({
       where: { id: ctx.orgId },
       select: {
+        shopId: true,
         name: true,
         websiteUrl: true,
         city: true,
@@ -47,6 +48,7 @@ export async function refreshDashboardData() {
   try {
     await refreshOrganizationScan({
       orgId: ctx.orgId,
+      shopId: org?.shopId || null,
       shopName,
       websiteUrl,
       city,
@@ -67,5 +69,5 @@ export async function refreshDashboardData() {
   revalidatePath('/dashboard/rankings');
   revalidatePath('/dashboard/competitors');
   revalidatePath('/dashboard/reports');
-  redirect('/dashboard?refresh=done');
+  redirect('/dashboard?refresh=queued');
 }

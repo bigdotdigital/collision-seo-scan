@@ -4,6 +4,11 @@ import { sendFollowupEmail } from '@/lib/email';
 import { parseJson } from '@/lib/json';
 import { collectRankSnapshotsForOrg } from '@/lib/rank-snapshot-engine';
 import { generateAlertsForOrg } from '@/lib/alerts';
+import { fetchGooglePlaceProfile } from '@/lib/google-places';
+import { runScanExecutionJob } from '@/lib/scan-job-runner';
+import { claimQueueJobs } from '@/lib/scan-queue';
+import { recordReviewObservation } from '@/lib/shop-data';
+import { recordTrackedCompetitorEdgesForOrg } from '@/lib/shop-graph';
 
 function startOfUtcDay(input = new Date()) {
   return new Date(Date.UTC(input.getUTCFullYear(), input.getUTCMonth(), input.getUTCDate()));
@@ -13,6 +18,30 @@ function average(values: Array<number | null | undefined>) {
   const usable = values.filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
   if (usable.length === 0) return null;
   return usable.reduce((sum, value) => sum + value, 0) / usable.length;
+}
+
+export async function processQueuedScans() {
+  const jobs = await claimQueueJobs({ type: 'scan_execute', take: 5 });
+
+  let processed = 0;
+  let completed = 0;
+  let failed = 0;
+
+  for (const job of jobs) {
+    processed += 1;
+    const result = await runScanExecutionJob({
+      id: job.id,
+      scanId: job.scanId,
+      traceId: job.traceId,
+      attempts: job.attempts,
+      maxAttempts: job.maxAttempts
+    });
+
+    if (result.ok) completed += 1;
+    else failed += 1;
+  }
+
+  return { processed, completed, failed };
 }
 
 export async function processFollowupQueue(baseUrl: string) {
@@ -126,6 +155,98 @@ export async function runRankSnapshotCollect() {
   }
 
   return { organizations: orgs.length, processed, inserted, skipped };
+}
+
+export async function runDailyObservationRefresh(args?: { shopBatch?: number; orgBatch?: number }) {
+  const shopBatch = Math.max(10, Math.min(args?.shopBatch || 25, 100));
+  const orgBatch = Math.max(10, Math.min(args?.orgBatch || 50, 200));
+
+  const [shops, orgs] = await Promise.all([
+    prisma.shop.findMany({
+      where: {
+        OR: [
+          { googlePlaceId: { not: null } },
+          {
+            AND: [{ websiteUrl: { not: null } }, { city: { not: null } }]
+          }
+        ]
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: shopBatch
+    }),
+    prisma.organization.findMany({
+      where: { shopId: { not: null }, trackedCompetitors: { some: { isActive: true } } },
+      select: { id: true },
+      orderBy: { updatedAt: 'desc' },
+      take: orgBatch
+    })
+  ]);
+
+  let reviewSnapshots = 0;
+  let reviewFailures = 0;
+  const reviewSkipped: string[] = [];
+
+  for (const shop of shops) {
+    if (!shop.city && !shop.address) {
+      reviewSkipped.push(`${shop.id}:missing_location`);
+      continue;
+    }
+
+    try {
+      const profile = await fetchGooglePlaceProfile({
+        shopName: shop.name,
+        city: shop.city || '',
+        stateHint: shop.state || null,
+        addressHint: shop.address || null,
+        websiteUrl: shop.websiteUrl || null
+      });
+
+      if (!profile.profile) {
+        reviewSkipped.push(`${shop.id}:no_profile`);
+        continue;
+      }
+
+      await recordReviewObservation({
+        shopId: shop.id,
+        observedAt: new Date(),
+        city: shop.city,
+        state: shop.state,
+        vertical: shop.verticalDefault,
+        source: 'daily_google_places_refresh',
+        confidence: profile.source,
+        profile: profile.profile
+      });
+      reviewSnapshots += 1;
+    } catch (error) {
+      reviewFailures += 1;
+      reviewSkipped.push(`${shop.id}:${error instanceof Error ? error.message : 'unknown_error'}`);
+    }
+  }
+
+  let graphEdges = 0;
+  const graphSkipped: string[] = [];
+
+  for (const org of orgs) {
+    try {
+      const result = await recordTrackedCompetitorEdgesForOrg({
+        orgId: org.id,
+        observedAt: new Date()
+      });
+      graphEdges += result.count;
+    } catch (error) {
+      graphSkipped.push(`${org.id}:${error instanceof Error ? error.message : 'unknown_error'}`);
+    }
+  }
+
+  return {
+    shopsConsidered: shops.length,
+    reviewSnapshots,
+    reviewFailures,
+    reviewSkipped,
+    organizationsConsidered: orgs.length,
+    graphEdges,
+    graphSkipped
+  };
 }
 
 export async function runAlertGeneration() {

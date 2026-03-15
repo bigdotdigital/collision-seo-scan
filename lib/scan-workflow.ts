@@ -9,8 +9,10 @@ import { computeScoreV01 } from '@/lib/scoring';
 import { assertPublicHostname, normalizeWebsiteUrl } from '@/lib/security/url';
 import { createScanRecord, createSnapshot, storeRawProviderResponse } from '@/lib/org-data';
 import { seedDashboardFromScan } from '@/lib/dashboard-prefill';
+import { publishScanIfQualified } from '@/lib/public-report';
 import {
   claimShopForOrganization,
+  clearScanObservationArtifacts,
   recordCompetitorObservations,
   recordConversionObservation,
   recordKeywordObservations,
@@ -19,6 +21,7 @@ import {
   recordSiteFeatureObservation,
   upsertShopFromInput
 } from '@/lib/shop-data';
+import { recordMapPackEdges, recordScanCompetitorEdges } from '@/lib/shop-graph';
 
 const EMPTY_PAGESPEED: PageSpeedResult = {
   status: 'error',
@@ -345,6 +348,7 @@ function rankPositionsFor(result: Awaited<ReturnType<typeof runScan>>) {
 }
 
 export async function savePreparedScan(args: {
+  scanId?: string;
   orgId: string;
   shopName: string;
   city: string;
@@ -387,21 +391,38 @@ export async function savePreparedScan(args: {
     googlePlace
   });
 
-  const seedScan = await createScanRecord(
-    {
-      website_url: args.prepared.websiteUrl,
-      city_or_zip: args.city,
-      shop_name: args.shopName,
-      email: args.email || '',
-      phone: args.phone || '',
-      vertical
-    },
-    args.orgId,
-    shop.id
-  );
+  const scan =
+    args.scanId
+      ? await prisma.scan.update({
+          where: { id: args.scanId },
+          data: {
+            shopId: shop.id,
+            organizationId: args.orgId,
+            shopName: args.shopName,
+            city: args.city,
+            websiteUrl: args.prepared.websiteUrl,
+            email: args.email || null,
+            phone: args.phone || null,
+            errorType: null,
+            errorMessage: null
+          }
+        })
+      : await createScanRecord(
+          {
+            website_url: args.prepared.websiteUrl,
+            city_or_zip: args.city,
+            shop_name: args.shopName,
+            email: args.email || '',
+            phone: args.phone || '',
+            vertical,
+            executionStatus: 'running'
+          },
+          args.orgId,
+          shop.id
+        );
 
-  const scan = await prisma.scan.update({
-    where: { id: seedScan.id },
+  await prisma.scan.update({
+    where: { id: scan.id },
     data: {
       scoreTotal: args.prepared.result.scores.total,
       scoreWebsite: args.prepared.result.scores.website,
@@ -416,6 +437,8 @@ export async function savePreparedScan(args: {
       thirtyDayPlanJson: toJson(args.prepared.result.thirtyDayPlan)
     }
   });
+
+  await clearScanObservationArtifacts(scan.id);
 
   await Promise.all([
     claimShopForOrganization({
@@ -466,6 +489,24 @@ export async function savePreparedScan(args: {
       confidence: args.prepared.result.sources.mapPack
     }),
     recordCompetitorObservations({
+      sourceShopId: shop.id,
+      scanId: scan.id,
+      observedAt: scan.createdAt,
+      city: args.city,
+      state: googlePlace?.state || args.state || null,
+      vertical,
+      competitors: args.prepared.result.competitors
+    }),
+    recordMapPackEdges({
+      sourceShopId: shop.id,
+      scanId: scan.id,
+      observedAt: scan.createdAt,
+      city: args.city,
+      state: googlePlace?.state || args.state || null,
+      vertical,
+      mapPack: args.prepared.result.mapPack
+    }),
+    recordScanCompetitorEdges({
       sourceShopId: shop.id,
       scanId: scan.id,
       observedAt: scan.createdAt,
@@ -567,8 +608,30 @@ export async function savePreparedScan(args: {
     competitors: args.prepared.result.competitors.map((row) => ({ name: row.name, url: row.url }))
   });
 
+  const completedScan = await prisma.scan.update({
+    where: { id: scan.id },
+    data: {
+      executionStatus: 'completed',
+      finishedAt: new Date(),
+      durationMs: Math.max(0, Date.now() - (scan.startedAt?.getTime() || scan.createdAt.getTime())),
+      errorType: null,
+      errorMessage: null
+    }
+  });
+
+  const publishedScan = await publishScanIfQualified({
+    scanId: completedScan.id,
+    shopId: shop.id,
+    shopName: args.shopName,
+    city: googlePlace?.city || args.city,
+    state: googlePlace?.state || args.state || null,
+    websiteUrl: args.prepared.websiteUrl,
+    scoreTotal: completedScan.scoreTotal,
+    rawChecksJson: completedScan.rawChecksJson
+  });
+
   return {
-    scan,
+    scan: publishedScan,
     snapshot,
     shop,
     googlePlace,

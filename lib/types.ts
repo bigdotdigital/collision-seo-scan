@@ -214,6 +214,13 @@ export type ScanRecord = {
   city: string;
   email: string | null;
   phone: string | null;
+  executionStatus?: string;
+  queuedAt?: string | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  durationMs?: number | null;
+  errorType?: string | null;
+  errorMessage?: string | null;
   pagespeed: import('@/lib/pagespeed').PageSpeedResult;
   scoreTotal?: number;
   scoreWebsite?: number;

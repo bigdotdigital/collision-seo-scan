@@ -29,6 +29,18 @@ model Scan {
   aiSummary         String?
   thirtyDayPlanJson String?
   status            String      @default("lead")
+  executionStatus   String      @default("completed")
+  traceId           String?
+  queuedAt          DateTime?
+  startedAt         DateTime?
+  finishedAt        DateTime?
+  durationMs        Int?
+  executionAttempts Int         @default(0)
+  errorType         String?
+  errorMessage      String?
+  publicStatus      String      @default("private")
+  publicPublishedAt DateTime?
+  publicSummaryJson String?
   vertical          String      @default("collision")
   shopId            String?
   organizationId    String?
@@ -52,11 +64,14 @@ model Scan {
   serpObservations ShopSerpObservation[]
   conversionObservations ShopConversionObservation[]
   siteFeatureObservations ShopSiteFeatureObservation[]
+  graphEdges        ShopGraphEdge[]
 
   @@index([shopId])
   @@index([organizationId])
   @@index([vertical])
   @@index([createdAt])
+  @@index([executionStatus, createdAt])
+  @@index([shopId, publicStatus, createdAt])
 }
 
 model Client {
@@ -109,14 +124,21 @@ model QueueJob {
   runAt       DateTime
   type        String
   status      String    @default("pending")
+  traceId     String?
   scanId      String?
   clientId    String?
   payloadJson String?
   attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  startedAt   DateTime?
   processedAt DateTime?
+  finishedAt  DateTime?
+  errorType   String?
   error       String?
   scan        Scan?     @relation(fields: [scanId], references: [id], onDelete: SetNull)
   client      Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([type, status, runAt])
 }
 
 model Market {
@@ -155,6 +177,8 @@ model Shop {
   lat              Float?
   lng              Float?
   googlePlaceId    String?  @unique
+  publicProfileSlug String? @unique
+  publicProfileOptOutAt DateTime?
   primaryCategory  String?
   verticalDefault  String   @default("collision")
   market           Market?  @relation(fields: [marketId], references: [id], onDelete: SetNull)
@@ -169,12 +193,35 @@ model Shop {
   siteFeatureObservations ShopSiteFeatureObservation[]
   competitorSourceObservations ShopCompetitorObservation[] @relation("ObservationSourceShop")
   competitorTargetObservations ShopCompetitorObservation[] @relation("ObservationTargetShop")
+  outgoingGraphEdges ShopGraphEdge[] @relation("ShopGraphEdgeSource")
+  incomingGraphEdges ShopGraphEdge[] @relation("ShopGraphEdgeTarget")
 
   @@index([name])
   @@index([city, state])
   @@index([websiteUrl])
   @@index([normalizedWebsiteHost])
   @@index([marketId])
+}
+
+model ShopGraphEdge {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  edgeKey      String   @unique
+  observedAt   DateTime
+  observedDay  DateTime
+  sourceShopId String
+  targetShopId String
+  scanId       String?
+  edgeType     String
+  strength     Float?
+  metadataJson String?
+  sourceShop   Shop     @relation("ShopGraphEdgeSource", fields: [sourceShopId], references: [id], onDelete: Cascade)
+  targetShop   Shop     @relation("ShopGraphEdgeTarget", fields: [targetShopId], references: [id], onDelete: Cascade)
+  scan         Scan?    @relation(fields: [scanId], references: [id], onDelete: SetNull)
+
+  @@index([sourceShopId, observedAt])
+  @@index([targetShopId, observedAt])
 }
 
 model ShopKeywordObservation {

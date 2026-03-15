@@ -26,7 +26,7 @@ import {
 export async function buildDashboardOverviewPageState(orgId: string) {
   const [latestScan, previousScan, activeKeywords, keywordRows, subscription] = await Promise.all([
     prisma.scan.findFirst({
-      where: { organizationId: orgId },
+      where: { organizationId: orgId, executionStatus: 'completed' },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
@@ -45,7 +45,7 @@ export async function buildDashboardOverviewPageState(orgId: string) {
       }
     }),
     prisma.scan.findFirst({
-      where: { organizationId: orgId },
+      where: { organizationId: orgId, executionStatus: 'completed' },
       orderBy: { createdAt: 'desc' },
       skip: 1,
       select: {

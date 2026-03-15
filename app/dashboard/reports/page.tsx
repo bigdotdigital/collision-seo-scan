@@ -11,7 +11,7 @@ export default async function ReportsPage() {
   const ctx = await requireDashboardContext();
 
   const scans = await prisma.scan.findMany({
-    where: { organizationId: ctx.orgId },
+    where: { organizationId: ctx.orgId, executionStatus: 'completed' },
     orderBy: { createdAt: 'desc' },
     take: 24,
     select: {

@@ -1,7 +1,9 @@
-import { prepareScan, savePreparedScan } from '@/lib/scan-workflow';
+import { createScanRecord } from '@/lib/org-data';
+import { enqueueScanExecution } from '@/lib/scan-queue';
 
 export async function refreshOrganizationScan(args: {
   orgId: string;
+  shopId?: string | null;
   shopName: string;
   websiteUrl: string;
   city: string;
@@ -10,35 +12,30 @@ export async function refreshOrganizationScan(args: {
   phone?: string | null;
   vertical?: string | null;
 }) {
-  const prepared = await prepareScan({
-    shopName: args.shopName,
-    websiteUrl: args.websiteUrl,
-    city: args.city,
-    state: args.state || null,
-    address: args.address || null,
-    phone: args.phone || null,
-    vertical: args.vertical || 'collision'
-  });
+  const scan = await createScanRecord(
+    {
+      website_url: args.websiteUrl,
+      city_or_zip: args.city,
+      shop_name: args.shopName,
+      phone: args.phone || '',
+      vertical: args.vertical || 'collision',
+      executionStatus: 'queued',
+      queuedAt: new Date()
+    },
+    args.orgId,
+    args.shopId || undefined
+  );
 
-  const saved = await savePreparedScan({
-    orgId: args.orgId,
-    shopName: args.shopName,
-    city: args.city,
-    state: args.state || null,
-    address: args.address || null,
-    phone: args.phone || null,
-    vertical: prepared.vertical,
-    prepared,
-    conversionSource: 'dashboard_refresh',
-    conversionValue: {
-      scoreTotal: prepared.result.scores.total,
+  await enqueueScanExecution({
+    scanId: scan.id,
+    payload: {
+      source: 'dashboard_refresh',
       refreshedFromDashboard: true
     }
   });
 
   return {
-    scanId: saved.scan.id,
-    googlePlace: saved.googlePlace,
-    source: prepared.googlePlaceResult.source
+    scanId: scan.id,
+    source: 'queued'
   };
 }

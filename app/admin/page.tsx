@@ -73,7 +73,7 @@ export default async function AdminPage({
   const authed = await isAdminAuthed();
   if (!authed) return <AdminLoginForm />;
 
-  const [scans, clients, benchmarkSnapshots, duplicateGroups] = await Promise.all([
+  const [scans, clients, benchmarkSnapshots, duplicateGroups, queueJobs] = await Promise.all([
     prisma.scan.findMany({
       orderBy: { createdAt: 'desc' },
       take: 100,
@@ -105,13 +105,35 @@ export default async function AdminPage({
         }
       }
     }),
-    findDuplicateShopCandidates(8)
+    findDuplicateShopCandidates(8),
+    prisma.queueJob.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 40,
+      select: {
+        id: true,
+        type: true,
+        status: true,
+        scanId: true,
+        attempts: true,
+        maxAttempts: true,
+        createdAt: true,
+        runAt: true,
+        startedAt: true,
+        finishedAt: true,
+        errorType: true,
+        error: true
+      }
+    })
   ]);
   const allowDemoTools = process.env.ALLOW_ADMIN_DEMO_TOOLS === '1';
 
   const showRealOnly = searchParams?.view === 'real';
   const realScans = scans.filter((scan) => !isLikelyTestScan(scan));
   const displayedScans = showRealOnly ? realScans : scans;
+  const queuedScans = scans.filter((scan) => scan.executionStatus === 'queued');
+  const runningScans = scans.filter((scan) => scan.executionStatus === 'running');
+  const failedScans = scans.filter((scan) => scan.executionStatus === 'failed');
+  const completedScans = scans.filter((scan) => scan.executionStatus === 'completed');
   return (
     <main className="container-shell py-10">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -170,6 +192,63 @@ export default async function AdminPage({
               Show all scans
             </Link>
           ) : null}
+        </div>
+      </div>
+
+      <div className="card mb-8">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
+          <div>
+            <h2 className="text-lg font-bold">Scan Queue</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Current scan execution states and recent queue jobs.
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-4 border-b border-slate-200 p-4 md:grid-cols-4">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Queued</p>
+            <p className="mt-2 text-2xl font-bold text-slate-900">{queuedScans.length}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Running</p>
+            <p className="mt-2 text-2xl font-bold text-slate-900">{runningScans.length}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Failed</p>
+            <p className="mt-2 text-2xl font-bold text-slate-900">{failedScans.length}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Completed</p>
+            <p className="mt-2 text-2xl font-bold text-slate-900">{completedScans.length}</p>
+          </div>
+        </div>
+        <div className="overflow-x-auto p-4">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-left text-slate-500">
+                <th className="px-3 py-2 font-semibold">Type</th>
+                <th className="px-3 py-2 font-semibold">Status</th>
+                <th className="px-3 py-2 font-semibold">Scan</th>
+                <th className="px-3 py-2 font-semibold">Attempts</th>
+                <th className="px-3 py-2 font-semibold">Run At</th>
+                <th className="px-3 py-2 font-semibold">Last Error</th>
+              </tr>
+            </thead>
+            <tbody>
+              {queueJobs.map((job) => (
+                <tr key={job.id} className="border-b border-slate-100">
+                  <td className="px-3 py-2 font-medium text-slate-900">{job.type}</td>
+                  <td className="px-3 py-2 text-slate-700">{job.status}</td>
+                  <td className="px-3 py-2 text-slate-700">{job.scanId?.slice(0, 8) || '—'}</td>
+                  <td className="px-3 py-2 text-slate-700">
+                    {job.attempts}/{job.maxAttempts}
+                  </td>
+                  <td className="px-3 py-2 text-slate-700">{formatDateTime(job.runAt)}</td>
+                  <td className="px-3 py-2 text-slate-700">{job.errorType || job.error || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 

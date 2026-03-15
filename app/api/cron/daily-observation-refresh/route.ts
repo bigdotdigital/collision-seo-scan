@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { processFollowupQueue, processQueuedScans } from '@/lib/jobs';
+import { runDailyObservationRefresh, runRankSnapshotCollect } from '@/lib/jobs';
 
 function authorized(req: Request) {
   const header = req.headers.get('x-cron-secret') || '';
@@ -12,11 +12,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-  const [scanQueue, followupQueue] = await Promise.all([
-    processQueuedScans(),
-    processFollowupQueue(baseUrl)
+  const [observations, ranks] = await Promise.all([
+    runDailyObservationRefresh(),
+    runRankSnapshotCollect()
   ]);
 
-  return NextResponse.json({ ok: true, scanQueue, followupQueue });
+  return NextResponse.json({ ok: true, observations, ranks });
 }

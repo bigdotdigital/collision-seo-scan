@@ -6,7 +6,7 @@ import { prisma } from '@/lib/prisma';
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireDashboardContext();
   const latestScan = await prisma.scan.findFirst({
-    where: { organizationId: ctx.orgId },
+    where: { organizationId: ctx.orgId, executionStatus: 'completed' },
     orderBy: { createdAt: 'desc' },
     select: { createdAt: true }
   });

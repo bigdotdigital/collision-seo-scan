@@ -14,6 +14,13 @@ export type ScanRecord = BaseScanRecord & {
   scoreWebsite: number;
   scoreLocal: number;
   scoreIntent: number;
+  executionStatus?: string;
+  queuedAt?: string | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  durationMs?: number | null;
+  errorType?: string | null;
+  errorMessage?: string | null;
   issues: Issue[];
   moneyKeywords: MoneyKeyword[];
   competitors: Competitor[];
@@ -61,6 +68,13 @@ function toRecord(scan: {
   thirtyDayPlanJson: string | null;
   aiSummary: string | null;
   rawChecksJson: string;
+  executionStatus: string;
+  queuedAt: Date | null;
+  startedAt: Date | null;
+  finishedAt: Date | null;
+  durationMs: number | null;
+  errorType: string | null;
+  errorMessage: string | null;
 }): ScanRecord {
   return {
     id: scan.id,
@@ -75,6 +89,13 @@ function toRecord(scan: {
     scoreWebsite: scan.scoreWebsite,
     scoreLocal: scan.scoreLocal,
     scoreIntent: scan.scoreIntent,
+    executionStatus: scan.executionStatus,
+    queuedAt: scan.queuedAt?.toISOString() || null,
+    startedAt: scan.startedAt?.toISOString() || null,
+    finishedAt: scan.finishedAt?.toISOString() || null,
+    durationMs: scan.durationMs,
+    errorType: scan.errorType,
+    errorMessage: scan.errorMessage,
     issues: parseJson<Issue[]>(scan.issuesJson, []),
     moneyKeywords: parseJson<MoneyKeyword[]>(scan.moneyKeywordsJson, []),
     competitors: parseJson<Competitor[]>(scan.competitorsJson, []),

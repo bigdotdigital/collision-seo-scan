@@ -44,7 +44,7 @@ export default async function DashboardCompetitorsPage() {
       }
     }),
     prisma.scan.findFirst({
-      where: { organizationId: ctx.orgId },
+      where: { organizationId: ctx.orgId, executionStatus: 'completed' },
       orderBy: { createdAt: 'desc' },
       select: {
         shopName: true,

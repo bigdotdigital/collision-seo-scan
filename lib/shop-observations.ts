@@ -5,6 +5,18 @@ import type { GooglePlaceProfile } from '@/lib/google-places';
 import type { MapPackResult } from '@/lib/types';
 import { clean, resolveCompetitorShop, upsertMarketFromInput } from '@/lib/shop-core';
 
+export async function clearScanObservationArtifacts(scanId: string) {
+  await Promise.all([
+    prisma.shopKeywordObservation.deleteMany({ where: { scanId } }),
+    prisma.shopReviewObservation.deleteMany({ where: { scanId } }),
+    prisma.shopCompetitorObservation.deleteMany({ where: { scanId } }),
+    prisma.shopSerpObservation.deleteMany({ where: { scanId } }),
+    prisma.shopConversionObservation.deleteMany({ where: { scanId } }),
+    prisma.shopSiteFeatureObservation.deleteMany({ where: { scanId } }),
+    prisma.shopGraphEdge.deleteMany({ where: { scanId } })
+  ]);
+}
+
 function countServicePages(urls: string[]) {
   return urls.filter((url) => /\/(services?|collision|repair|paint|hail|dent|cert|estimate|contact)\b/i.test(url)).length;
 }
@@ -13,6 +25,10 @@ function parseRankLabel(label?: string | null) {
   if (!label) return null;
   const match = label.match(/#(\d+)/);
   return match ? Number(match[1]) : null;
+}
+
+function startOfUtcDay(input: Date) {
+  return new Date(Date.UTC(input.getUTCFullYear(), input.getUTCMonth(), input.getUTCDate()));
 }
 
 export async function recordSiteFeatureObservation(args: {
@@ -80,6 +96,38 @@ export async function recordReviewObservation(args: {
     state: args.state,
     vertical: args.vertical
   });
+
+  if (!args.scanId) {
+    const dayStart = startOfUtcDay(observedAt);
+    const nextDay = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+    const existing = await prisma.shopReviewObservation.findFirst({
+      where: {
+        shopId: args.shopId,
+        scanId: null,
+        source: args.source || 'google_places_profile',
+        observedAt: {
+          gte: dayStart,
+          lt: nextDay
+        }
+      }
+    });
+
+    if (existing) {
+      return prisma.shopReviewObservation.update({
+        where: { id: existing.id },
+        data: {
+          observedAt,
+          marketId: market?.id || undefined,
+          confidence: args.confidence || 'live',
+          rating: args.profile.rating ?? undefined,
+          reviewCount: args.profile.userRatingCount ?? undefined,
+          googlePlaceId: args.profile.placeId || undefined,
+          googleMapsUri: args.profile.googleMapsUri || undefined,
+          rawJson: toJson(args.profile)
+        }
+      });
+    }
+  }
 
   return prisma.shopReviewObservation.create({
     data: {

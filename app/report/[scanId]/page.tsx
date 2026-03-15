@@ -84,6 +84,60 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       scoreCondition,
       competitorRows
     } = state;
+    const executionStatus = scanRecord.executionStatus || 'completed';
+    if (executionStatus === 'queued' || executionStatus === 'running') {
+      return (
+        <main className="container-shell pb-20 pt-12">
+          <section className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Scan in progress</p>
+            <h1 className="mt-3 text-3xl font-bold text-slate-900">{scanRecord.shopName}</h1>
+            <p className="mt-2 text-sm text-slate-600">
+              We saved the report URL and queued the scan. This page will populate automatically once the scan finishes.
+            </p>
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Status</p>
+                <p className="mt-2 text-lg font-semibold text-slate-900">
+                  {executionStatus === 'queued' ? 'Queued' : 'Running'}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Scan ID</p>
+                <p className="mt-2 text-sm font-medium text-slate-900">{scanRecord.id}</p>
+              </div>
+            </div>
+            <p className="mt-6 text-sm text-slate-600">
+              If you entered an email, the report will send when the scan completes.
+            </p>
+            <Link href="/" className="mt-6 inline-block text-sm font-semibold text-teal-700 underline">
+              Back to scanner
+            </Link>
+          </section>
+        </main>
+      );
+    }
+
+    if (executionStatus === 'failed') {
+      return (
+        <main className="container-shell pb-20 pt-12">
+          <section className="mx-auto max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 p-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">Scan needs retry</p>
+            <h1 className="mt-3 text-3xl font-bold text-slate-900">{scanRecord.shopName}</h1>
+            <p className="mt-2 text-sm text-slate-700">
+              This scan did not complete successfully. You can retry from the scanner, or contact support if it keeps failing.
+            </p>
+            {scanRecord.errorMessage ? (
+              <p className="mt-4 rounded-lg border border-amber-300 bg-white/70 px-4 py-3 text-sm text-amber-900">
+                {scanRecord.errorMessage}
+              </p>
+            ) : null}
+            <Link href="/" className="mt-6 inline-block text-sm font-semibold text-teal-700 underline">
+              Run another scan
+            </Link>
+          </section>
+        </main>
+      );
+    }
     const scoreHelp = {
       visibilityHealth:
         'Your overall visibility health combines website basics, local presence, collision-specific trust signals, speed, and conversion readiness into one headline score.',

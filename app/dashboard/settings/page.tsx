@@ -62,9 +62,9 @@ export default async function DashboardSettingsPage({
       : prisma.user.findUnique({
           where: { id: ctx.userId },
           select: { name: true, email: true }
-        }),
+    }),
     prisma.scan.findFirst({
-      where: { organizationId: ctx.orgId },
+      where: { organizationId: ctx.orgId, executionStatus: 'completed' },
       orderBy: { createdAt: 'desc' },
       select: {
         createdAt: true,

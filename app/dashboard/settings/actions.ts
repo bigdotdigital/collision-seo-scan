@@ -119,7 +119,7 @@ export async function importLatestScanSuggestions(formData: FormData) {
       select: { name: true, city: true, state: true, websiteUrl: true, verticalDefault: true }
     }),
     prisma.scan.findFirst({
-      where: { organizationId: ctx.orgId },
+      where: { organizationId: ctx.orgId, executionStatus: 'completed' },
       orderBy: { createdAt: 'desc' },
       select: {
         shopName: true,

@@ -126,6 +126,9 @@ export async function createScanRecord(
     has_adas?: boolean;
     has_aluminum?: boolean;
     vertical?: string;
+    executionStatus?: string;
+    traceId?: string;
+    queuedAt?: Date;
   },
   organizationId?: string,
   shopId?: string
@@ -146,6 +149,9 @@ export async function createScanRecord(
       competitorsJson: '[]',
       rawChecksJson: '{}',
       status: 'lead',
+      executionStatus: input.executionStatus || 'completed',
+      traceId: input.traceId || undefined,
+      queuedAt: input.queuedAt || undefined,
       vertical: input.vertical || 'collision',
       shopId,
       organizationId,

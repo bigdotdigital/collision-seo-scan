@@ -71,6 +71,11 @@ export default async function DashboardOverviewPage({
           Fresh scan complete. The dashboard is now using the latest workspace data and provider results.
         </div>
       ) : null}
+      {refreshState === 'queued' ? (
+        <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+          Refresh queued. We saved a new scan and the dashboard will update when background processing finishes.
+        </div>
+      ) : null}
       {refreshState === 'missing' ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Add a shop name, website, and city in dashboard settings before refreshing data.
