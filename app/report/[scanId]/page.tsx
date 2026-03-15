@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ScoreRing } from '@/components/score-ring';
+import { InfoTooltip } from '@/components/info-tooltip';
 import { ReportEmailCapture } from '@/components/report-email-capture';
 import { ReportCtaActions, ReportShareActions } from '@/components/report-cta-actions';
 import { formatCls, formatMilliseconds, formatScore } from '@/lib/metric-format';
@@ -83,6 +84,26 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       scoreCondition,
       competitorRows
     } = state;
+    const scoreHelp = {
+      visibilityHealth:
+        'Your overall visibility health combines website basics, local presence, collision-specific trust signals, speed, and conversion readiness into one headline score.',
+      website:
+        'Website measures how strong the site foundation is: crawlability, titles, speed, mobile experience, and whether core pages are understandable to search engines.',
+      local:
+        'Local measures how well the shop is positioned for nearby searches, including map relevance, city/service alignment, and business-profile signals.',
+      intent:
+        'Intent measures whether the pages match what collision shoppers are actually searching for, such as repair services, OEM terms, estimate intent, and local modifiers.',
+      technicalSeo:
+        'Technical SEO checks whether search engines can crawl, understand, and trust the main pages on the site.',
+      localSeo:
+        'Local SEO checks whether the site and business profile send strong signals for nearby collision-related searches.',
+      collisionAuthority:
+        'Collision Authority measures trust signals specific to body shops, such as certifications, repair specialties, reviews, and credibility markers.',
+      speedPerformance:
+        'Speed & Performance measures how quickly the site loads and how stable it feels on phones, where many estimate searches happen.',
+      contentCoverage:
+        'Content Coverage measures whether the site has enough service and specialty pages to match real collision-repair searches.'
+    } as const;
 
     return (
       <main className="container-shell report-print report-diagnostic report-variant pb-24 pt-10 md:pb-10">
@@ -136,13 +157,35 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       <section className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-12">
         <div className="report-score-panel lg:col-span-4">
           <ScoreRing score={scoreTotal} />
-          <p className="mt-3 text-xs uppercase tracking-[0.12em] text-white/45">Visibility Health</p>
+          <div className="mt-3 flex justify-center">
+            <InfoTooltip
+              label="Visibility Health"
+              text={scoreHelp.visibilityHealth}
+              className="text-xs uppercase tracking-[0.12em] text-white/45"
+            />
+          </div>
         </div>
 
         <div className="lg:col-span-8 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
           {categoryCards.map((card) => (
             <article key={card.label} className="report-grade-card">
-              <p className="report-grade-label">{card.label}</p>
+              <InfoTooltip
+                label={card.label}
+                text={
+                  card.label === 'Website Basics'
+                    ? scoreHelp.website
+                    : card.label === 'Map Visibility'
+                      ? scoreHelp.local
+                      : card.label === 'Trust & Certifications'
+                        ? scoreHelp.collisionAuthority
+                        : card.label === 'Speed on Mobile'
+                          ? scoreHelp.speedPerformance
+                          : card.label === 'Service Page Coverage'
+                            ? scoreHelp.contentCoverage
+                            : scoreHelp.intent
+                }
+                className="report-grade-label"
+              />
               <p className="report-grade-value">{card.score}</p>
               <p className="report-grade-hint">{card.hint}</p>
             </article>
@@ -493,16 +536,28 @@ export default async function ReportPage({ params }: { params: { scanId: string 
 
       <section className="grid gap-4 md:grid-cols-3">
         <div className="card print-break-avoid p-5">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Website</p>
+          <InfoTooltip
+            label="Website"
+            text={scoreHelp.website}
+            className="text-xs uppercase tracking-wide text-slate-500"
+          />
           <p className="mt-1 text-3xl font-bold">{formatScore(websiteCardScore)}</p>
           <p className="mt-1 text-xs text-slate-500">Performance score (PageSpeed mobile)</p>
         </div>
         <div className="card print-break-avoid p-5">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Local</p>
+          <InfoTooltip
+            label="Local"
+            text={scoreHelp.local}
+            className="text-xs uppercase tracking-wide text-slate-500"
+          />
           <p className="mt-1 text-3xl font-bold">{scoreLocal}</p>
         </div>
         <div className="card print-break-avoid p-5">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Intent</p>
+          <InfoTooltip
+            label="Intent"
+            text={scoreHelp.intent}
+            className="text-xs uppercase tracking-wide text-slate-500"
+          />
           <p className="mt-1 text-3xl font-bold">{scoreIntent}</p>
         </div>
       </section>

@@ -106,6 +106,60 @@ body {
   line-height: 1.1;
 }
 
+.info-tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.info-tooltip-label {
+  display: inline-block;
+}
+
+.info-tooltip-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  border-radius: 9999px;
+  color: #64748b;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.info-tooltip-bubble {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 0.5rem);
+  z-index: 30;
+  width: min(16rem, 80vw);
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.75rem;
+  background: rgba(15, 23, 42, 0.96);
+  color: #f8fafc;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.22);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.info-tooltip:hover .info-tooltip-bubble,
+.info-tooltip:focus-within .info-tooltip-bubble {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .text-green {
   color: var(--accent-green);
 }
