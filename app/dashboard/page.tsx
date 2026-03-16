@@ -51,7 +51,8 @@ export default async function DashboardOverviewPage({
     nextSteps,
     dataHealth,
     weeklySummary,
-    valueMoments
+    valueMoments,
+    dashboardProfile
   } = await buildDashboardOverviewPageState(ctx.orgId);
   const refreshState = searchParams?.refresh || '';
 
@@ -139,6 +140,32 @@ export default async function DashboardOverviewPage({
                 <p className="mt-2 text-sm text-[var(--text-secondary)]">{item.detail}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="card overflow-hidden">
+        <div className="grid gap-px bg-[var(--border-color)] xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+          <div className="bg-[var(--bg-card)] p-6">
+            <div className="text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">Workspace profile</div>
+            <h2 className="mt-3 text-2xl font-semibold text-[var(--text-main)]">{dashboardProfile.label}</h2>
+            <p className="mt-3 text-sm leading-7 text-[var(--text-secondary)]">{dashboardProfile.summary}</p>
+            <div className="mt-5 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">
+              <div className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Current focus</div>
+              <div className="mt-2 text-lg font-semibold text-[var(--text-main)]">{dashboardProfile.focusLabel}</div>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">{dashboardProfile.nextPriority}</p>
+            </div>
+          </div>
+          <div className="bg-[var(--bg-card)] p-6">
+            <div className="text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">Recommended module stack</div>
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              {dashboardProfile.moduleTitles.map((title, index) => (
+                <div key={title} className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">
+                  <div className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Module {index + 1}</div>
+                  <div className="mt-2 text-sm font-semibold text-[var(--text-main)]">{title}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>

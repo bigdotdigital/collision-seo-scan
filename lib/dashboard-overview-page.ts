@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { parseJson } from '@/lib/json';
 import { getCityDemandContext } from '@/lib/market-intel';
 import { buildDashboardMarketInsights } from '@/lib/dashboard-market-insights';
+import { buildDashboardProfile } from '@/lib/dashboard-profile';
 import { getShopFallbackIntel } from '@/lib/shop-fallback-intel';
 import { parseReportPayload } from '@/lib/report-payload';
 import type { Issue } from '@/lib/types';
@@ -262,6 +263,18 @@ export async function buildDashboardOverviewPageState(orgId: string) {
           : 'Connect more saved sources to make the dashboard more resilient week to week.'
     }
   ];
+  const dashboardProfile = buildDashboardProfile({
+    hasWebsite,
+    hasGoogleProfile,
+    reviewCount: reportPayload?.googlePlace?.userRatingCount || fallbackIntel?.googlePlace?.userRatingCount || 0,
+    scoreTotal: latestScan?.scoreTotal || 0,
+    scoreWebsite: latestScan?.scoreWebsite || 0,
+    scoreLocal: latestScan?.scoreLocal || 0,
+    scoreIntent: latestScan?.scoreIntent || 0,
+    hasEstimateFlow: Boolean(reportPayload?.checks?.onlineEstimateFlow || reportPayload?.checks?.estimateCtaDetected),
+    hasOemSignals: Boolean(reportPayload?.checks?.oemSignals?.length),
+    highHailPressure: (demandContext?.hailPressure || 0) >= 65
+  });
 
   return {
     latestScan,
@@ -301,6 +314,7 @@ export async function buildDashboardOverviewPageState(orgId: string) {
     nextSteps,
     dataHealth,
     weeklySummary,
-    valueMoments
+    valueMoments,
+    dashboardProfile
   };
 }
