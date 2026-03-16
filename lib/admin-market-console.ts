@@ -159,6 +159,35 @@ export type AdminMarketConsoleState = {
       tone: Tone;
     }>;
   };
+  telemetry: {
+    weekly: Array<{
+      label: string;
+      scans: number;
+      completed: number;
+      published: number;
+      avgScore: number;
+      medianRuntimeMs: number;
+    }>;
+    totals: {
+      scans90d: number;
+      completed90d: number;
+      published90d: number;
+      avgScore90d: number;
+      weeklyCadencePct: number;
+    };
+    staleShops: Array<{
+      shopId: string;
+      name: string;
+      city: string;
+      daysSinceScan: number;
+      reviews: number;
+      score: number;
+    }>;
+    failureModes: Array<{
+      label: string;
+      count: number;
+    }>;
+  };
   map: {
     averageScanAgeHours: string;
     points: Array<{
@@ -535,6 +564,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     queueMetrics,
     queueToday,
     recentQueueJobs,
+    recentScans,
     reviewCount,
     siteFeatureCount,
     insurerCount,
@@ -644,6 +674,22 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
         attempts: true,
         runAt: true,
         errorType: true
+      }
+    }),
+    prisma.scan.findMany({
+      where: {
+        shop: { marketId: { in: marketIds } },
+        createdAt: { gte: ninetyDaysAgo }
+      },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        shopId: true,
+        createdAt: true,
+        finishedAt: true,
+        executionStatus: true,
+        publicStatus: true,
+        scoreTotal: true
       }
     }),
     prisma.shopReviewObservation.count({ where: { marketId: { in: marketIds } } }),
@@ -938,6 +984,86 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
   const oneHourFailures = oneHourJobs.filter((job) => job.status === 'failed').length;
   const errorRate = oneHourJobs.length ? `${((oneHourFailures / oneHourJobs.length) * 100).toFixed(2)}%` : '0.00%';
 
+  const weekMs = 7 * 24 * 60 * 60_000;
+  const weeklyBuckets = Array.from({ length: 12 }, (_, index) => {
+    const start = new Date(Date.now() - weekMs * (11 - index + 1));
+    const end = new Date(Date.now() - weekMs * (11 - index));
+    return {
+      start,
+      end,
+      label: new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(end),
+      scans: [] as typeof recentScans
+    };
+  });
+
+  recentScans.forEach((scan) => {
+    const bucket = weeklyBuckets.find((item) => scan.createdAt >= item.start && scan.createdAt < item.end);
+    if (bucket) bucket.scans.push(scan);
+  });
+
+  const weeklyTelemetry = weeklyBuckets.map((bucket) => {
+    const completedScans = bucket.scans.filter((scan) => scan.executionStatus === 'completed');
+    const publishedScans = completedScans.filter((scan) => scan.publicStatus === 'published');
+    const runtimes = completedScans
+      .map((scan) => (scan.finishedAt ? scan.finishedAt.getTime() - scan.createdAt.getTime() : 0))
+      .filter((value) => value > 0);
+    return {
+      label: bucket.label,
+      scans: bucket.scans.length,
+      completed: completedScans.length,
+      published: publishedScans.length,
+      avgScore: Math.round(
+        average(completedScans.map((scan) => scan.scoreTotal).filter((value): value is number => typeof value === 'number' && value > 0))
+      ),
+      medianRuntimeMs: median(runtimes) || 0
+    };
+  });
+
+  const scans90d = recentScans.length;
+  const completed90d = recentScans.filter((scan) => scan.executionStatus === 'completed').length;
+  const published90d = recentScans.filter((scan) => scan.executionStatus === 'completed' && scan.publicStatus === 'published').length;
+  const avgScore90d = Math.round(
+    average(
+      recentScans
+        .filter((scan) => scan.executionStatus === 'completed')
+        .map((scan) => scan.scoreTotal)
+        .filter((value): value is number => typeof value === 'number' && value > 0)
+    )
+  );
+  const activeWeeks = weeklyTelemetry.filter((week) => week.scans > 0).length;
+  const weeklyCadencePct = percent(activeWeeks, weeklyTelemetry.length);
+
+  const staleShops = [...rows]
+    .map((row) => {
+      const lastScanDate = row.latestScan?.finishedAt || row.latestScan?.createdAt || null;
+      const daysSinceScan = lastScanDate ? Math.round((Date.now() - lastScanDate.getTime()) / (24 * 60 * 60_000)) : 999;
+      return {
+        shopId: row.id,
+        name: row.name,
+        city: row.city || market.city,
+        daysSinceScan,
+        reviews: row.digitalPresenceSnapshot?.googleReviewCount ?? row.latestReview?.reviewCount ?? 0,
+        score: marketSignalScore(row)
+      };
+    })
+    .filter((row) => row.daysSinceScan >= 7)
+    .sort((a, b) => b.daysSinceScan - a.daysSinceScan)
+    .slice(0, 8);
+
+  const failureModes = Array.from(
+    recentQueueJobs
+      .filter((job) => job.status === 'failed')
+      .reduce((map, job) => {
+        const label = job.errorType || 'Unknown';
+        map.set(label, (map.get(label) || 0) + 1);
+        return map;
+      }, new Map<string, number>())
+      .entries()
+  )
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 6);
+
   const duplicateWarnings = Array.from(
     rows.reduce((map, row) => {
       const host = row.websiteUrl ? new URL(row.websiteUrl).hostname.replace(/^www\./i, '').toLowerCase() : '';
@@ -1187,6 +1313,18 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     explorer: {
       cities: explorerCities,
       rows: explorerRows
+    },
+    telemetry: {
+      weekly: weeklyTelemetry,
+      totals: {
+        scans90d,
+        completed90d,
+        published90d,
+        avgScore90d,
+        weeklyCadencePct
+      },
+      staleShops,
+      failureModes
     },
     map: {
       averageScanAgeHours: averageScanAge ? `${averageScanAge.toFixed(1)}h avg` : 'n/a',

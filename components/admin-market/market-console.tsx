@@ -95,6 +95,11 @@ function lineTone(tone: Tone) {
   return '#3b82f6';
 }
 
+function formatRuntime(ms: number) {
+  if (!ms) return '0s';
+  return `${Math.round(ms / 1000)}s`;
+}
+
 function MapPoint(args: {
   point: AdminMarketConsoleState['map']['points'][number];
   active: boolean;
@@ -153,6 +158,8 @@ export function MarketConsole(args: { state: AdminMarketConsoleState }) {
       return haystack.includes(term);
     });
   }, [args.state.explorer.rows, deferredSearch, selectedCity, selectedPresence]);
+  const telemetryMaxScans = Math.max(1, ...args.state.telemetry.weekly.map((week) => week.scans));
+  const telemetryMaxScore = Math.max(100, ...args.state.telemetry.weekly.map((week) => week.avgScore));
 
   return (
     <>
@@ -300,6 +307,150 @@ export function MarketConsole(args: { state: AdminMarketConsoleState }) {
                       No urgent market watch items in the current slice.
                     </div>
                   )}
+                </div>
+              </div>
+            </TacticalPanel>
+
+            <TacticalPanel className="col-span-12">
+              {panelHeader(
+                'Weekly Scan Telemetry',
+                <div className="text-[9px] font-mono uppercase tracking-[0.22em] text-[#94a3b8]">
+                  90-day market monitoring, cadence, and freshness
+                </div>
+              )}
+              <div className="grid gap-3 bg-[#0a0d14] p-3 xl:grid-cols-[1.15fr_0.9fr_0.95fr]">
+                <div className="border border-[#1e293b] bg-[#081018] p-3">
+                  <div className="grid gap-3 sm:grid-cols-5">
+                    <BriefCard
+                      label="Scans 90d"
+                      value={String(args.state.telemetry.totals.scans90d)}
+                      detail="All Denver market scans observed"
+                      tone="neutral"
+                    />
+                    <BriefCard
+                      label="Completed"
+                      value={String(args.state.telemetry.totals.completed90d)}
+                      detail="Successful scan executions"
+                      tone="strong"
+                    />
+                    <BriefCard
+                      label="Published"
+                      value={String(args.state.telemetry.totals.published90d)}
+                      detail="Public reports generated"
+                      tone="warning"
+                    />
+                    <BriefCard
+                      label="Avg Score"
+                      value={String(args.state.telemetry.totals.avgScore90d)}
+                      detail="Completed-scan average over 90d"
+                      tone="neutral"
+                    />
+                    <BriefCard
+                      label="Weekly Cadence"
+                      value={formatPercent(args.state.telemetry.totals.weeklyCadencePct)}
+                      detail="Weeks with scan activity"
+                      tone="strong"
+                    />
+                  </div>
+
+                  <div className="mt-4 border border-[#1e293b] bg-[#050914] p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <div className="text-[9px] font-mono uppercase tracking-[0.22em] text-[#94a3b8]">Weekly Volume + Score Trend</div>
+                      <div className="flex gap-3 text-[9px] font-mono uppercase tracking-[0.18em] text-[#94a3b8]">
+                        <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 bg-[#06b6d4]" /> scans</span>
+                        <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 bg-[#f59e0b]" /> avg score</span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-12 gap-2">
+                      {args.state.telemetry.weekly.map((week) => {
+                        const scanHeight = Math.max(8, Math.round((week.scans / telemetryMaxScans) * 120));
+                        const scoreHeight = Math.max(6, Math.round((week.avgScore / telemetryMaxScore) * 90));
+                        return (
+                          <div key={week.label} className="flex flex-col items-center gap-2">
+                            <div className="flex h-[150px] items-end gap-1">
+                              <div className="w-3 bg-[rgba(6,182,212,0.22)]">
+                                <div className="w-3 bg-[#06b6d4] shadow-[0_0_12px_rgba(6,182,212,0.28)]" style={{ height: `${scanHeight}px` }} />
+                              </div>
+                              <div className="w-2 bg-[rgba(245,158,11,0.18)]">
+                                <div className="w-2 bg-[#f59e0b]" style={{ height: `${scoreHeight}px` }} />
+                              </div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-[10px] font-mono text-[#e2e8f0]">{week.scans}</div>
+                              <div className="text-[8px] font-mono uppercase tracking-[0.18em] text-[#64748b]">{week.label}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2 border border-[#1e293b] bg-[#081018] p-3">
+                  <div className="text-[9px] font-mono uppercase tracking-[0.24em] text-[#94a3b8]">Stale Shops Needing Weekly Refresh</div>
+                  {args.state.telemetry.staleShops.length ? (
+                    args.state.telemetry.staleShops.map((row) => (
+                      <button
+                        key={row.shopId}
+                        type="button"
+                        onClick={() => setActiveShopId(row.shopId)}
+                        className="grid w-full grid-cols-[1fr_auto_auto] gap-3 border border-[#1e293b] bg-[#0f172a] px-3 py-2 text-left font-mono transition hover:bg-slate-900"
+                      >
+                        <div>
+                          <div className="text-[11px] text-[#e2e8f0]">{row.name}</div>
+                          <div className="mt-1 text-[10px] text-[#94a3b8]">{row.city}</div>
+                        </div>
+                        <div className="text-right text-[11px] text-[#fb7185]">{row.daysSinceScan}d</div>
+                        <div className="text-right text-[10px] text-[#94a3b8]">
+                          <div>{row.reviews} rev</div>
+                          <div className="text-[#67e8f9]">score {row.score}</div>
+                        </div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="border border-[#1e293b] bg-[#0f172a] px-3 py-2 text-[11px] font-mono text-[#64748b]">
+                      Weekly freshness looks healthy across the current market slice.
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3 border border-[#1e293b] bg-[#081018] p-3">
+                  <div>
+                    <div className="text-[9px] font-mono uppercase tracking-[0.24em] text-[#94a3b8]">Failure Modes (24h queue)</div>
+                    <div className="mt-2 space-y-2">
+                      {args.state.telemetry.failureModes.length ? (
+                        args.state.telemetry.failureModes.map((row) => (
+                          <div key={row.label} className="flex items-center justify-between border border-[#1e293b] bg-[#0f172a] px-3 py-2 text-[11px] font-mono">
+                            <span className="text-[#e2e8f0]">{row.label}</span>
+                            <span className="text-[#fbbf24]">{row.count}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="border border-[#1e293b] bg-[#0f172a] px-3 py-2 text-[11px] font-mono text-[#64748b]">
+                          No recent queue failures recorded.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="mb-2 text-[9px] font-mono uppercase tracking-[0.24em] text-[#94a3b8]">Telemetry Readout</div>
+                    <div className="space-y-2 border border-[#1e293b] bg-[#0f172a] p-3 text-[11px] font-mono">
+                      {args.state.telemetry.weekly.slice(-4).map((week) => (
+                        <div key={week.label} className="grid grid-cols-[52px_1fr_auto_auto] items-center gap-3">
+                          <span className="text-[#94a3b8]">{week.label}</span>
+                          <div className="h-1.5 bg-[#111827]">
+                            <div
+                              className="h-1.5 bg-[#06b6d4]"
+                              style={{ width: `${Math.max(4, Math.round((week.completed / Math.max(1, week.scans || 1)) * 100))}%` }}
+                            />
+                          </div>
+                          <span className="text-[#e2e8f0]">{week.completed}/{week.scans}</span>
+                          <span className="text-[#67e8f9]">{formatRuntime(week.medianRuntimeMs)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             </TacticalPanel>
