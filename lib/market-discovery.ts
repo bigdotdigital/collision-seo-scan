@@ -14,6 +14,20 @@ const DENVER_METRO_CITIES = [
   'Broomfield'
 ] as const;
 
+const DENVER_MARKET_CITY_ALLOWLIST = new Set(
+  [
+    ...DENVER_METRO_CITIES,
+    'Wheat Ridge',
+    'Sheridan',
+    'Glendale',
+    'Greenwood Village',
+    'Highlands Ranch',
+    'Northglenn',
+    'Commerce City',
+    'Golden'
+  ].map((value) => value.toLowerCase())
+);
+
 const DISCOVERY_QUERIES = [
   'collision repair',
   'auto body shop',
@@ -50,9 +64,9 @@ function parsePlace(row: Record<string, unknown>): PlaceCandidate | null {
 
   const formattedAddress = String(row.formattedAddress || '') || null;
   const addressParts = formattedAddress ? formattedAddress.split(',').map((part) => part.trim()) : [];
-  const city = addressParts.length >= 3 ? addressParts[addressParts.length - 3] || null : null;
-  const stateZip = addressParts.length >= 2 ? addressParts[addressParts.length - 2] || '' : '';
-  const state = stateZip ? stateZip.split(' ')[0] || null : null;
+  const city = addressParts.length >= 3 ? addressParts[1] || null : null;
+  const stateZip = addressParts.length >= 3 ? addressParts[2] || '' : addressParts.length >= 2 ? addressParts[1] || '' : '';
+  const state = stateZip ? stateZip.split(/\s+/)[0] || null : null;
 
   return {
     id,
@@ -77,11 +91,19 @@ function parsePlace(row: Record<string, unknown>): PlaceCandidate | null {
   };
 }
 
+function isAllowedDenverMarketCity(city: string | null) {
+  if (!city) return false;
+  return DENVER_MARKET_CITY_ALLOWLIST.has(city.toLowerCase());
+}
+
 async function searchGooglePlaces(textQuery: string) {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY || '';
   if (!apiKey) {
     throw new Error('GOOGLE_PLACES_API_KEY not configured');
   }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
 
   const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
     method: 'POST',
@@ -97,8 +119,9 @@ async function searchGooglePlaces(textQuery: string) {
       regionCode: 'US',
       maxResultCount: 20
     }),
-    cache: 'no-store'
-  });
+    cache: 'no-store',
+    signal: controller.signal
+  }).finally(() => clearTimeout(timeout));
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');
@@ -113,11 +136,23 @@ async function searchGooglePlaces(textQuery: string) {
 export async function discoverDenverMetroShops() {
   const seen = new Set<string>();
   const discovered: PlaceCandidate[] = [];
+  const failures: Array<{ city: string; query: string; error: string }> = [];
 
   for (const city of DENVER_METRO_CITIES) {
     for (const query of DISCOVERY_QUERIES) {
-      const places = await searchGooglePlaces(`${query} ${city} Colorado`);
-      for (const place of places) {
+      const textQuery = `${query} ${city} Colorado`;
+      console.info('[discover:denver:start]', JSON.stringify({ city, query, textQuery }));
+      let places: PlaceCandidate[] = [];
+      try {
+        places = await searchGooglePlaces(textQuery);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'unknown_error';
+        console.error('[discover:denver:error]', JSON.stringify({ city, query, error: message }));
+        failures.push({ city, query, error: message });
+        continue;
+      }
+      console.info('[discover:denver:result]', JSON.stringify({ city, query, count: places.length }));
+      for (const place of places.filter((row) => isAllowedDenverMarketCity(row.city))) {
         if (seen.has(place.id)) continue;
         seen.add(place.id);
         discovered.push(place);
@@ -129,6 +164,10 @@ export async function discoverDenverMetroShops() {
   let withWebsite = 0;
 
   for (const place of discovered) {
+    console.info(
+      '[discover:denver:upsert:start]',
+      JSON.stringify({ name: place.name, city: place.city, hasWebsite: Boolean(place.websiteUri), placeId: place.id })
+    );
     const shop = await upsertShopFromInput({
       name: place.name,
       websiteUrl: place.websiteUri,
@@ -185,6 +224,10 @@ export async function discoverDenverMetroShops() {
 
     await refreshShopDigitalPresenceSnapshot({ shopId: shop.id });
     createdOrUpdated += 1;
+    console.info(
+      '[discover:denver:upsert:done]',
+      JSON.stringify({ shopId: shop.id, name: shop.name, city: shop.city, createdOrUpdated, withWebsite })
+    );
   }
 
   return {
@@ -192,6 +235,7 @@ export async function discoverDenverMetroShops() {
     queries: [...DISCOVERY_QUERIES],
     discovered: discovered.length,
     createdOrUpdated,
-    withWebsite
+    withWebsite,
+    failures
   };
 }
