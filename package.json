@@ -19,7 +19,8 @@
     "scan:metro": "node --import ./scripts/register-path-alias.mjs --experimental-strip-types --experimental-specifier-resolution=node scripts/scan-metro.ts",
     "backfill:sources": "node --import ./scripts/register-path-alias.mjs --experimental-strip-types --experimental-specifier-resolution=node scripts/backfill-source-observations.ts",
     "discover:denver": "node --import ./scripts/register-path-alias.mjs --experimental-strip-types --experimental-specifier-resolution=node scripts/discover-denver-shops.ts",
-    "repair:denver-discovery": "node --import ./scripts/register-path-alias.mjs --experimental-strip-types --experimental-specifier-resolution=node scripts/repair-denver-discovery.ts"
+    "repair:denver-discovery": "node --import ./scripts/register-path-alias.mjs --experimental-strip-types --experimental-specifier-resolution=node scripts/repair-denver-discovery.ts",
+    "repair:denver-reviews": "node --import ./scripts/register-path-alias.mjs --experimental-strip-types --experimental-specifier-resolution=node scripts/repair-denver-review-rollups.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",

@@ -351,17 +351,21 @@ function scoreTone(score: number): Tone {
 
 function marketSignalScore(row: ShopBaseRow) {
   if (row.latestScan?.scoreTotal) return row.latestScan.scoreTotal;
-  const reviews = row.digitalPresenceSnapshot?.googleReviewCount ?? row.latestReview?.reviewCount ?? 0;
+  const reviews = reviewCountForDisplay(row);
   const hiddenOperator = row.digitalPresenceSnapshot?.hiddenOperatorScore ?? 0;
   return Math.round(Math.min(79, Math.log10(reviews + 1) * 20 + hiddenOperator * 0.6));
 }
 
 function marketSignalTone(row: ShopBaseRow): Tone {
   if (row.latestScan?.scoreTotal) return scoreTone(row.latestScan.scoreTotal);
-  const reviews = row.digitalPresenceSnapshot?.googleReviewCount ?? row.latestReview?.reviewCount ?? 0;
+  const reviews = reviewCountForDisplay(row);
   if (reviews >= 100) return 'neutral';
   if (reviews >= 25) return 'warning';
   return 'weak';
+}
+
+function reviewCountForDisplay(row: ShopBaseRow) {
+  return row.digitalPresenceSnapshot?.googleReviewCount ?? row.latestReview?.reviewCount ?? 0;
 }
 
 function average(values: number[]) {
@@ -728,7 +732,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     .sort((a, b) => {
       const scoreDelta = marketSignalScore(b) - marketSignalScore(a);
       if (scoreDelta !== 0) return scoreDelta;
-      return (b.digitalPresenceSnapshot?.googleReviewCount ?? b.latestReview?.reviewCount ?? 0) - (a.digitalPresenceSnapshot?.googleReviewCount ?? a.latestReview?.reviewCount ?? 0);
+      return reviewCountForDisplay(b) - reviewCountForDisplay(a);
     })
     .slice(0, 120);
   const projected = projectMarketMap(mapRows);
@@ -745,7 +749,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     rank: index + 1,
     name: row.name,
     city: row.city || market.city,
-    reviews: row.latestReview?.reviewCount || 0,
+    reviews: reviewCountForDisplay(row),
     score: row.latestScan?.scoreTotal || 0,
     oemCount: row.latestSiteFeature?.oemSignalCount || detectedOemLabels(parsePayload(row.latestScan?.rawChecksJson)).length,
     lastScanLabel: formatRelativeTime(row.latestScan?.finishedAt || row.latestScan?.createdAt),
@@ -756,7 +760,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     .map((row) => {
       const payload = parsePayload(row.latestScan?.rawChecksJson);
       const missingPages = extractMissingPages(payload, row.latestSiteFeature?.missingPagesJson);
-      const reviews = row.latestReview?.reviewCount || 0;
+      const reviews = reviewCountForDisplay(row);
       const score = row.latestScan?.scoreTotal || 0;
       const opportunityScore = Math.round(reviews * 0.12 + Math.max(0, 85 - score) * 1.3 + missingPages.length * 3.4);
       return {
@@ -779,7 +783,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
   const explorerRows = [...rows]
     .map((row) => {
       const score = marketSignalScore(row);
-      const reviews = row.digitalPresenceSnapshot?.googleReviewCount ?? row.latestReview?.reviewCount ?? 0;
+      const reviews = reviewCountForDisplay(row);
       const hasWebsite = Boolean(row.websiteUrl || row.digitalPresenceSnapshot?.hasWebsite);
       const hasGoogle = Boolean(row.digitalPresenceSnapshot?.hasGoogleProfile);
       const isPublished = row.latestScan?.publicStatus === 'published';
@@ -931,7 +935,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     .map((row) => {
       const snapshot = row.digitalPresenceSnapshot;
       if (!snapshot) return null;
-      const reviews = snapshot.googleReviewCount ?? row.latestReview?.reviewCount ?? 0;
+      const reviews = reviewCountForDisplay(row);
       const score = row.latestScan?.scoreTotal ?? null;
       const hiddenOperatorScore = snapshot.hiddenOperatorScore ?? 0;
       if (!snapshot.hasGoogleProfile || reviews < 15 || hiddenOperatorScore < 20) return null;
@@ -954,7 +958,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     .map((row) => {
       const snapshot = row.digitalPresenceSnapshot;
       if (!snapshot) return null;
-      const reviews = snapshot.googleReviewCount ?? row.latestReview?.reviewCount ?? 0;
+      const reviews = reviewCountForDisplay(row);
       if (reviews < 10) return null;
       return {
         shopId: row.id,
@@ -1042,7 +1046,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
         name: row.name,
         city: row.city || market.city,
         daysSinceScan,
-        reviews: row.digitalPresenceSnapshot?.googleReviewCount ?? row.latestReview?.reviewCount ?? 0,
+        reviews: reviewCountForDisplay(row),
         score: marketSignalScore(row)
       };
     })
@@ -1115,7 +1119,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
       if (score <= 10) reason = 'Very low score';
       else if (checkedPages <= 1) reason = 'Single-page crawl';
       else if (fetchNotes.length >= 3) reason = 'Multiple fetch warnings';
-      else if ((row.latestReview?.reviewCount || 0) > 100 && score < 35) reason = 'High-authority weak SEO outlier';
+      else if (reviewCountForDisplay(row) > 100 && score < 35) reason = 'High-authority weak SEO outlier';
       if (!reason) return null;
       return {
         shopId: row.id,
@@ -1142,7 +1146,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
       current.shopCount += 1;
       const score = marketSignalScore(row);
       current.scores.push(score);
-      current.reviews.push((row.digitalPresenceSnapshot?.googleReviewCount ?? row.latestReview?.reviewCount) || 0);
+      current.reviews.push(reviewCountForDisplay(row));
       if (score >= 80) current.strongCount += 1;
       if (score < 50) current.weakCount += 1;
       map.set(city, current);
@@ -1236,7 +1240,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
           addressLabel: row.address || marketLabel(row.city || market.city, row.state || market.state),
           websiteLabel: row.websiteUrl ? new URL(row.websiteUrl).hostname.replace(/^www\./i, '') : 'No website on file',
           publicReportUrl,
-          reviews: row.latestReview?.reviewCount || 0,
+          reviews: reviewCountForDisplay(row),
           score: row.latestScan?.scoreTotal || 0,
           typeLabel: row.websiteUrl && /(caliber|gerber|crashchampions|serviceking|maaco)/i.test(row.websiteUrl) ? 'Chain' : 'Independent',
           scoreTone: scoreTone(row.latestScan?.scoreTotal || 0),
@@ -1296,7 +1300,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
       avgReviewCount: Math.round(
         average(
           rows
-            .map((row) => row.digitalPresenceSnapshot?.googleReviewCount ?? row.latestReview?.reviewCount ?? 0)
+            .map((row) => reviewCountForDisplay(row))
             .filter((value) => value > 0)
         )
       ),
@@ -1335,7 +1339,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
           name: row.name,
           city: row.city || market.city,
           score: marketSignalScore(row),
-          reviews: (row.digitalPresenceSnapshot?.googleReviewCount ?? row.latestReview?.reviewCount) || 0,
+          reviews: reviewCountForDisplay(row),
           typeLabel: row.websiteUrl && /(caliber|gerber|crashchampions|serviceking|maaco)/i.test(row.websiteUrl) ? 'Chain' : 'Independent',
           oemCount: row.latestSiteFeature?.oemSignalCount || 0,
           tone: marketSignalTone(row),
