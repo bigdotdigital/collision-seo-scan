@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { parseJson } from '@/lib/json';
 import { getCityDemandContext } from '@/lib/market-intel';
+import { buildDashboardMarketInsights } from '@/lib/dashboard-market-insights';
 import { getShopFallbackIntel } from '@/lib/shop-fallback-intel';
 import { parseReportPayload } from '@/lib/report-payload';
 import type { Issue } from '@/lib/types';
@@ -146,6 +147,13 @@ export async function buildDashboardOverviewPageState(orgId: string) {
     topFixes: reportPayload?.topFixes || []
   });
   const demandContext = await getCityDemandContext({ city: latestScan?.city });
+  const marketInsights = await buildDashboardMarketInsights({
+    city: organization?.city || latestScan?.city,
+    scoreTotal: latestScan?.scoreTotal,
+    scoreWebsite: latestScan?.scoreWebsite,
+    scoreLocal: latestScan?.scoreLocal,
+    scoreIntent: latestScan?.scoreIntent
+  });
   const hasWebsite = Boolean(organization?.websiteUrl || latestScan?.websiteUrl);
   const hasGoogleProfile = Boolean(reportPayload?.googlePlace || fallbackIntel?.googlePlace);
   const readinessCompleted = [hasWebsite, activeKeywords >= 3, competitorCount >= 1].filter(Boolean).length;
@@ -234,6 +242,7 @@ export async function buildDashboardOverviewPageState(orgId: string) {
       hasModeledKeywords: hasRevenueInputs,
       sources: reportPayload?.sources
     }),
+    marketInsights,
     organization,
     competitorCount,
     setupReadiness,

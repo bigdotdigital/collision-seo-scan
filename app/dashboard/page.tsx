@@ -45,6 +45,7 @@ export default async function DashboardOverviewPage({
     revenueLeak,
     demandContext,
     overviewBadges,
+    marketInsights,
     organization,
     setupReadiness,
     nextSteps,
@@ -235,6 +236,103 @@ export default async function DashboardOverviewPage({
           }
           className="lg:col-span-1"
         />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+        <section className="card">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--text-muted)]">What our dataset says</p>
+              <h2 className="mt-2 text-xl font-semibold text-[var(--text-main)]">You’re not competing against a generic SEO rubric</h2>
+              <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
+                This compares your latest scan to {marketInsights.cohortLabel} in our own collision dataset.
+              </p>
+            </div>
+            <span className="dashboard-status dashboard-status-cached">{marketInsights.percentileLabel}</span>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-4">
+            <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">
+              <div className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Overall vs cohort</div>
+              <div className={`mt-2 text-2xl font-semibold ${marketInsights.scoreDelta >= 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                {marketInsights.scoreDelta >= 0 ? '+' : ''}
+                {marketInsights.scoreDelta}
+              </div>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">points against {marketInsights.cohortSize} scanned shops</p>
+            </div>
+            <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">
+              <div className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Website delta</div>
+              <div className={`mt-2 text-2xl font-semibold ${marketInsights.websiteDelta >= 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                {marketInsights.websiteDelta >= 0 ? '+' : ''}
+                {marketInsights.websiteDelta}
+              </div>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">technical/site structure vs cohort</p>
+            </div>
+            <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">
+              <div className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Local delta</div>
+              <div className={`mt-2 text-2xl font-semibold ${marketInsights.localDelta >= 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                {marketInsights.localDelta >= 0 ? '+' : ''}
+                {marketInsights.localDelta}
+              </div>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">maps/reviews/local trust vs cohort</p>
+            </div>
+            <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">
+              <div className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Intent delta</div>
+              <div className={`mt-2 text-2xl font-semibold ${marketInsights.intentDelta >= 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                {marketInsights.intentDelta >= 0 ? '+' : ''}
+                {marketInsights.intentDelta}
+              </div>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">service/offer coverage vs cohort</p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            {marketInsights.leverageNotes.map((note) => (
+              <div key={note} className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">
+                <p className="text-sm text-[var(--text-secondary)]">{note}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="card">
+          <div className="mb-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--text-muted)]">Blind spots in the market</p>
+            <h2 className="mt-2 text-xl font-semibold text-[var(--text-main)]">What still breaks on real collision sites</h2>
+          </div>
+          <div className="space-y-3">
+            <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-[var(--text-main)]">No estimate flow</span>
+                <span className="dashboard-status dashboard-status-warning">{marketInsights.issueRates.noEstimate}%</span>
+              </div>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">A third of scanned shops still fail here. This is one of the clearest separators in our own data.</p>
+            </div>
+            <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-[var(--text-main)]">No saved reviews</span>
+                <span className="dashboard-status dashboard-status-modeled">{marketInsights.issueRates.noReviews}%</span>
+              </div>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">Review trust is still inconsistent across the market, which means visible proof can move faster than pure content work.</p>
+            </div>
+            <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-[var(--text-main)]">No OEM/cert signals</span>
+                <span className="dashboard-status dashboard-status-cached">{marketInsights.issueRates.noOem}%</span>
+              </div>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">Certification proof still meaningfully separates stronger shops from weaker ones in the scans we’ve stored.</p>
+            </div>
+            {marketInsights.cityRank ? (
+              <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-[var(--text-main)]">Market density rank</span>
+                  <span className="dashboard-status dashboard-status-live">#{marketInsights.cityRank}</span>
+                </div>
+                <p className="mt-1 text-sm text-[var(--text-secondary)]">Your city is one of the densest collision datasets we’ve scanned so far, so these comparisons are grounded in real local competition.</p>
+              </div>
+            ) : null}
+          </div>
+        </section>
       </div>
 
       {demandContext ? (
