@@ -5,6 +5,13 @@ import { parseReportPayload, type ReportPayload } from '@/lib/report-payload';
 
 type Tone = 'strong' | 'warning' | 'weak' | 'neutral';
 
+const METRO_MARKETS: Record<string, { label: string; cities: string[] }> = {
+  denver: {
+    label: 'Denver Metro',
+    cities: ['Denver', 'Aurora', 'Lakewood', 'Littleton', 'Englewood', 'Arvada', 'Westminster', 'Thornton', 'Centennial', 'Broomfield']
+  }
+};
+
 type ShopBaseRow = {
   id: string;
   name: string;
@@ -64,6 +71,7 @@ export type AdminMarketConsoleState = {
     state: string | null;
     label: string;
     slug: string;
+    marketIds: string[];
   };
   nav: Array<{ label: string; href: string; active?: boolean }>;
   metrics: {
@@ -211,6 +219,21 @@ function slugify(value: string) {
 
 function marketLabel(city: string, state?: string | null) {
   return state ? `${city}, ${state}` : city;
+}
+
+function marketTargetForSlug(marketSlug: string) {
+  const metro = METRO_MARKETS[marketSlug];
+  if (metro) {
+    return {
+      label: metro.label,
+      cities: metro.cities
+    };
+  }
+
+  return {
+    label: marketSlug.charAt(0).toUpperCase() + marketSlug.slice(1),
+    cities: [marketSlug]
+  };
 }
 
 function scoreTone(score: number): Tone {
@@ -383,13 +406,24 @@ function buildTopologyLayout(nodes: Array<{ id: string; tone: Tone; label: strin
 }
 
 export async function getAdminMarketConsoleState(marketSlug: string): Promise<AdminMarketConsoleState | null> {
+  const target = marketTargetForSlug(marketSlug);
   const markets = await prisma.market.findMany({
     where: { vertical: 'collision' },
-    select: { id: true, city: true, state: true, regionKey: true }
+    select: { id: true, city: true, state: true, regionKey: true, _count: { select: { shops: true } } }
   });
-
-  const market = markets.find((row) => slugify(row.city) === marketSlug);
+  const targetCitySlugs = new Set(target.cities.map((city) => slugify(city)));
+  const matchingMarkets = markets
+    .filter((row) => targetCitySlugs.has(slugify(row.city)))
+    .sort((a, b) => {
+      const shopDelta = (b._count?.shops || 0) - (a._count?.shops || 0);
+      if (shopDelta !== 0) return shopDelta;
+      if (a.state && !b.state) return -1;
+      if (!a.state && b.state) return 1;
+      return a.city.localeCompare(b.city);
+    });
+  const market = matchingMarkets[0];
   if (!market) return null;
+  const marketIds = matchingMarkets.map((row) => row.id);
 
   const dayAgo = new Date(Date.now() - 24 * 60 * 60_000);
   const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60_000);
@@ -405,7 +439,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     graphEdgeCount
   ] = await Promise.all([
     prisma.shop.findMany({
-      where: { marketId: market.id },
+      where: { marketId: { in: marketIds } },
       orderBy: { updatedAt: 'desc' },
       take: 180,
       select: {
@@ -492,12 +526,12 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
         errorType: true
       }
     }),
-    prisma.shopReviewObservation.count({ where: { marketId: market.id } }),
-    prisma.shopSiteFeatureObservation.count({ where: { marketId: market.id } }),
-    prisma.shopInsuranceRelationshipObservation.count({ where: { shop: { marketId: market.id } } }),
+    prisma.shopReviewObservation.count({ where: { marketId: { in: marketIds } } }),
+    prisma.shopSiteFeatureObservation.count({ where: { marketId: { in: marketIds } } }),
+    prisma.shopInsuranceRelationshipObservation.count({ where: { shop: { marketId: { in: marketIds } } } }),
     prisma.shopGraphEdge.count({
       where: {
-        OR: [{ sourceShop: { marketId: market.id } }, { targetShop: { marketId: market.id } }]
+        OR: [{ sourceShop: { marketId: { in: marketIds } } }, { targetShop: { marketId: { in: marketIds } } }]
       }
     })
   ]);
@@ -818,10 +852,12 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
   return {
     market: {
       id: market.id,
-      city: market.city,
+      city: target.label,
       state: market.state,
-      label: marketLabel(market.city, market.state),
+      label: target.label,
       slug: marketSlug
+      ,
+      marketIds
     },
     nav: [
       { label: 'Overview', href: `/admin/markets/${marketSlug}`, active: true },
