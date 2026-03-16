@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 
 const SESSION_COOKIE = 'collision_client_session';
 const SESSION_VERSION = 'v2';
+const SESSION_TTL_SECONDS = 60 * 60 * 24 * 14;
 
 type DashboardSession = {
   userId: string;
@@ -13,25 +14,56 @@ type DashboardSession = {
   clientId?: string | null;
 };
 
-const secret = () =>
-  process.env.CLIENT_AUTH_SECRET || process.env.ADMIN_PASSWORD || process.env.CRON_SECRET || 'dev-client-secret';
+type DashboardSessionPayload = DashboardSession & {
+  iat: number;
+  exp: number;
+};
+
+let warnedAboutFallbackSecret = false;
+
+const secret = () => {
+  if (process.env.CLIENT_AUTH_SECRET) return process.env.CLIENT_AUTH_SECRET;
+
+  const fallback =
+    process.env.ADMIN_PASSWORD || process.env.CRON_SECRET || 'dev-client-secret';
+
+  if (process.env.NODE_ENV === 'production' && !warnedAboutFallbackSecret) {
+    warnedAboutFallbackSecret = true;
+    console.warn(
+      '[client-auth] CLIENT_AUTH_SECRET is not set in production. Falling back to a weaker shared secret source.'
+    );
+  }
+
+  return fallback;
+};
 
 const sign = (value: string): string =>
   crypto.createHmac('sha256', secret()).update(value).digest('hex');
 
-const encodePayload = (value: DashboardSession): string =>
+const encodePayload = (value: DashboardSessionPayload): string =>
   Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');
 
-const decodePayload = (value: string): DashboardSession | null => {
+const decodePayload = (value: string): DashboardSessionPayload | null => {
   try {
     const raw = Buffer.from(value, 'base64url').toString('utf8');
-    const parsed = JSON.parse(raw) as Partial<DashboardSession>;
-    if (!parsed.userId || !parsed.orgId || !parsed.membershipRole) return null;
+    const parsed = JSON.parse(raw) as Partial<DashboardSessionPayload>;
+    if (
+      !parsed.userId ||
+      !parsed.orgId ||
+      !parsed.membershipRole ||
+      typeof parsed.iat !== 'number' ||
+      typeof parsed.exp !== 'number'
+    ) {
+      return null;
+    }
+    if (parsed.exp <= Math.floor(Date.now() / 1000)) return null;
     return {
       userId: parsed.userId,
       orgId: parsed.orgId,
       membershipRole: parsed.membershipRole,
-      clientId: parsed.clientId || null
+      clientId: parsed.clientId || null,
+      iat: parsed.iat,
+      exp: parsed.exp
     };
   } catch {
     return null;
@@ -60,6 +92,16 @@ export const createPortalPassword = (): { plain: string; hash: string } => {
 export const hashPortalPassword = (password: string): string =>
   hashPasswordSync(password);
 
+function cookieOptions() {
+  return {
+    httpOnly: true,
+    sameSite: 'lax' as const,
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: SESSION_TTL_SECONDS,
+    path: '/'
+  };
+}
+
 export const setClientSession = (clientId: string) => {
   const existing = getDashboardSessionSync();
   if (existing) {
@@ -73,25 +115,18 @@ export const setClientSession = (clientId: string) => {
   }
 
   const token = `${clientId}.${sign(clientId)}`;
-  cookies().set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 60 * 60 * 24 * 14,
-    path: '/'
-  });
+  cookies().set(SESSION_COOKIE, token, cookieOptions());
 };
 
 export const setDashboardSession = (session: DashboardSession) => {
-  const payload = encodePayload(session);
-  const token = `${SESSION_VERSION}.${payload}.${sign(`${SESSION_VERSION}.${payload}`)}`;
-  cookies().set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 60 * 60 * 24 * 14,
-    path: '/'
+  const now = Math.floor(Date.now() / 1000);
+  const payload = encodePayload({
+    ...session,
+    iat: now,
+    exp: now + SESSION_TTL_SECONDS
   });
+  const token = `${SESSION_VERSION}.${payload}.${sign(`${SESSION_VERSION}.${payload}`)}`;
+  cookies().set(SESSION_COOKIE, token, cookieOptions());
 };
 
 export const clearClientSession = () => {

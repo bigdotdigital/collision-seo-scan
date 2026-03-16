@@ -1,4 +1,6 @@
-function slugify(input: string) {
+import type { Prisma, PrismaClient } from '@prisma/client';
+
+export function slugify(input: string) {
   return input
     .toLowerCase()
     .trim()
@@ -9,6 +11,28 @@ function slugify(input: string) {
 
 export function createOrganizationSlug(name: string) {
   return `${slugify(name) || 'shop'}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+type OrgSlugClient =
+  | Pick<PrismaClient, 'organization'>
+  | Pick<Prisma.TransactionClient, 'organization'>;
+
+export async function createUniqueOrganizationSlug(db: OrgSlugClient, name: string) {
+  const base = slugify(name) || 'shop';
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const slug =
+      attempt === 0
+        ? createOrganizationSlug(name)
+        : `${base}-${Math.random().toString(36).slice(2, 8)}`;
+    const existing = await db.organization.findUnique({
+      where: { slug },
+      select: { id: true }
+    });
+    if (!existing) return slug;
+  }
+
+  return `${base}-${Date.now().toString(36)}`;
 }
 
 export function seededKeywordsFromJson(moneyKeywordsJson: string) {

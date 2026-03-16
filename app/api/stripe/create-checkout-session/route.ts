@@ -9,6 +9,7 @@ import {
   resolveOrgContext,
   seedOrgFromRequestedScan
 } from '@/lib/billing-checkout';
+import { consumeRequestThrottle } from '@/lib/request-throttle';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -58,6 +59,14 @@ async function stripePost(path: string, form: URLSearchParams): Promise<StripeRe
   return data || {};
 }
 
+function requestIp(req: Request) {
+  return (
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('x-real-ip') ||
+    'unknown'
+  );
+}
+
 export async function POST(req: Request) {
   try {
     const priceId = process.env.STRIPE_PRICE_MONTHLY_ID || '';
@@ -74,6 +83,25 @@ export async function POST(req: Request) {
 
     const input = publicCheckoutSchema.safeParse(reqBody);
     const publicData = input.success ? input.data : {};
+    const throttle = consumeRequestThrottle({
+      bucket: 'checkout-start',
+      keyParts: [publicData.email, requestIp(req), publicData.orgId, publicData.scanId],
+      limit: 8,
+      windowMs: 15 * 60 * 1000
+    });
+    if (!throttle.ok) {
+      return NextResponse.json(
+        {
+          error: `Too many checkout attempts. Please wait about ${throttle.retryAfterSeconds} seconds and try again.`
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(throttle.retryAfterSeconds)
+          }
+        }
+      );
+    }
 
     let requestedOrgId = '';
     let requestedScan = null;
@@ -117,8 +145,13 @@ export async function POST(req: Request) {
         });
         if (!created.ok) {
           return NextResponse.json(
-            { error: 'Invalid password for existing account. Please log in first.' },
-            { status: 401 }
+            {
+              error:
+                created.reason === 'weak_password'
+                  ? created.message || 'Use a stronger password to create your account.'
+                  : 'Invalid password for existing account. Please log in first.'
+            },
+            { status: created.reason === 'weak_password' ? 400 : 401 }
           );
         }
         orgId = created.orgId;
@@ -146,8 +179,13 @@ export async function POST(req: Request) {
       });
       if (!linked.ok) {
         return NextResponse.json(
-          { error: 'Invalid password for existing account. Please log in first.' },
-          { status: 401 }
+          {
+            error:
+              linked.reason === 'weak_password'
+                ? linked.message || 'Use a stronger password to create your account.'
+                : 'Invalid password for existing account. Please log in first.'
+          },
+          { status: linked.reason === 'weak_password' ? 400 : 401 }
         );
       }
     }

@@ -8,9 +8,10 @@ import {
 } from '@/lib/client-auth';
 import { createStripePortalSession } from '@/lib/stripe';
 import { seedDashboardFromScan } from '@/lib/dashboard-prefill';
+import { getPasswordPolicyError } from '@/lib/password-policy';
 import { claimShopForOrganization, ShopClaimConflictError } from '@/lib/shop-data';
 import {
-  createOrganizationSlug,
+  createUniqueOrganizationSlug,
   seededCompetitorsFromJson,
   seededKeywordsFromJson
 } from '@/lib/self-serve';
@@ -92,56 +93,77 @@ export async function ensureSelfServeOrg(input: {
     }
   }
 
-  const orgName = input.name?.trim() || `${email.split('@')[0]} Collision`;
-  const org = await prisma.organization.create({
-    data: {
-      shopId: input.shopId || undefined,
-      name: orgName,
-      slug: createOrganizationSlug(orgName)
+  if (!existingUser) {
+    const passwordError = getPasswordPolicyError(input.password);
+    if (passwordError) {
+      return { ok: false as const, reason: 'weak_password' as const, message: passwordError };
     }
-  });
+  }
 
-  const user =
-    existingUser ||
-    (await prisma.user.create({
+  const orgName = input.name?.trim() || `${email.split('@')[0]} Collision`;
+  const created = await prisma.$transaction(async (tx) => {
+    const org = await tx.organization.create({
       data: {
-        email,
-        passwordHash: hashPortalPassword(input.password),
-        name: input.name?.trim() || orgName,
-        isActive: true
+        shopId: input.shopId || undefined,
+        name: orgName,
+        slug: await createUniqueOrganizationSlug(tx, orgName)
       }
-    }));
+    });
 
-  const membership = await prisma.orgMembership.create({
-    data: {
+    const user = existingUser
+      ? await tx.user.update({
+          where: { id: existingUser.id },
+          data: {
+            isActive: true,
+            name: existingUser.name || input.name?.trim() || orgName
+          }
+        })
+      : await tx.user.create({
+          data: {
+            email,
+            passwordHash: hashPortalPassword(input.password),
+            name: input.name?.trim() || orgName,
+            isActive: true
+          }
+        });
+
+    const membership = await tx.orgMembership.create({
+      data: {
+        orgId: org.id,
+        userId: user.id,
+        role: 'owner',
+        status: 'active'
+      }
+    });
+
+    await tx.location.create({
+      data: {
+        orgId: org.id,
+        isPrimary: true,
+        name: orgName
+      }
+    });
+
+    await tx.alertPreference.upsert({
+      where: { orgId: org.id },
+      update: {},
+      create: { orgId: org.id, digestEmail: email }
+    });
+
+    return {
       orgId: org.id,
       userId: user.id,
-      role: 'owner',
-      status: 'active'
-    }
-  });
-
-  await prisma.location.create({
-    data: {
-      orgId: org.id,
-      isPrimary: true,
-      name: orgName
-    }
-  });
-
-  await prisma.alertPreference.upsert({
-    where: { orgId: org.id },
-    update: {},
-    create: { orgId: org.id, digestEmail: email }
+      membershipRole: membership.role
+    };
   });
 
   setDashboardSession({
-    userId: user.id,
-    orgId: org.id,
-    membershipRole: membership.role
+    userId: created.userId,
+    orgId: created.orgId,
+    membershipRole: created.membershipRole
   });
 
-  return { ok: true as const, orgId: org.id, email };
+  return { ok: true as const, orgId: created.orgId, email };
 }
 
 export async function ensureUserMembershipForOrg(input: {
@@ -158,6 +180,10 @@ export async function ensureUserMembershipForOrg(input: {
       return { ok: false as const, reason: 'invalid_password' as const };
     }
   } else {
+    const passwordError = getPasswordPolicyError(input.password);
+    if (passwordError) {
+      return { ok: false as const, reason: 'weak_password' as const, message: passwordError };
+    }
     user = await prisma.user.create({
       data: {
         email,

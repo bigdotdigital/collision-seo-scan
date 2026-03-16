@@ -5,6 +5,8 @@ import { normalizeInsurerName } from '../lib/insurance-normalization.ts';
 import { extractInsuranceRelationshipSignals } from '../lib/insurance-signals.ts';
 import { sourceConfidenceScore } from '../lib/shop-source-observations.ts';
 import { NonRetryableError, isNonRetryableError } from '../lib/errors.ts';
+import { getPasswordPolicyError } from '../lib/password-policy.ts';
+import { consumeRequestThrottle } from '../lib/request-throttle.ts';
 import {
   buildCollisionArchitectureSummary,
   buildMapsAuthoritySummary,
@@ -234,6 +236,39 @@ function testSourceConfidence() {
   assert.equal(sourceConfidenceScore('REDDIT'), 0.35);
 }
 
+function testPasswordPolicy() {
+  assert.equal(getPasswordPolicyError('short'), 'Use at least 10 characters.');
+  assert.equal(getPasswordPolicyError('alllowercase123'), 'Add at least one uppercase letter.');
+  assert.equal(getPasswordPolicyError('ALLUPPERCASE123'), 'Add at least one lowercase letter.');
+  assert.equal(getPasswordPolicyError('NoNumbersHere'), 'Add at least one number.');
+  assert.equal(getPasswordPolicyError('StrongPass123'), null);
+}
+
+function testRequestThrottle() {
+  const first = consumeRequestThrottle({
+    bucket: 'test-core',
+    keyParts: ['alex@example.com'],
+    limit: 2,
+    windowMs: 60_000
+  });
+  const second = consumeRequestThrottle({
+    bucket: 'test-core',
+    keyParts: ['alex@example.com'],
+    limit: 2,
+    windowMs: 60_000
+  });
+  const third = consumeRequestThrottle({
+    bucket: 'test-core',
+    keyParts: ['alex@example.com'],
+    limit: 2,
+    windowMs: 60_000
+  });
+
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, true);
+  assert.equal(third.ok, false);
+}
+
 function run() {
   testUrlValidation();
   testScanHostKey();
@@ -246,6 +281,8 @@ function run() {
   testInsuranceNormalization();
   testInsuranceSignalExtraction();
   testSourceConfidence();
+  testPasswordPolicy();
+  testRequestThrottle();
   console.log('test-core: all checks passed');
 }
 

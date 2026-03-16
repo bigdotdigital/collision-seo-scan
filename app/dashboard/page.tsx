@@ -44,7 +44,11 @@ export default async function DashboardOverviewPage({
     repairPlan,
     revenueLeak,
     demandContext,
-    overviewBadges
+    overviewBadges,
+    organization,
+    setupReadiness,
+    nextSteps,
+    dataHealth
   } = await buildDashboardOverviewPageState(ctx.orgId);
   const refreshState = searchParams?.refresh || '';
 
@@ -52,7 +56,7 @@ export default async function DashboardOverviewPage({
     <div className="space-y-6">
       <PageHeader
         title="SEO Revenue Dashboard"
-        subtitle="Priority metrics are shown with explicit source status. Measured scores stay separate from modeled traffic, lead, and revenue opportunity."
+        subtitle="Your weekly monitoring workspace for visibility, map authority, local demand pressure, and the clearest next steps to win more estimates."
         eyebrow="Overview"
         badges={overviewBadges}
         actions={
@@ -88,6 +92,95 @@ export default async function DashboardOverviewPage({
         </div>
       ) : null}
 
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
+        <section className="card overflow-hidden">
+          <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--text-muted)]">This week</p>
+              <h2 className="mt-2 text-2xl font-semibold text-[var(--text-main)]">
+                {organization?.name || latestScan?.shopName || 'Your shop'} is{' '}
+                {setupReadiness.ready ? 'fully set up for monitoring' : 'still finishing setup'}
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
+                {setupReadiness.ready
+                  ? 'Your workspace has enough foundation data to keep tracking weekly and turn scans into specific action.'
+                  : 'Finish the missing foundation inputs below so the dashboard can model opportunity more cleanly and keep week-over-week telemetry stable.'}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] px-4 py-3 text-right">
+              <div className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Setup progress</div>
+              <div className="mt-2 text-3xl font-semibold text-[var(--text-main)]">
+                {setupReadiness.completed}/{setupReadiness.total}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">
+              <div className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Last scan</div>
+              <div className="mt-2 text-lg font-semibold text-[var(--text-main)]">{dataHealth.lastScanAgeLabel}</div>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                Weekly monitoring works best when your freshest scan is recent and attached to a real website.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">
+              <div className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Saved data coverage</div>
+              <div className="mt-2 text-lg font-semibold text-[var(--text-main)]">
+                {dataHealth.websiteStatus} site • {dataHealth.googleStatus} maps
+              </div>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                We now fall back to saved shop data so the dashboard and reports stay useful when provider calls are thin.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">
+              <div className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Tracking foundation</div>
+              <div className="mt-2 text-lg font-semibold text-[var(--text-main)]">
+                {dataHealth.keywordStatus} • {dataHealth.competitorStatus}
+              </div>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                The $49 plan gets stronger when keyword tracking and competitor coverage are both real, not inferred.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="card">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--text-muted)]">Next best moves</p>
+              <h2 className="mt-2 text-xl font-semibold text-[var(--text-main)]">Keep the dashboard compounding</h2>
+            </div>
+            <span className={`dashboard-status ${setupReadiness.ready ? 'dashboard-status-live' : 'dashboard-status-warning'}`}>
+              {setupReadiness.ready ? 'Ready' : 'Action needed'}
+            </span>
+          </div>
+          <div className="space-y-3">
+            {(nextSteps.length > 0
+              ? nextSteps
+              : [
+                  {
+                    title: 'Stay on weekly refresh',
+                    detail: 'Your foundation is in good shape. The next payoff comes from weekly scan history and acting on the repair plan.'
+                  },
+                  {
+                    title: 'Review your local demand context',
+                    detail: 'Crash, traffic, and hail pressure now help prioritize fixes in active markets.'
+                  },
+                  {
+                    title: 'Use reports in sales conversations',
+                    detail: 'Your saved dashboard data now backs up reports when live provider calls are incomplete.'
+                  }
+                ]
+            ).slice(0, 3).map((step) => (
+              <div key={step.title} className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">
+                <div className="text-sm font-semibold text-[var(--text-main)]">{step.title}</div>
+                <p className="mt-1 text-sm text-[var(--text-secondary)]">{step.detail}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           value={latestScan?.scoreTotal ?? 'N/A'}
@@ -98,17 +191,37 @@ export default async function DashboardOverviewPage({
         />
 
         <MetricCard
-          value={activeKeywords}
-          label="Tracked Keywords"
-          subtitle="High-intent terms"
-          trend={{ value: `${activeKeywords}`, type: activeKeywords > 0 ? 'up' : 'down' }}
+          value={latestScan ? dataHealth.lastScanAgeLabel.replace('Scanned ', '') : 'Pending'}
+          label="Latest Scan"
+          subtitle={
+            latestScan
+              ? 'Freshness of your saved monitoring data'
+              : 'Run your first completed scan to start weekly tracking'
+          }
           className="lg:col-span-1"
         />
 
         <MetricCard
-          value={issues.length}
-          label="Action Items"
-          subtitle="Quick fixes available"
+          value={reportPayload?.googlePlace?.userRatingCount ?? 'Pending'}
+          label="Google Review Snapshot"
+          subtitle={
+            reportPayload?.googlePlace
+              ? typeof reportPayload.googlePlace.rating === 'number'
+                ? `${reportPayload.googlePlace.rating.toFixed(1)} star rating`
+                : 'Saved profile'
+              : 'Waiting on a saved Google profile snapshot'
+          }
+          className="lg:col-span-1"
+        />
+
+        <MetricCard
+          value={nextSteps.length > 0 ? nextSteps.length : issues.length}
+          label="Priority Actions"
+          subtitle={
+            nextSteps.length > 0
+              ? 'Setup and growth tasks worth doing next'
+              : 'Quick fixes available from the latest scan'
+          }
           className="lg:col-span-1"
         />
 
@@ -155,25 +268,25 @@ export default async function DashboardOverviewPage({
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <MetricCard
-          value={hasRevenueInputs ? revenueImpact.traffic : 'Unavailable'}
+          value={hasRevenueInputs ? revenueImpact.traffic : 'Pending'}
           label="Modeled Search Traffic"
           subtitle={
             hasRevenueInputs
               ? `${revenueImpact.assumptions.ctrModel} from saved money-keyword volume`
-              : 'No keyword volume data in the latest scan, so traffic remains unavailable'
+              : 'Add keyword-demand inputs and this turns on automatically'
           }
           className="lg:col-span-1"
         />
         <MetricCard
-          value={hasRevenueInputs ? revenueImpact.leads : 'Unavailable'}
+          value={hasRevenueInputs ? revenueImpact.leads : 'Pending'}
           label="Modeled Leads"
           subtitle={hasRevenueInputs ? revenueImpact.assumptions.leadRate : 'Lead modeling turns on after keyword-demand data is saved'}
           className="lg:col-span-1"
         />
         <MetricCard
-          value={hasRevenueInputs ? `$${revenueImpact.revenue.toLocaleString()}` : 'Unavailable'}
+          value={hasRevenueInputs ? `$${revenueImpact.revenue.toLocaleString()}` : 'Pending'}
           label="Modeled Revenue Opportunity"
-          subtitle={hasRevenueInputs ? revenueImpact.assumptions.averageOrderValue : 'Revenue modeling turns on after keyword-demand data is saved'}
+          subtitle={hasRevenueInputs ? revenueImpact.assumptions.averageOrderValue : 'Revenue opportunity shows once saved keyword volume is attached'}
           className="lg:col-span-1"
         />
       </div>

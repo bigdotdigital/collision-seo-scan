@@ -8,6 +8,7 @@ import {
   setClientSession,
   verifyPortalPassword
 } from '@/lib/client-auth';
+import { consumeRequestThrottle } from '@/lib/request-throttle';
 
 export async function loginClient(
   _prevState: { ok: boolean; message?: string },
@@ -18,6 +19,20 @@ export async function loginClient(
 
   if (!email || !password) {
     return { ok: false, message: 'Email and password are required.' };
+  }
+
+  const throttle = consumeRequestThrottle({
+    bucket: 'login',
+    keyParts: [email],
+    limit: 8,
+    windowMs: 15 * 60 * 1000
+  });
+
+  if (!throttle.ok) {
+    return {
+      ok: false,
+      message: `Too many sign-in attempts. Please wait about ${throttle.retryAfterSeconds} seconds and try again.`
+    };
   }
 
   const user = await prisma.user.findUnique({

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { passwordPolicyHint } from '@/lib/password-policy';
 
 type MonitoringTrialFormProps = {
   scanId?: string;
@@ -26,6 +27,10 @@ export function MonitoringTrialForm({
   const [billingLoading, setBillingLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const passwordHint = password
+    ? passwordPolicyHint(password)
+    : 'Use 10+ characters with upper/lowercase letters and a number.';
+  const passwordLooksStrong = password.length > 0 && passwordHint === 'Strong password';
 
   async function startTrial() {
     setLoading(true);
@@ -97,6 +102,9 @@ export function MonitoringTrialForm({
   return (
     <article className="monitor-card">
       <h2 className="monitor-h2">Get started</h2>
+      <p className="mb-4 text-sm text-slate-600">
+        Create your account, start your free trial, and keep this workspace tied to your saved scan data from day one.
+      </p>
       <div className="monitor-input-group">
         <label className="monitor-label">Name (optional)</label>
         <input
@@ -125,12 +133,22 @@ export function MonitoringTrialForm({
           onChange={(e) => setPassword(e.target.value)}
           placeholder="At least 8 characters"
           type="password"
-          minLength={8}
+          minLength={10}
           required
         />
+        <p className={`mt-2 text-xs ${passwordLooksStrong ? 'text-emerald-700' : 'text-slate-500'}`}>
+          {passwordHint}
+        </p>
       </div>
 
       <div className="monitor-dashed-divider" />
+
+      <div className="mb-4 grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+        <div>Included in the $49 plan:</div>
+        <div>• weekly scan refreshes and saved history</div>
+        <div>• local demand context for your market</div>
+        <div>• owner dashboard, reports, and monitoring workspace</div>
+      </div>
 
       <button onClick={startTrial} disabled={loading} className="monitor-btn-primary">
         <span>{loading ? 'Starting free trial...' : 'Create account + start free trial'}</span>
@@ -157,6 +175,10 @@ export function MonitoringTrialForm({
       >
         Questions? Email support
       </a>
+
+      <p className="mt-3 text-xs text-slate-500">
+        We save your workspace and scan history so your dashboard stays useful even when third-party providers are slow.
+      </p>
 
       {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
       {success ? <p className="mt-3 text-sm text-emerald-700">{success}</p> : null}
