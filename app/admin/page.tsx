@@ -141,6 +141,12 @@ export default async function AdminPage({
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Collision SEO Scan Admin</h1>
         <div className="flex items-center gap-2">
+          <Link
+            href="/admin/markets/denver"
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold"
+          >
+            Denver market intel
+          </Link>
           {allowDemoTools ? (
             <>
               <form action={createDemoClient}>
