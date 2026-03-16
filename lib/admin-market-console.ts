@@ -141,6 +141,24 @@ export type AdminMarketConsoleState = {
       sourceCoverageScore: number;
     }>;
   };
+  explorer: {
+    cities: string[];
+    rows: Array<{
+      shopId: string;
+      name: string;
+      city: string;
+      score: number;
+      reviews: number;
+      typeLabel: string;
+      websiteStatus: 'site' | 'no-site';
+      googleStatus: 'maps' | 'no-maps';
+      publishedStatus: 'published' | 'private';
+      hiddenOperatorScore: number;
+      sourceCoverageScore: number;
+      lastScanLabel: string;
+      tone: Tone;
+    }>;
+  };
   map: {
     averageScanAgeHours: string;
     points: Array<{
@@ -526,7 +544,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     prisma.shop.findMany({
       where: { marketId: { in: marketIds } },
       orderBy: { updatedAt: 'desc' },
-      take: 180,
+      take: 500,
       select: {
         id: true,
         name: true,
@@ -707,6 +725,42 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     .filter((row) => row.reviews >= 25)
     .sort((a, b) => b.opportunityScore - a.opportunityScore)
     .slice(0, 6);
+
+  const explorerCities = Array.from(
+    new Set(rows.map((row) => row.city || market.city).filter((value): value is string => Boolean(value)))
+  ).sort((a, b) => a.localeCompare(b));
+
+  const explorerRows = [...rows]
+    .map((row) => {
+      const score = marketSignalScore(row);
+      const reviews = row.digitalPresenceSnapshot?.googleReviewCount ?? row.latestReview?.reviewCount ?? 0;
+      const hasWebsite = Boolean(row.websiteUrl || row.digitalPresenceSnapshot?.hasWebsite);
+      const hasGoogle = Boolean(row.digitalPresenceSnapshot?.hasGoogleProfile);
+      const isPublished = row.latestScan?.publicStatus === 'published';
+
+      return {
+        shopId: row.id,
+        name: row.name,
+        city: row.city || market.city,
+        score,
+        reviews,
+        typeLabel: chainLabel(row.websiteUrl) ? 'Chain' : 'Independent',
+        websiteStatus: hasWebsite ? ('site' as const) : ('no-site' as const),
+        googleStatus: hasGoogle ? ('maps' as const) : ('no-maps' as const),
+        publishedStatus: isPublished ? ('published' as const) : ('private' as const),
+        hiddenOperatorScore: Number((row.digitalPresenceSnapshot?.hiddenOperatorScore || 0).toFixed(1)),
+        sourceCoverageScore: Number((row.digitalPresenceSnapshot?.sourceCoverageScore || 0).toFixed(1)),
+        lastScanLabel: formatRelativeTime(row.latestScan?.finishedAt || row.latestScan?.createdAt),
+        tone: marketSignalTone(row)
+      };
+    })
+    .sort((a, b) => {
+      const scoreDelta = b.score - a.score;
+      if (scoreDelta !== 0) return scoreDelta;
+      const reviewDelta = b.reviews - a.reviews;
+      if (reviewDelta !== 0) return reviewDelta;
+      return a.name.localeCompare(b.name);
+    });
 
   const topologyShopIds = topLeaderboard.slice(0, 8).map((row) => row.shopId);
   const topologyEdgesRaw = topologyShopIds.length
@@ -1035,7 +1089,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
   }
 
   const drawerShops = Object.fromEntries(
-    leaderboardRows.slice(0, 20).map((row) => {
+    rows.map((row) => {
       const payload = parsePayload(row.latestScan?.rawChecksJson);
       const oemCertifications = detectedOemLabels(payload);
       const overlap = (topologyOverlapByShop.get(row.id) || []).sort((a, b) => b.percent - a.percent).slice(0, 3);
@@ -1129,6 +1183,10 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
       totals: sourceCoverageTotals,
       hiddenOperators,
       gaps: sourceGaps
+    },
+    explorer: {
+      cities: explorerCities,
+      rows: explorerRows
     },
     map: {
       averageScanAgeHours: averageScanAge ? `${averageScanAge.toFixed(1)}h avg` : 'n/a',

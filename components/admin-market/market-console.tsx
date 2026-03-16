@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { AdminMarketConsoleState } from '@/lib/admin-market-console';
 import { ShopIntelDrawer } from './shop-intel-drawer';
@@ -54,6 +54,14 @@ function BriefCard(args: { label: string; value: string; detail: string; tone?: 
       <div className={`mt-2 text-2xl font-mono font-bold ${signalTextClasses[args.tone || 'neutral']}`}>{args.value}</div>
       <div className="mt-1 text-[10px] font-mono text-[#cbd5e1]">{args.detail}</div>
     </div>
+  );
+}
+
+function statusPill(label: string, tone: Tone) {
+  return (
+    <span className={`border px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-[0.18em] ${signalBgClasses[tone]} ${signalTextClasses[tone]}`}>
+      {label}
+    </span>
   );
 }
 
@@ -123,11 +131,28 @@ function EmptyState(args: { label: string }) {
 export function MarketConsole(args: { state: AdminMarketConsoleState }) {
   const [activeShopId, setActiveShopId] = useState(args.state.drawer.defaultShopId);
   const [hoveredShopId, setHoveredShopId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [selectedCity, setSelectedCity] = useState('all');
+  const [selectedPresence, setSelectedPresence] = useState<'all' | 'missing-site' | 'missing-maps' | 'hidden-operators' | 'published-only'>('all');
+  const deferredSearch = useDeferredValue(search);
   const activeShop = activeShopId ? args.state.drawer.shops[activeShopId] || null : null;
   const hoveredPoint = useMemo(
     () => args.state.map.points.find((point) => point.shopId === hoveredShopId) || null,
     [args.state.map.points, hoveredShopId]
   );
+  const explorerRows = useMemo(() => {
+    const term = deferredSearch.trim().toLowerCase();
+    return args.state.explorer.rows.filter((row) => {
+      if (selectedCity !== 'all' && row.city !== selectedCity) return false;
+      if (selectedPresence === 'missing-site' && row.websiteStatus !== 'no-site') return false;
+      if (selectedPresence === 'missing-maps' && row.googleStatus !== 'no-maps') return false;
+      if (selectedPresence === 'hidden-operators' && row.hiddenOperatorScore < 40) return false;
+      if (selectedPresence === 'published-only' && row.publishedStatus !== 'published') return false;
+      if (!term) return true;
+      const haystack = `${row.name} ${row.city} ${row.typeLabel}`.toLowerCase();
+      return haystack.includes(term);
+    });
+  }, [args.state.explorer.rows, deferredSearch, selectedCity, selectedPresence]);
 
   return (
     <>
@@ -405,6 +430,140 @@ export function MarketConsole(args: { state: AdminMarketConsoleState }) {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </TacticalPanel>
+
+            <TacticalPanel className="col-span-12">
+              {panelHeader(
+                'Shop Explorer',
+                <div className="text-[9px] font-mono uppercase tracking-[0.22em] text-[#94a3b8]">
+                  {explorerRows.length} of {args.state.explorer.rows.length} shops visible
+                </div>
+              )}
+              <div className="space-y-3 bg-[#0a0d14] p-3">
+                <div className="grid gap-3 lg:grid-cols-[1.3fr_0.8fr_1fr_auto]">
+                  <label className="flex items-center gap-2 border border-[#1e293b] bg-[#0f172a] px-3 py-2">
+                    <span className="text-[9px] font-mono uppercase tracking-[0.18em] text-[#94a3b8]">Search</span>
+                    <input
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      placeholder="Shop, city, chain"
+                      className="w-full bg-transparent text-sm text-[#e2e8f0] outline-none placeholder:text-[#475569]"
+                    />
+                  </label>
+
+                  <label className="flex items-center gap-2 border border-[#1e293b] bg-[#0f172a] px-3 py-2">
+                    <span className="text-[9px] font-mono uppercase tracking-[0.18em] text-[#94a3b8]">City</span>
+                    <select
+                      value={selectedCity}
+                      onChange={(event) => setSelectedCity(event.target.value)}
+                      className="w-full bg-transparent text-sm text-[#e2e8f0] outline-none"
+                    >
+                      <option value="all">All metro</option>
+                      {args.state.explorer.cities.map((city) => (
+                        <option key={city} value={city} className="bg-[#0f172a]">
+                          {city}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="flex items-center gap-2 border border-[#1e293b] bg-[#0f172a] px-3 py-2">
+                    <span className="text-[9px] font-mono uppercase tracking-[0.18em] text-[#94a3b8]">Focus</span>
+                    <select
+                      value={selectedPresence}
+                      onChange={(event) => setSelectedPresence(event.target.value as typeof selectedPresence)}
+                      className="w-full bg-transparent text-sm text-[#e2e8f0] outline-none"
+                    >
+                      <option value="all">All shops</option>
+                      <option value="missing-site">No website</option>
+                      <option value="missing-maps">No maps signal</option>
+                      <option value="hidden-operators">Hidden operators</option>
+                      <option value="published-only">Published only</option>
+                    </select>
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearch('');
+                      setSelectedCity('all');
+                      setSelectedPresence('all');
+                    }}
+                    className="border border-[#334155] bg-[#111827] px-3 py-2 text-[10px] font-mono uppercase tracking-[0.22em] text-[#cbd5e1] transition hover:bg-[#1e293b]"
+                  >
+                    Reset
+                  </button>
+                </div>
+
+                <div className="grid gap-2 md:grid-cols-4">
+                  <div className="border border-[#1e293b] bg-[#081018] px-3 py-2 text-[10px] font-mono uppercase tracking-[0.18em] text-[#94a3b8]">
+                    No-site shops <span className="ml-2 text-[#fbbf24]">{explorerRows.filter((row) => row.websiteStatus === 'no-site').length}</span>
+                  </div>
+                  <div className="border border-[#1e293b] bg-[#081018] px-3 py-2 text-[10px] font-mono uppercase tracking-[0.18em] text-[#94a3b8]">
+                    No-maps shops <span className="ml-2 text-[#60a5fa]">{explorerRows.filter((row) => row.googleStatus === 'no-maps').length}</span>
+                  </div>
+                  <div className="border border-[#1e293b] bg-[#081018] px-3 py-2 text-[10px] font-mono uppercase tracking-[0.18em] text-[#94a3b8]">
+                    Hidden operators <span className="ml-2 text-[#67e8f9]">{explorerRows.filter((row) => row.hiddenOperatorScore >= 40).length}</span>
+                  </div>
+                  <div className="border border-[#1e293b] bg-[#081018] px-3 py-2 text-[10px] font-mono uppercase tracking-[0.18em] text-[#94a3b8]">
+                    Published <span className="ml-2 text-[#34d399]">{explorerRows.filter((row) => row.publishedStatus === 'published').length}</span>
+                  </div>
+                </div>
+
+                <div className="max-h-[460px] overflow-auto border border-[#1e293b]">
+                  <table className="w-full border-collapse whitespace-nowrap text-left">
+                    <thead className="sticky top-0 z-10 border-b border-[#1e293b] bg-[#0f172a] text-[9px] font-mono uppercase tracking-[0.22em] text-[#94a3b8]">
+                      <tr>
+                        <th className="px-3 py-2 font-normal">Shop</th>
+                        <th className="px-3 py-2 font-normal">City</th>
+                        <th className="px-3 py-2 text-right font-normal">Reviews</th>
+                        <th className="px-3 py-2 text-right font-normal">Score</th>
+                        <th className="px-3 py-2 font-normal">Coverage</th>
+                        <th className="px-3 py-2 text-right font-normal">Hidden</th>
+                        <th className="px-3 py-2 text-right font-normal">Source</th>
+                        <th className="px-3 py-2 text-right font-normal">Last</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#1e293b] bg-[#09101a] text-xs font-mono">
+                      {explorerRows.map((row) => (
+                        <tr
+                          key={row.shopId}
+                          className="cursor-pointer transition-all hover:bg-[rgba(30,41,59,0.5)] hover:[box-shadow:inset_2px_0_0_0_#06b6d4]"
+                          onClick={() => setActiveShopId(row.shopId)}
+                        >
+                          <td className="px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              <span className={`h-2 w-2 ${signalToneClasses[row.tone]}`} />
+                              <div>
+                                <div className="text-[#e2e8f0]">{row.name}</div>
+                                <div className="mt-1 text-[10px] uppercase tracking-[0.18em] text-[#64748b]">{row.typeLabel}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-[#cbd5e1]">{row.city}</td>
+                          <td className="px-3 py-2 text-right text-[#e2e8f0]">{row.reviews.toLocaleString()}</td>
+                          <td className={`px-3 py-2 text-right font-bold ${signalTextClasses[row.tone]}`}>{row.score}</td>
+                          <td className="px-3 py-2">
+                            <div className="flex flex-wrap gap-1">
+                              {statusPill(row.websiteStatus, row.websiteStatus === 'site' ? 'strong' : 'warning')}
+                              {statusPill(row.googleStatus, row.googleStatus === 'maps' ? 'neutral' : 'weak')}
+                              {statusPill(row.publishedStatus, row.publishedStatus === 'published' ? 'strong' : 'weak')}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-right text-[#67e8f9]">{row.hiddenOperatorScore.toFixed(1)}</td>
+                          <td className="px-3 py-2 text-right text-[#fbbf24]">{row.sourceCoverageScore.toFixed(1)}</td>
+                          <td className="px-3 py-2 text-right text-[#94a3b8]">{row.lastScanLabel}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {!explorerRows.length ? (
+                    <div className="border-t border-[#1e293b] bg-[#0f172a] px-3 py-6 text-center text-[11px] font-mono uppercase tracking-[0.22em] text-[#64748b]">
+                      No shops match the current filters.
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </TacticalPanel>
 
