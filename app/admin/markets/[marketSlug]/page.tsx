@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { getAdminMarketConsoleState } from '@/lib/admin-market-console';
 import { AdminLoginForm } from '@/app/admin/admin-login-form';
-import { isAdminAuthed } from '@/app/admin/actions';
+import { isAdminAuthed, refreshMarketIntelNow } from '@/app/admin/actions';
 import { MarketConsole } from '@/components/admin-market/market-console';
 
 export const dynamic = 'force-dynamic';
@@ -42,5 +42,5 @@ export default async function AdminMarketPage({
     );
   }
 
-  return <MarketConsole state={state} />;
+  return <MarketConsole state={state} refreshIntelAction={refreshMarketIntelNow} />;
 }

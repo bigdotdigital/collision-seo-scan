@@ -152,7 +152,10 @@ function EmptyState(args: { label: string }) {
   );
 }
 
-export function MarketConsole(args: { state: AdminMarketConsoleState }) {
+export function MarketConsole(args: {
+  state: AdminMarketConsoleState;
+  refreshIntelAction?: (formData: FormData) => void | Promise<void>;
+}) {
   const [activeShopId, setActiveShopId] = useState(args.state.drawer.defaultShopId);
   const [hoveredShopId, setHoveredShopId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -227,6 +230,17 @@ export function MarketConsole(args: { state: AdminMarketConsoleState }) {
           </div>
 
           <div className="flex items-center gap-3">
+            {args.refreshIntelAction ? (
+              <form action={args.refreshIntelAction}>
+                <input type="hidden" name="marketSlug" value={args.state.market.slug} />
+                <button
+                  type="submit"
+                  className="border border-[#0e7490]/50 bg-[rgba(6,182,212,0.14)] px-3 py-2 text-[10px] font-mono uppercase tracking-[0.22em] text-[#a5f3fc] transition hover:bg-[rgba(6,182,212,0.22)]"
+                >
+                  Refresh Intel
+                </button>
+              </form>
+            ) : null}
             <MetricChip label="Total Shops" value={String(args.state.metrics.totalShops)} tone="strong" />
             <MetricChip label="Observations" value={formatCompact(args.state.metrics.totalObservations)} tone="neutral" />
             <MetricChip label="Queue Today" value={String(args.state.metrics.queueToday)} tone="warning" />

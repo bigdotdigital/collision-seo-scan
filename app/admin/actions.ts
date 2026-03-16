@@ -7,6 +7,7 @@ import { ADMIN_COOKIE_NAME, adminCookieMatches } from '@/lib/admin-auth';
 import { createPortalPassword, hashPortalPassword } from '@/lib/client-auth';
 import { sendFollowupEmail, sendPortalInviteEmail } from '@/lib/email';
 import { buildDefaultKeywords, createMetricSnapshot, oemSignalsFromScan } from '@/lib/client-services';
+import { runMarketIntelRefresh } from '@/lib/jobs';
 import { upsertOrganizationFromInput } from '@/lib/org-data';
 import { seedDashboardFromScan } from '@/lib/dashboard-prefill';
 import { mergeShopRecords, ShopMergeConflictError } from '@/lib/shop-data';
@@ -317,4 +318,14 @@ export async function mergeDuplicateShops(formData: FormData) {
 
   revalidatePath('/admin');
   revalidatePath('/markets');
+}
+
+export async function refreshMarketIntelNow(formData: FormData) {
+  if (!adminCookieMatches()) return;
+
+  const marketSlug = String(formData.get('marketSlug') || 'denver');
+  await runMarketIntelRefresh({ marketSlug });
+
+  revalidatePath('/admin');
+  revalidatePath(`/admin/markets/${marketSlug}`);
 }

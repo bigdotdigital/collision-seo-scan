@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { runMarketIntelRefresh, runWeeklyRefresh } from '@/lib/jobs';
+import { runMarketIntelRefresh } from '@/lib/jobs';
 
 function authorized(req: Request) {
   const header = req.headers.get('x-cron-secret') || '';
@@ -12,9 +12,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const [result, marketIntel] = await Promise.all([
-    runWeeklyRefresh(),
-    runMarketIntelRefresh({ marketSlug: 'denver' })
-  ]);
-  return NextResponse.json({ ok: true, ...result, marketIntel });
+  const result = await runMarketIntelRefresh({ marketSlug: 'denver' });
+  return NextResponse.json(result);
 }
