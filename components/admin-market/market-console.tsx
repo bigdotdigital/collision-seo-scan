@@ -963,16 +963,59 @@ export function MarketConsole(args: {
                   </div>
                 </div>
               <div className="relative h-[450px] overflow-hidden p-2">
-                <svg className="absolute inset-0 h-full w-full opacity-30 pointer-events-none" viewBox="0 0 1000 500" preserveAspectRatio="none">
-                  <path d="M-100 250 Q 200 100 500 300 T 1100 200" fill="none" stroke="#1e293b" strokeWidth="1" />
-                  <path d="M-50 400 Q 300 200 600 450 T 1100 100" fill="none" stroke="#1e293b" strokeWidth="1" strokeDasharray="4" />
-                  <path d="M200 -50 Q 300 200 150 550" fill="none" stroke="#0f172a" strokeWidth="2" />
-                  <path d="M800 -50 Q 700 250 850 550" fill="none" stroke="#0f172a" strokeWidth="2" />
-                  <circle cx="500" cy="250" r="200" fill="none" stroke="#06b6d4" strokeOpacity="0.1" strokeWidth="1" />
-                  <circle cx="500" cy="250" r="400" fill="none" stroke="#06b6d4" strokeOpacity="0.05" strokeWidth="1" />
-                  <path d="M500 250 L500 -150" fill="none" stroke="#06b6d4" strokeOpacity="0.2" strokeWidth="1">
-                    <animateTransform attributeName="transform" type="rotate" from="0 500 250" to="360 500 250" dur="4s" repeatCount="indefinite" />
-                  </path>
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_42%_48%,rgba(8,27,44,0.58)_0%,rgba(3,7,12,0.86)_48%,rgba(2,4,8,1)_100%)]" />
+                <div className="absolute inset-y-0 left-0 w-[24%] bg-[linear-gradient(90deg,rgba(15,53,34,0.42)_0%,rgba(12,38,30,0.22)_48%,rgba(2,4,8,0)_100%)]" />
+                <div className="absolute inset-y-0 right-0 w-[20%] bg-[linear-gradient(270deg,rgba(56,89,112,0.16)_0%,rgba(25,42,58,0.08)_42%,rgba(2,4,8,0)_100%)]" />
+                <svg className="absolute inset-0 h-full w-full opacity-90 pointer-events-none" viewBox="0 0 1000 500" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="terrainWest" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#173b2f" stopOpacity="0.55" />
+                      <stop offset="48%" stopColor="#0a1d1b" stopOpacity="0.18" />
+                      <stop offset="100%" stopColor="#020408" stopOpacity="0" />
+                    </linearGradient>
+                    <linearGradient id="plainsEast" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#020408" stopOpacity="0" />
+                      <stop offset="58%" stopColor="#102132" stopOpacity="0.12" />
+                      <stop offset="100%" stopColor="#20394f" stopOpacity="0.22" />
+                    </linearGradient>
+                    <linearGradient id="corridorGlow" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.35" />
+                      <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.16" />
+                    </linearGradient>
+                  </defs>
+
+                  <rect x="0" y="0" width="280" height="500" fill="url(#terrainWest)" />
+                  <rect x="730" y="0" width="270" height="500" fill="url(#plainsEast)" />
+
+                  <path d="M0 48 C 36 28, 84 70, 128 44 S 218 90, 270 52" fill="none" stroke="#365843" strokeOpacity="0.62" strokeWidth="1.2" />
+                  <path d="M0 96 C 46 66, 96 122, 154 94 S 224 136, 286 92" fill="none" stroke="#456a4d" strokeOpacity="0.55" strokeWidth="1.2" />
+                  <path d="M0 152 C 54 122, 112 188, 170 150 S 244 208, 304 164" fill="none" stroke="#527a57" strokeOpacity="0.48" strokeWidth="1.1" />
+                  <path d="M0 214 C 56 178, 112 246, 180 210 S 248 270, 316 226" fill="none" stroke="#5f8b62" strokeOpacity="0.42" strokeWidth="1.1" />
+                  <path d="M0 284 C 58 248, 114 314, 186 282 S 254 338, 324 300" fill="none" stroke="#6b9970" strokeOpacity="0.35" strokeWidth="1" />
+                  <path d="M0 354 C 60 322, 120 384, 196 348 S 264 402, 338 370" fill="none" stroke="#7ba77b" strokeOpacity="0.28" strokeWidth="1" />
+
+                  <path d="M220 36 C 284 90, 286 176, 244 252 S 202 398, 240 474" fill="none" stroke="#1d3d32" strokeOpacity="0.48" strokeWidth="3" />
+                  <path d="M190 12 C 252 82, 248 186, 206 286 S 172 420, 214 498" fill="none" stroke="#244636" strokeOpacity="0.34" strokeWidth="2" strokeDasharray="6 8" />
+
+                  <path d="M344 0 L 344 500" fill="none" stroke="url(#corridorGlow)" strokeOpacity="0.42" strokeWidth="2.4" />
+                  <path d="M0 198 L 1000 198" fill="none" stroke="url(#corridorGlow)" strokeOpacity="0.34" strokeWidth="2.2" />
+                  <path d="M118 328 C 224 306, 286 306, 346 334 S 490 412, 640 404" fill="none" stroke="#6ee7b7" strokeOpacity="0.16" strokeWidth="1.6" />
+                  <path d="M544 88 C 612 122, 666 148, 736 140 S 860 114, 952 86" fill="none" stroke="#60a5fa" strokeOpacity="0.22" strokeWidth="1.3" strokeDasharray="5 8" />
+
+                  <path d="M296 0 C 326 92, 332 182, 324 260 S 312 420, 320 500" fill="none" stroke="#93c5fd" strokeOpacity="0.24" strokeWidth="0.9" strokeDasharray="2 5" />
+                  <path d="M0 222 C 166 214, 338 214, 1000 208" fill="none" stroke="#fbbf24" strokeOpacity="0.12" strokeWidth="0.8" strokeDasharray="2 6" />
+
+                  <circle cx="402" cy="222" r="22" fill="none" stroke="#38bdf8" strokeOpacity="0.2" strokeWidth="1" />
+                  <circle cx="402" cy="222" r="44" fill="none" stroke="#38bdf8" strokeOpacity="0.08" strokeWidth="1" />
+                  <circle cx="864" cy="112" r="16" fill="none" stroke="#93c5fd" strokeOpacity="0.18" strokeWidth="1" />
+
+                  <text x="72" y="54" fill="#8fb79d" fillOpacity="0.62" fontSize="10" fontFamily="monospace" letterSpacing="2">FRONT RANGE</text>
+                  <text x="104" y="96" fill="#7faa86" fillOpacity="0.5" fontSize="9" fontFamily="monospace" letterSpacing="2">FOOTHILLS</text>
+                  <text x="356" y="216" fill="#a5f3fc" fillOpacity="0.65" fontSize="9" fontFamily="monospace" letterSpacing="2">DENVER CORE</text>
+                  <text x="298" y="30" fill="#93c5fd" fillOpacity="0.44" fontSize="8" fontFamily="monospace" letterSpacing="2">I-25</text>
+                  <text x="930" y="188" fill="#fcd34d" fillOpacity="0.4" fontSize="8" fontFamily="monospace" letterSpacing="2">I-70</text>
+                  <text x="750" y="130" fill="#bfdbfe" fillOpacity="0.42" fontSize="9" fontFamily="monospace" letterSpacing="2">DIA VECTOR</text>
+                  <text x="792" y="74" fill="#cbd5e1" fillOpacity="0.32" fontSize="8" fontFamily="monospace" letterSpacing="2">AURORA PLAINS</text>
                 </svg>
 
                 {mapClusters.map((cluster) => (
