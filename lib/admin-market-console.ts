@@ -2,6 +2,7 @@ import { parseJson } from '@/lib/json';
 import { prisma } from '@/lib/prisma';
 import { getQueueMetrics } from '@/lib/queue/metrics';
 import { parseReportPayload, type ReportPayload } from '@/lib/report-payload';
+import { hostnameOf } from '@/lib/shop-core';
 
 type Tone = 'strong' | 'warning' | 'weak' | 'neutral';
 
@@ -186,6 +187,20 @@ export type AdminMarketConsoleState = {
     failureModes: Array<{
       label: string;
       count: number;
+    }>;
+  };
+  dataQuality: {
+    malformedLocationCount: number;
+    duplicateGroupCount: number;
+    shopsWithoutScans: number;
+    shopsWithoutReports: number;
+    candidates: Array<{
+      shopId: string;
+      name: string;
+      city: string;
+      issue: string;
+      detail: string;
+      tone: Tone;
     }>;
   };
   map: {
@@ -1068,6 +1083,10 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     .sort((a, b) => b.count - a.count)
     .slice(0, 6);
 
+  const malformedLocationRows = rows.filter((row) => !row.city || /\d/.test(row.city) || !row.state || row.state.trim().length !== 2);
+  const shopsWithoutScans = rows.filter((row) => !row.latestScan).length;
+  const shopsWithoutReports = rows.filter((row) => row.latestScan && row.latestScan.publicStatus !== 'published').length;
+
   const duplicateWarnings = Array.from(
     rows.reduce((map, row) => {
       const host = row.websiteUrl ? new URL(row.websiteUrl).hostname.replace(/^www\./i, '').toLowerCase() : '';
@@ -1108,6 +1127,38 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     }))
     .sort((a, b) => b.locationCount - a.locationCount)
     .slice(0, 6);
+
+  const dataQualityCandidates = [
+    ...malformedLocationRows.slice(0, 4).map((row) => ({
+      shopId: row.id,
+      name: row.name,
+      city: row.city || 'Unknown',
+      issue: 'Malformed location',
+      detail: `${row.address || 'No address'} · state ${row.state || 'missing'}`,
+      tone: 'weak' as Tone
+    })),
+    ...rows
+      .filter((row) => !row.latestScan && (row.digitalPresenceSnapshot?.googleReviewCount || 0) >= 25)
+      .slice(0, 4)
+      .map((row) => ({
+        shopId: row.id,
+        name: row.name,
+        city: row.city || market.city,
+        issue: 'Needs scan coverage',
+        detail: `${reviewCountForDisplay(row)} reviews but no completed website scan`,
+        tone: 'warning' as Tone
+      })),
+    ...duplicateWarnings.slice(0, 4).map((row) => ({
+      shopId: rows.find((shop) => shop.websiteUrl && hostnameOf(shop.websiteUrl) === row.host)?.id || '',
+      name: row.host,
+      city: row.cities[0] || market.city,
+      issue: 'Duplicate host group',
+      detail: `${row.shopCount} shops share this host`,
+      tone: 'neutral' as Tone
+    }))
+  ]
+    .filter((row, index, list) => row.shopId !== '' && list.findIndex((item) => item.shopId === row.shopId && item.issue === row.issue) === index)
+    .slice(0, 10);
 
   const suspiciousScans = scoredRows
     .map((row) => {
@@ -1329,6 +1380,13 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
       },
       staleShops,
       failureModes
+    },
+    dataQuality: {
+      malformedLocationCount: malformedLocationRows.length,
+      duplicateGroupCount: duplicateWarnings.length,
+      shopsWithoutScans,
+      shopsWithoutReports,
+      candidates: dataQualityCandidates
     },
     map: {
       averageScanAgeHours: averageScanAge ? `${averageScanAge.toFixed(1)}h avg` : 'n/a',

@@ -601,6 +601,72 @@ export function MarketConsole(args: { state: AdminMarketConsoleState }) {
               </div>
             </TacticalPanel>
 
+            <TacticalPanel className="col-span-12">
+              {panelHeader(
+                'Data Quality Console',
+                <div className="text-[9px] font-mono uppercase tracking-[0.22em] text-[#94a3b8]">
+                  Trust layer for the Denver market graph
+                </div>
+              )}
+              <div className="grid gap-3 bg-[#0a0d14] p-3 xl:grid-cols-[0.9fr_1.1fr]">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <BriefCard
+                    label="Malformed Rows"
+                    value={String(args.state.dataQuality.malformedLocationCount)}
+                    detail="City/state rows still needing repair"
+                    tone={args.state.dataQuality.malformedLocationCount ? 'weak' : 'strong'}
+                  />
+                  <BriefCard
+                    label="Duplicate Groups"
+                    value={String(args.state.dataQuality.duplicateGroupCount)}
+                    detail="Shared-host groups still visible"
+                    tone={args.state.dataQuality.duplicateGroupCount ? 'warning' : 'strong'}
+                  />
+                  <BriefCard
+                    label="Unscanned Shops"
+                    value={String(args.state.dataQuality.shopsWithoutScans)}
+                    detail="Canonical shops missing deep scan coverage"
+                    tone={args.state.dataQuality.shopsWithoutScans ? 'warning' : 'strong'}
+                  />
+                  <BriefCard
+                    label="Private Reports"
+                    value={String(args.state.dataQuality.shopsWithoutReports)}
+                    detail="Completed scans not yet publicly published"
+                    tone={args.state.dataQuality.shopsWithoutReports ? 'neutral' : 'strong'}
+                  />
+                </div>
+
+                <div className="space-y-2 border border-[#1e293b] bg-[#081018] p-3">
+                  <div className="text-[9px] font-mono uppercase tracking-[0.24em] text-[#94a3b8]">Highest-Leverage Cleanup Targets</div>
+                  {args.state.dataQuality.candidates.length ? (
+                    args.state.dataQuality.candidates.map((row) => (
+                      <button
+                        key={`${row.shopId}-${row.issue}`}
+                        type="button"
+                        onClick={() => setActiveShopId(row.shopId)}
+                        className="w-full border border-[#1e293b] bg-[#0f172a] px-3 py-2 text-left font-mono transition hover:bg-slate-900"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-[11px] text-[#e2e8f0]">{row.name}</div>
+                            <div className="mt-1 text-[9px] uppercase tracking-[0.18em] text-[#94a3b8]">
+                              {row.city} · {row.issue}
+                            </div>
+                          </div>
+                          <span className={`mt-0.5 h-2 w-2 ${signalToneClasses[row.tone]}`} />
+                        </div>
+                        <div className="mt-2 text-[10px] text-[#cbd5e1]">{row.detail}</div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="border border-[#1e293b] bg-[#0f172a] px-3 py-2 text-[11px] font-mono text-[#64748b]">
+                      No urgent quality issues in the current Denver slice.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </TacticalPanel>
+
             <TacticalPanel className="col-span-12 lg:col-span-8">
               {panelHeader(
                 'Denver Metro Market Map',
