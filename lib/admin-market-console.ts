@@ -193,6 +193,7 @@ export type AdminMarketConsoleState = {
   dataQuality: {
     malformedLocationCount: number;
     duplicateGroupCount: number;
+    quarantinedRowCount: number;
     shopsWithoutScans: number;
     shopsWithoutReports: number;
     candidates: Array<{
@@ -523,6 +524,38 @@ function hasMalformedWebsiteUrl(websiteUrl?: string | null) {
   return /^https?www\./i.test(host);
 }
 
+function normalizedShopKey(row: Pick<ShopBaseRow, 'name' | 'city'>, fallbackCity: string) {
+  return `${slugify(row.name || 'unknown')}::${slugify(row.city || fallbackCity)}`;
+}
+
+function placeholderName(name?: string | null) {
+  const value = (name || '').trim().toLowerCase();
+  return !value || value === 'unavailable' || value === 'unknown' || value === 'n/a';
+}
+
+function rowQualityScore(row: ShopBaseRow) {
+  return [
+    row.latestScan ? 120 : 0,
+    row.digitalPresenceSnapshot?.hasGoogleProfile ? 45 : 0,
+    row.websiteUrl || row.digitalPresenceSnapshot?.hasWebsite ? 35 : 0,
+    row.publicProfileSlug ? 15 : 0,
+    row.latestSiteFeature ? 20 : 0,
+    Math.min(25, reviewCountForDisplay(row))
+  ].reduce((sum, value) => sum + value, 0);
+}
+
+function ghostStubRow(row: ShopBaseRow) {
+  return (
+    !row.latestScan &&
+    !row.latestSiteFeature &&
+    !row.websiteUrl &&
+    !row.digitalPresenceSnapshot?.hasWebsite &&
+    !row.digitalPresenceSnapshot?.hasGoogleProfile &&
+    !row.publicProfileSlug &&
+    reviewCountForDisplay(row) === 0
+  );
+}
+
 function cityDemandPressure(
   city: string | null | undefined,
   cityPressureByCity: Map<string, { crashPressure: number; trafficExposure: number; hailPressure: number }>
@@ -789,6 +822,33 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     insurers: shop.insuranceRelationshipObservations,
     digitalPresenceSnapshot: shop.digitalPresenceSnapshot
   }));
+  const groupedRows = rows.reduce((map, row) => {
+    const key = normalizedShopKey(row, market.city);
+    const current = map.get(key) || [];
+    current.push(row);
+    map.set(key, current);
+    return map;
+  }, new Map<string, ShopBaseRow[]>());
+
+  const quarantinedRows: ShopBaseRow[] = [];
+  const canonicalRows = Array.from(groupedRows.values())
+    .map((group) => [...group].sort((a, b) => rowQualityScore(b) - rowQualityScore(a)))
+    .flatMap((group) => {
+      const best = group[0];
+      const duplicates = group.slice(1);
+      const bestIsGhost = placeholderName(best.name) || ghostStubRow(best);
+
+      if (group.length > 1) {
+        duplicates.forEach((row) => quarantinedRows.push(row));
+      }
+
+      if (bestIsGhost) {
+        quarantinedRows.push(best);
+        return [];
+      }
+
+      return [best];
+    });
   const marketIntel = await getMarketIntelSnapshot({
     marketIds,
     anchorMarketId: market.id
@@ -804,9 +864,10 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     ])
   );
 
-  const scoredRows = rows.filter((row) => row.latestScan);
+  const renderRows = canonicalRows;
+  const scoredRows = renderRows.filter((row) => row.latestScan);
   const leaderboardRows = [...scoredRows].sort((a, b) => (b.latestScan?.scoreTotal || 0) - (a.latestScan?.scoreTotal || 0));
-  const mapRows = [...rows]
+  const mapRows = [...renderRows]
     .sort((a, b) => {
       const scoreDelta = marketSignalScore(b) - marketSignalScore(a);
       if (scoreDelta !== 0) return scoreDelta;
@@ -859,10 +920,10 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     .slice(0, 6);
 
   const explorerCities = Array.from(
-    new Set(rows.map((row) => row.city || market.city).filter((value): value is string => Boolean(value)))
+    new Set(renderRows.map((row) => row.city || market.city).filter((value): value is string => Boolean(value)))
   ).sort((a, b) => a.localeCompare(b));
 
-  const explorerRows = [...rows]
+  const explorerRows = [...renderRows]
     .map((row) => {
       const score = marketSignalScore(row);
       const reviews = reviewCountForDisplay(row);
@@ -989,7 +1050,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
       oemCounts.set(label, (oemCounts.get(label) || 0) + 1);
     });
   });
-  const totalShops = rows.length || 1;
+  const totalShops = renderRows.length || 1;
   const oemMatrix = OEM_LABELS.map((row) => {
     const foundCount = oemCounts.get(row.label) || 0;
     const gapCount = Math.max(0, totalShops - foundCount);
@@ -1005,15 +1066,15 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     .slice(0, 8);
 
   const sourceCoverageTotals = [
-    { label: 'Website', value: rows.filter((row) => row.digitalPresenceSnapshot?.hasWebsite || row.websiteUrl).length },
-    { label: 'Google', value: rows.filter((row) => row.digitalPresenceSnapshot?.hasGoogleProfile).length },
-    { label: 'Yelp', value: rows.filter((row) => row.digitalPresenceSnapshot?.hasYelp).length },
-    { label: 'Facebook', value: rows.filter((row) => row.digitalPresenceSnapshot?.hasFacebook).length },
-    { label: 'Instagram', value: rows.filter((row) => row.digitalPresenceSnapshot?.hasInstagram).length },
-    { label: 'Carwise', value: rows.filter((row) => row.digitalPresenceSnapshot?.hasCarwise).length }
+    { label: 'Website', value: renderRows.filter((row) => row.digitalPresenceSnapshot?.hasWebsite || row.websiteUrl).length },
+    { label: 'Google', value: renderRows.filter((row) => row.digitalPresenceSnapshot?.hasGoogleProfile).length },
+    { label: 'Yelp', value: renderRows.filter((row) => row.digitalPresenceSnapshot?.hasYelp).length },
+    { label: 'Facebook', value: renderRows.filter((row) => row.digitalPresenceSnapshot?.hasFacebook).length },
+    { label: 'Instagram', value: renderRows.filter((row) => row.digitalPresenceSnapshot?.hasInstagram).length },
+    { label: 'Carwise', value: renderRows.filter((row) => row.digitalPresenceSnapshot?.hasCarwise).length }
   ];
 
-  const hiddenOperators = rows
+  const hiddenOperators = renderRows
     .map((row) => {
       const snapshot = row.digitalPresenceSnapshot;
       if (!snapshot) return null;
@@ -1036,7 +1097,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     .sort((a, b) => b.hiddenOperatorScore - a.hiddenOperatorScore)
     .slice(0, 6) as AdminMarketConsoleState['sourceCoverage']['hiddenOperators'];
 
-  const sourceGaps = rows
+  const sourceGaps = renderRows
     .map((row) => {
       const snapshot = row.digitalPresenceSnapshot;
       if (!snapshot) return null;
@@ -1119,7 +1180,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
   const activeWeeks = weeklyTelemetry.filter((week) => week.scans > 0).length;
   const weeklyCadencePct = percent(activeWeeks, weeklyTelemetry.length);
 
-  const staleShops = [...rows]
+  const staleShops = [...renderRows]
     .map((row) => {
       const lastScanDate = row.latestScan?.finishedAt || row.latestScan?.createdAt || null;
       const daysSinceScan = lastScanDate ? Math.round((Date.now() - lastScanDate.getTime()) / (24 * 60 * 60_000)) : 999;
@@ -1150,12 +1211,12 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     .sort((a, b) => b.count - a.count)
     .slice(0, 6);
 
-  const malformedLocationRows = rows.filter((row) => !row.city || /\d/.test(row.city) || !row.state || row.state.trim().length !== 2);
-  const shopsWithoutScans = rows.filter((row) => !row.latestScan).length;
-  const shopsWithoutReports = rows.filter((row) => row.latestScan && row.latestScan.publicStatus !== 'published').length;
+  const malformedLocationRows = renderRows.filter((row) => !row.city || /\d/.test(row.city) || !row.state || row.state.trim().length !== 2);
+  const shopsWithoutScans = renderRows.filter((row) => !row.latestScan).length;
+  const shopsWithoutReports = renderRows.filter((row) => row.latestScan && row.latestScan.publicStatus !== 'published').length;
 
   const duplicateWarnings = Array.from(
-    rows.reduce((map, row) => {
+    renderRows.reduce((map, row) => {
       const host = hostnameOf(row.websiteUrl);
       if (!host) return map;
       const existing = map.get(host) || { host, shopIds: new Set<string>(), cities: new Set<string>() };
@@ -1176,7 +1237,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     .slice(0, 8);
 
   const chainClusters = Array.from(
-    rows.reduce((map, row) => {
+    renderRows.reduce((map, row) => {
       const label = chainLabel(row.websiteUrl);
       if (!label || !row.latestScan) return map;
       const existing = map.get(label) || { label, count: 0, scores: [] as number[] };
@@ -1195,9 +1256,19 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     .sort((a, b) => b.locationCount - a.locationCount)
     .slice(0, 6);
 
-  const malformedWebsiteRows = rows.filter((row) => hasMalformedWebsiteUrl(row.websiteUrl));
+  const malformedWebsiteRows = renderRows.filter((row) => hasMalformedWebsiteUrl(row.websiteUrl));
 
   const dataQualityCandidates = [
+    ...quarantinedRows.slice(0, 4).map((row) => ({
+      shopId: row.id,
+      name: row.name,
+      city: row.city || market.city,
+      issue: 'Quarantined row',
+      detail: placeholderName(row.name)
+        ? 'Placeholder or unresolved shop name'
+        : 'Lower-confidence duplicate or source-only stub hidden from explorer',
+      tone: 'weak' as Tone
+    })),
     ...malformedLocationRows.slice(0, 4).map((row) => ({
       shopId: row.id,
       name: row.name,
@@ -1214,7 +1285,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
       detail: row.websiteUrl || 'No website on file',
       tone: 'warning' as Tone
     })),
-    ...rows
+    ...renderRows
       .filter((row) => !row.latestScan && (row.digitalPresenceSnapshot?.googleReviewCount || 0) >= 25)
       .slice(0, 4)
       .map((row) => ({
@@ -1226,7 +1297,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
         tone: 'warning' as Tone
       })),
     ...duplicateWarnings.slice(0, 4).map((row) => ({
-      shopId: rows.find((shop) => shop.websiteUrl && hostnameOf(shop.websiteUrl) === row.host)?.id || '',
+      shopId: renderRows.find((shop) => shop.websiteUrl && hostnameOf(shop.websiteUrl) === row.host)?.id || '',
       name: row.host,
       city: row.cities[0] || market.city,
       issue: 'Duplicate host group',
@@ -1270,7 +1341,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     .slice(0, 8) as Array<{ shopId: string; name: string; reason: string; score: number }>;
 
   const cityHotspots = Array.from(
-    rows.reduce((map, row) => {
+    renderRows.reduce((map, row) => {
       const city = row.city || market.city;
       const current =
         map.get(city) || {
@@ -1311,7 +1382,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     ...opportunities.slice(0, 4).map((row) => ({
       shopId: row.shopId,
       name: row.name,
-      city: rows.find((item) => item.id === row.shopId)?.city || market.city,
+      city: renderRows.find((item) => item.id === row.shopId)?.city || market.city,
       label: 'High-authority SEO gap',
       detail: `${row.reviews.toLocaleString()} reviews · score ${row.score} · ${row.missingCount} gaps`,
       tone: 'warning' as Tone
@@ -1327,7 +1398,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     ...suspiciousScans.slice(0, 3).map((row) => ({
       shopId: row.shopId,
       name: row.name,
-      city: rows.find((item) => item.id === row.shopId)?.city || market.city,
+      city: renderRows.find((item) => item.id === row.shopId)?.city || market.city,
       label: 'Integrity watch',
       detail: `${row.reason} · score ${row.score}`,
       tone: 'weak' as Tone
@@ -1339,7 +1410,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
   const topologyOverlapByShop = new Map<string, Array<{ name: string; percent: number; tone: Tone }>>();
   if (topologyEdges.length) {
     const scoreByShopId = new Map(topLeaderboard.map((row) => [row.shopId, row.score]));
-    const nameByShopId = new Map(rows.map((row) => [row.id, row.name]));
+    const nameByShopId = new Map(renderRows.map((row) => [row.id, row.name]));
     topologyEdges.forEach((edge) => {
       const sourceScore = scoreByShopId.get(edge.sourceShopId) || 50;
       const targetScore = scoreByShopId.get(edge.targetShopId) || 50;
@@ -1357,7 +1428,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
   }
 
   const drawerShops = Object.fromEntries(
-    rows.map((row) => {
+    renderRows.map((row) => {
       const payload = parsePayload(row.latestScan?.rawChecksJson);
       const oemCertifications = detectedOemLabels(payload);
       const overlap = (topologyOverlapByShop.get(row.id) || []).sort((a, b) => b.percent - a.percent).slice(0, 3);
@@ -1422,7 +1493,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
       { label: 'Benchmarks', href: `/api/admin/benchmark-report?marketId=${market.id}&take=12` }
     ],
     metrics: {
-      totalShops: rows.length,
+      totalShops: renderRows.length,
       totalObservations,
       queueToday,
       medianRuntimeMs:
@@ -1436,17 +1507,17 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
       }).format(new Date())
     },
     marketBrief: {
-      websiteCoveragePct: percent(rows.filter((row) => row.websiteUrl || row.digitalPresenceSnapshot?.hasWebsite).length, rows.length),
-      googleCoveragePct: percent(rows.filter((row) => row.digitalPresenceSnapshot?.hasGoogleProfile).length, rows.length),
+      websiteCoveragePct: percent(renderRows.filter((row) => row.websiteUrl || row.digitalPresenceSnapshot?.hasWebsite).length, renderRows.length),
+      googleCoveragePct: percent(renderRows.filter((row) => row.digitalPresenceSnapshot?.hasGoogleProfile).length, renderRows.length),
       publishedPct: percent(publishedCount, Math.max(1, scoredRows.length)),
       avgReviewCount: Math.round(
         average(
-          rows
+          renderRows
             .map((row) => reviewCountForDisplay(row))
             .filter((value) => value > 0)
         )
       ),
-      highSignalCount: rows.filter((row) => marketSignalScore(row) >= 80).length,
+      highSignalCount: renderRows.filter((row) => marketSignalScore(row) >= 80).length,
       hiddenOperatorCount: hiddenOperators.length,
       cityHotspots,
       watchlist
@@ -1475,6 +1546,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     dataQuality: {
       malformedLocationCount: malformedLocationRows.length,
       duplicateGroupCount: duplicateWarnings.length,
+      quarantinedRowCount: quarantinedRows.length,
       shopsWithoutScans,
       shopsWithoutReports,
       candidates: dataQualityCandidates

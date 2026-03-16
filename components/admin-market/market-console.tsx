@@ -859,7 +859,7 @@ export function MarketConsole(args: {
                 </div>
               )}
               <div className="grid gap-3 bg-[#0a0d14] p-3 xl:grid-cols-[0.9fr_1.1fr]">
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                   <BriefCard
                     label="Malformed Rows"
                     value={String(args.state.dataQuality.malformedLocationCount)}
@@ -871,6 +871,12 @@ export function MarketConsole(args: {
                     value={String(args.state.dataQuality.duplicateGroupCount)}
                     detail="Shared-host groups still visible"
                     tone={args.state.dataQuality.duplicateGroupCount ? 'warning' : 'strong'}
+                  />
+                  <BriefCard
+                    label="Quarantined"
+                    value={String(args.state.dataQuality.quarantinedRowCount)}
+                    detail="Placeholder or lower-confidence rows hidden from explorer"
+                    tone={args.state.dataQuality.quarantinedRowCount ? 'warning' : 'strong'}
                   />
                   <BriefCard
                     label="Unscanned Shops"
@@ -1305,7 +1311,7 @@ export function MarketConsole(args: {
               {panelHeader(
                 'Shop Explorer',
                 <div className="text-[9px] font-mono uppercase tracking-[0.22em] text-[#94a3b8]">
-                  {explorerRows.length} of {args.state.explorer.rows.length} shops visible
+                  {explorerRows.length} of {args.state.explorer.rows.length} usable shops visible
                 </div>
               )}
               <div className="space-y-3 bg-[#0a0d14] p-3">
