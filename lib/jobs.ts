@@ -5,6 +5,7 @@ import { generateAlertsForOrg } from '@/lib/alerts';
 import { fetchGooglePlaceProfile } from '@/lib/google-places';
 import { enqueueScheduledJob } from '@/lib/queue/enqueue';
 import { runQueueWorkerOnce } from '@/lib/queue/worker';
+import { refreshMarketIntelObservations } from '@/lib/market-intel';
 import { recordReviewObservation, recordShopSourceObservation, refreshShopDigitalPresenceSnapshot } from '@/lib/shop-data';
 import { recordTrackedCompetitorEdgesForOrg } from '@/lib/shop-graph';
 
@@ -200,7 +201,7 @@ export async function runDailyObservationRefresh(args?: { shopBatch?: number; or
 }
 
 export async function queueDailyObservationRefreshJobs() {
-  const [observationRefresh, rankRefresh] = await Promise.all([
+  const [observationRefresh, rankRefresh, marketIntelRefresh] = await Promise.all([
     enqueueScheduledJob({
       type: 'daily_observation_refresh',
       uniqueWindowHours: 20
@@ -208,10 +209,23 @@ export async function queueDailyObservationRefreshJobs() {
     enqueueScheduledJob({
       type: 'rank_snapshot_collect',
       uniqueWindowHours: 20
+    }),
+    enqueueScheduledJob({
+      type: 'market_intel_refresh',
+      uniqueWindowHours: 20,
+      payload: { marketSlug: 'denver' }
     })
   ]);
 
-  return { observationRefresh, rankRefresh };
+  return { observationRefresh, rankRefresh, marketIntelRefresh };
+}
+
+export async function runMarketIntelRefresh(args?: { marketSlug?: string }) {
+  const result = await refreshMarketIntelObservations({
+    marketSlug: args?.marketSlug || 'denver'
+  });
+
+  return result;
 }
 
 export async function runAlertGeneration() {

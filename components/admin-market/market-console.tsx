@@ -121,12 +121,24 @@ function MapPoint(args: {
       onFocus={() => args.onHover(args.point.shopId)}
       onBlur={() => args.onHover(null)}
       onClick={() => args.onSelect(args.point.shopId)}
-      className={`absolute -translate-x-1/2 -translate-y-1/2 border z-20 transition-all duration-150 hover:scale-150 ${
-        signalToneClasses[args.point.tone]
-      } ${scoreSize(args.point.score)} ${args.active ? 'scale-150 border-white' : 'border-white/60'}`}
+      className={`absolute -translate-x-1/2 -translate-y-1/2 z-20 transition-all duration-150 hover:scale-150 ${
+        args.active ? 'scale-150' : ''
+      }`}
       style={{ left: `${args.point.x}%`, top: `${args.point.y}%` }}
       title={`${args.point.name} · SEO ${args.point.score}`}
     >
+      <span
+        className="absolute left-1/2 top-1/2 block -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#67e8f9]/20 bg-[#06b6d4]/[0.03]"
+        style={{
+          width: `${10 + args.point.demandPressure * 0.42}px`,
+          height: `${10 + args.point.demandPressure * 0.42}px`
+        }}
+      />
+      <span
+        className={`relative block border ${signalToneClasses[args.point.tone]} ${scoreSize(args.point.score)} ${
+          args.active ? 'border-white' : 'border-white/60'
+        }`}
+      />
       <span className="sr-only">{args.point.name}</span>
     </button>
   );
@@ -480,10 +492,10 @@ export function MarketConsole(args: { state: AdminMarketConsoleState }) {
               {panelHeader(
                 'Demand Radar',
                 <div className="text-[9px] font-mono uppercase tracking-[0.22em] text-[#94a3b8]">
-                  Official Denver / Colorado safety and storm signals
+                  Stored Denver crash, traffic, and hail observations
                 </div>
               )}
-              <div className="grid gap-3 bg-[#0a0d14] p-3 xl:grid-cols-[1fr_0.95fr]">
+              <div className="grid gap-3 bg-[#0a0d14] p-3 xl:grid-cols-[1.2fr_0.9fr]">
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   {args.state.externalIntel.demandRadar.map((item) => (
                     <a
@@ -496,12 +508,55 @@ export function MarketConsole(args: { state: AdminMarketConsoleState }) {
                       <div className="text-[9px] font-mono uppercase tracking-[0.24em] text-[#94a3b8]">{item.label}</div>
                       <div className={`mt-2 text-2xl font-mono font-bold ${signalTextClasses[item.tone]}`}>{item.value}</div>
                       <div className="mt-2 text-[11px] leading-5 text-[#cbd5e1]">{item.detail}</div>
+                      <div className="mt-3 flex h-12 items-end gap-1 border-t border-[#1e293b] pt-2">
+                        {item.trend.length ? (
+                          item.trend.map((point) => (
+                            <div key={point.label} className="flex flex-1 flex-col items-center gap-1">
+                              <div className="flex h-8 w-full items-end bg-[#08111b]">
+                                <div
+                                  className="w-full bg-[#06b6d4]/80"
+                                  style={{ height: `${Math.max(10, Math.round(point.value * 0.32))}%` }}
+                                />
+                              </div>
+                              <div className="text-[8px] font-mono uppercase tracking-[0.16em] text-[#64748b]">{point.label}</div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-[10px] font-mono text-[#64748b]">Trend history starts accumulating on refresh.</div>
+                        )}
+                      </div>
                       <div className="mt-3 text-[9px] font-mono uppercase tracking-[0.18em] text-[#94a3b8]">{item.sourceLabel}</div>
                     </a>
                   ))}
                 </div>
 
-                <div className="grid gap-3 lg:grid-cols-[1fr_0.9fr]">
+                <div className="grid gap-3">
+                  <div className="border border-[#1e293b] bg-[#081018] p-3">
+                    <div className="text-[9px] font-mono uppercase tracking-[0.24em] text-[#94a3b8]">Crash-Pressure Overlay</div>
+                    <div className="mt-3 space-y-2">
+                      {args.state.externalIntel.cityPressure.slice(0, 6).map((row) => (
+                        <div key={row.city} className="border border-[#1e293b] bg-[#0f172a] px-3 py-2">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <div className="text-[11px] font-mono text-[#e2e8f0]">{row.city}</div>
+                              <div className="mt-1 text-[10px] text-[#94a3b8]">{row.rationale}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm font-mono text-[#67e8f9]">{row.crashPressure}</div>
+                              <div className="text-[8px] font-mono uppercase tracking-[0.18em] text-[#64748b]">crash</div>
+                            </div>
+                          </div>
+                          <div className="mt-2 grid grid-cols-3 gap-2 text-[9px] font-mono uppercase tracking-[0.16em] text-[#94a3b8]">
+                            <div>Traffic <span className="ml-1 text-[#93c5fd]">{row.trafficExposure}</span></div>
+                            <div>Hail <span className="ml-1 text-[#fde68a]">{row.hailPressure}</span></div>
+                            <div>Demand <span className="ml-1 text-[#a5f3fc]">{Math.round(row.crashPressure * 0.5 + row.trafficExposure * 0.25 + row.hailPressure * 0.25)}</span></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 lg:grid-cols-[1fr_0.9fr]">
                   <div className="border border-[#1e293b] bg-[#081018] p-3">
                     <div className="text-[9px] font-mono uppercase tracking-[0.24em] text-[#94a3b8]">Hail Storm Tracker</div>
                     <div className="mt-3 space-y-2">
@@ -518,7 +573,10 @@ export function MarketConsole(args: { state: AdminMarketConsoleState }) {
                               <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#67e8f9]">{event.dateLabel}</div>
                               <div className="mt-1 text-sm text-[#e2e8f0]">{event.title}</div>
                             </div>
-                            <span className="h-2 w-2 bg-[#f59e0b] shadow-[0_0_12px_rgba(245,158,11,0.35)]" />
+                            <div className="text-right">
+                              <div className="h-2 w-2 bg-[#f59e0b] shadow-[0_0_12px_rgba(245,158,11,0.35)]" />
+                              <div className="mt-2 text-[9px] font-mono text-[#fde68a]">{event.severity}</div>
+                            </div>
                           </div>
                           <div className="mt-2 text-[12px] leading-5 text-[#cbd5e1]">{event.detail}</div>
                         </a>
@@ -543,6 +601,7 @@ export function MarketConsole(args: { state: AdminMarketConsoleState }) {
                       ))}
                     </div>
                   </div>
+                </div>
                 </div>
               </div>
             </TacticalPanel>
@@ -754,6 +813,10 @@ export function MarketConsole(args: { state: AdminMarketConsoleState }) {
                     <span className="h-1.5 w-1.5 bg-[#ef4444]" />
                     Weak SEO
                   </span>
+                  <span className="flex items-center gap-1">
+                    <span className="h-2.5 w-2.5 rounded-full border border-[#67e8f9]/50 bg-[#06b6d4]/10" />
+                    Demand Halo
+                  </span>
                 </div>
               )}
               <div className="relative h-[450px] overflow-hidden border-t border-[#1e293b] bg-[#020408] p-2">
@@ -797,6 +860,10 @@ export function MarketConsole(args: { state: AdminMarketConsoleState }) {
                         <span className={`font-bold ${signalTextClasses[hoveredPoint.tone]}`}>{hoveredPoint.score}</span>{' '}
                         <span className="text-[9px] text-[#94a3b8]">SEO</span>
                       </div>
+                      <div>
+                        <span className="font-bold text-[#67e8f9]">{hoveredPoint.demandPressure}</span>{' '}
+                        <span className="text-[9px] text-[#94a3b8]">demand</span>
+                      </div>
                     </div>
                     <div className="mt-2 border-t border-[#1e293b] pt-1 text-[8px] uppercase tracking-[0.2em] text-[#94a3b8]">
                       Scan: {hoveredPoint.scanAgeLabel}
@@ -814,6 +881,13 @@ export function MarketConsole(args: { state: AdminMarketConsoleState }) {
                   </span>
                   <span>|</span>
                   <span>Coord: 39°44&apos;21&quot;N 104°59&apos;5&quot;W</span>
+                </div>
+                <div className="absolute bottom-2 left-2 flex max-w-[72%] gap-2 overflow-x-auto text-[8px] font-mono uppercase tracking-[0.18em] text-[#94a3b8]">
+                  {args.state.externalIntel.cityPressure.slice(0, 5).map((row) => (
+                    <span key={row.city} className="border border-[#1e293b] bg-[#08111b]/90 px-2 py-1 whitespace-nowrap">
+                      {row.city}: {Math.round(row.crashPressure * 0.5 + row.trafficExposure * 0.25 + row.hailPressure * 0.25)}
+                    </span>
+                  ))}
                 </div>
               </div>
             </TacticalPanel>
@@ -1015,6 +1089,7 @@ export function MarketConsole(args: { state: AdminMarketConsoleState }) {
                       <th className="px-2 py-2 font-normal">Entity</th>
                       <th className="px-2 py-2 text-right font-normal">Rev</th>
                       <th className="px-2 py-2 text-right font-normal">SEO</th>
+                      <th className="px-2 py-2 text-right font-normal">Demand</th>
                       <th className="px-2 py-2 text-right font-normal">Missing</th>
                       <th className="px-2 py-2 text-right font-normal">Opp Score</th>
                     </tr>
@@ -1029,6 +1104,7 @@ export function MarketConsole(args: { state: AdminMarketConsoleState }) {
                         <td className="max-w-[160px] truncate px-2 py-1.5 font-bold text-[#e2e8f0]">{row.name}</td>
                         <td className="px-2 py-1.5 text-right text-[#e2e8f0]">{row.reviews.toLocaleString()}</td>
                         <td className="px-2 py-1.5 text-right text-[#fb7185]">{row.score}</td>
+                        <td className="px-2 py-1.5 text-right text-[#67e8f9]">{row.demandPressure}</td>
                         <td className="px-2 py-1.5 text-right text-[#94a3b8]">{row.missingCount}</td>
                         <td className="px-2 py-1.5 text-right font-bold text-[#67e8f9]">{row.opportunityScore.toFixed(1)}</td>
                       </tr>

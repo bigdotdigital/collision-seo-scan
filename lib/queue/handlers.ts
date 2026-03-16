@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { parseJson } from '@/lib/json';
 import { sendFollowupEmail } from '@/lib/email';
 import { runScanExecution } from '@/lib/scan-job-runner';
-import { runDailyObservationRefresh, runRankSnapshotCollect } from '@/lib/jobs';
+import { runDailyObservationRefresh, runMarketIntelRefresh, runRankSnapshotCollect } from '@/lib/jobs';
 
 export type QueueHandlerContext = {
   job: {
@@ -98,11 +98,18 @@ async function handleBuildShopEdges() {
   };
 }
 
+async function handleMarketIntelRefresh(context: QueueHandlerContext) {
+  const payload = parseJson<{ marketSlug?: string } | null>(context.job.payloadJson, null);
+  const intel = await runMarketIntelRefresh({ marketSlug: payload?.marketSlug || 'denver' });
+  return { kind: 'completed' as const, details: intel };
+}
+
 export const queueHandlers: Record<string, QueueJobHandler> = {
   scan_execute: handleScanExecute,
   followup_email: handleFollowupEmail,
   daily_observation_refresh: handleDailyObservationRefresh,
   rank_snapshot_collect: handleRankSnapshotCollect,
+  market_intel_refresh: handleMarketIntelRefresh,
   discover_shop_neighbors: handleDiscoverShopNeighbors,
   enrich_shop_basics: handleEnrichShopBasics,
   build_shop_edges: handleBuildShopEdges

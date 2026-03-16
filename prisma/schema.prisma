@@ -163,8 +163,34 @@ model Market {
   siteFeatureObservations ShopSiteFeatureObservation[]
   sourceObservations  ShopSourceObservation[]
   benchmarkSnapshots  BenchmarkSnapshot[]
+  intelObservations   MarketIntelObservation[]
 
   @@index([vertical, state, city])
+}
+
+model MarketIntelObservation {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  marketId       String
+  sourceType     String
+  signalType     String
+  metricKey      String
+  metricValue    Float
+  metricUnit     String?
+  dimensionKey   String   @default("")
+  dimensionValue String   @default("")
+  confidence     Float    @default(0)
+  sourceUrl      String?
+  observedAt     DateTime
+  metadata       Json?
+  market         Market   @relation(fields: [marketId], references: [id], onDelete: Cascade)
+
+  @@index([marketId, observedAt])
+  @@index([sourceType, observedAt])
+  @@index([marketId, signalType, observedAt])
+  @@index([dimensionKey, dimensionValue, observedAt])
+  @@unique([marketId, sourceType, signalType, metricKey, dimensionKey, dimensionValue, observedAt])
 }
 
 model Shop {

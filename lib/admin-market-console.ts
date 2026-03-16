@@ -1,4 +1,5 @@
 import { parseJson } from '@/lib/json';
+import { getMarketIntelSnapshot } from '@/lib/market-intel';
 import { prisma } from '@/lib/prisma';
 import { getQueueMetrics } from '@/lib/queue/metrics';
 import { parseReportPayload, type ReportPayload } from '@/lib/report-payload';
@@ -211,12 +212,21 @@ export type AdminMarketConsoleState = {
       tone: Tone;
       sourceLabel: string;
       sourceUrl: string;
+      trend: Array<{ label: string; value: number }>;
     }>;
     hailTracker: Array<{
       dateLabel: string;
       title: string;
       detail: string;
+      severity: number;
       sourceUrl: string;
+    }>;
+    cityPressure: Array<{
+      city: string;
+      crashPressure: number;
+      trafficExposure: number;
+      hailPressure: number;
+      rationale: string;
     }>;
     sourceLinks: Array<{
       label: string;
@@ -236,6 +246,7 @@ export type AdminMarketConsoleState = {
       tone: Tone;
       x: number;
       y: number;
+      demandPressure: number;
       scanAgeLabel: string;
     }>;
   };
@@ -256,6 +267,7 @@ export type AdminMarketConsoleState = {
     reviews: number;
     score: number;
     missingCount: number;
+    demandPressure: number;
     opportunityScore: number;
   }>;
   topology: {
@@ -502,6 +514,16 @@ function chainLabel(websiteUrl?: string | null) {
   if (/serviceking/i.test(url)) return 'Service King';
   if (/maaco/i.test(url)) return 'Maaco';
   return null;
+}
+
+function cityDemandPressure(
+  city: string | null | undefined,
+  cityPressureByCity: Map<string, { crashPressure: number; trafficExposure: number; hailPressure: number }>
+) {
+  if (!city) return 45;
+  const profile = cityPressureByCity.get(city);
+  if (!profile) return 45;
+  return Math.round(profile.crashPressure * 0.5 + profile.trafficExposure * 0.25 + profile.hailPressure * 0.25);
 }
 
 function fallbackPoint(index: number, total: number) {
@@ -760,6 +782,20 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     insurers: shop.insuranceRelationshipObservations,
     digitalPresenceSnapshot: shop.digitalPresenceSnapshot
   }));
+  const marketIntel = await getMarketIntelSnapshot({
+    marketIds,
+    anchorMarketId: market.id
+  });
+  const cityPressureByCity = new Map(
+    marketIntel.cityPressure.map((row) => [
+      row.city,
+      {
+        crashPressure: row.crashPressure,
+        trafficExposure: row.trafficExposure,
+        hailPressure: row.hailPressure
+      }
+    ])
+  );
 
   const scoredRows = rows.filter((row) => row.latestScan);
   const leaderboardRows = [...scoredRows].sort((a, b) => (b.latestScan?.scoreTotal || 0) - (a.latestScan?.scoreTotal || 0));
@@ -797,13 +833,17 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
       const missingPages = extractMissingPages(payload, row.latestSiteFeature?.missingPagesJson);
       const reviews = reviewCountForDisplay(row);
       const score = row.latestScan?.scoreTotal || 0;
-      const opportunityScore = Math.round(reviews * 0.12 + Math.max(0, 85 - score) * 1.3 + missingPages.length * 3.4);
+      const demandPressure = cityDemandPressure(row.city || market.city, cityPressureByCity);
+      const opportunityScore = Math.round(
+        reviews * 0.12 + Math.max(0, 85 - score) * 1.3 + missingPages.length * 3.4 + demandPressure * 0.55
+      );
       return {
         shopId: row.id,
         name: row.name,
         reviews,
         score,
         missingCount: missingPages.length,
+        demandPressure,
         opportunityScore
       };
     })
@@ -1182,87 +1222,11 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
 
   const externalIntel =
     marketSlug === 'denver'
-      ? {
-          demandRadar: [
-            {
-              label: 'Denver Crash Layer',
-              value: 'Vision Zero',
-              detail: 'City crash dashboard and map for corridor and neighborhood pressure.',
-              tone: 'strong' as Tone,
-              sourceLabel: 'Denver Vision Zero',
-              sourceUrl: 'https://www.denvergov.org/Government/Citywide-Programs-and-Initiatives/Vision-Zero/Statistics'
-            },
-            {
-              label: 'State Crash Context',
-              value: 'CDOT',
-              detail: 'Statewide and county crash data for metro trend, severity, and cause analysis.',
-              tone: 'neutral' as Tone,
-              sourceLabel: 'CDOT Crash Data',
-              sourceUrl: 'https://www.codot.gov/safety/traffic-safety/data-analysis/crash-data'
-            },
-            {
-              label: 'Regional Severity',
-              value: '9,228',
-              detail: 'DRCOG reported 9,228 fatal or serious injury crashes from 2019-2023 in the region.',
-              tone: 'warning' as Tone,
-              sourceLabel: 'DRCOG Crash Dashboard',
-              sourceUrl: 'https://www.drcog.org/transportation-planning/planning-future/safety/denver-regional-crash-data-consortium'
-            },
-            {
-              label: 'Traffic Exposure',
-              value: 'OTIS',
-              detail: 'Use CDOT OTIS traffic counts to rank high-volume corridors against shop coverage.',
-              tone: 'neutral' as Tone,
-              sourceLabel: 'CDOT OTIS',
-              sourceUrl: 'https://dtdapps.coloradodot.info/otis/'
-            }
-          ],
-          hailTracker: [
-            {
-              dateLabel: 'May 30, 2024',
-              title: 'Denver Metro Severe Hail Event',
-              detail: 'Major Front Range hail event with direct collision demand relevance across the metro.',
-              sourceUrl: 'https://www.weather.gov/bou/events'
-            },
-            {
-              dateLabel: 'May 18, 2025',
-              title: 'Eastern Colorado Severe Weather Outbreak',
-              detail: 'Regional severe-weather signal worth tracking for spillover repair demand and scan surges.',
-              sourceUrl: 'https://www.weather.gov/bou/events'
-            },
-            {
-              dateLabel: 'Seasonal',
-              title: 'Front Range Hail Pressure Window',
-              detail: 'Late spring through summer should be treated as a demand-monitoring season for Denver collision and PDR-heavy shops.',
-              sourceUrl: 'https://www.weather.gov/bou/events'
-            }
-          ],
-          sourceLinks: [
-            {
-              label: 'Denver Vision Zero',
-              url: 'https://www.denvergov.org/Government/Citywide-Programs-and-Initiatives/Vision-Zero/Statistics'
-            },
-            {
-              label: 'CDOT Crash Data',
-              url: 'https://www.codot.gov/safety/traffic-safety/data-analysis/crash-data'
-            },
-            {
-              label: 'DRCOG Crash Data',
-              url: 'https://www.drcog.org/transportation-planning/planning-future/safety/denver-regional-crash-data-consortium'
-            },
-            {
-              label: 'CDOT OTIS',
-              url: 'https://dtdapps.coloradodot.info/otis/'
-            },
-            {
-              label: 'NWS Boulder Events',
-              url: 'https://www.weather.gov/bou/events'
-            }
-          ]
-        }
+      ? marketIntel
       : {
           demandRadar: [],
           hailTracker: [],
+          cityPressure: [],
           sourceLinks: []
         };
 
@@ -1510,6 +1474,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
           tone: marketSignalTone(row),
           x: point.x,
           y: point.y,
+          demandPressure: cityDemandPressure(row.city || market.city, cityPressureByCity),
           scanAgeLabel: formatRelativeTime(
             row.latestScan?.finishedAt ||
               row.latestScan?.createdAt ||
