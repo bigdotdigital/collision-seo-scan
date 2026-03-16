@@ -107,12 +107,37 @@ function hotspotTone(avgScore: number): Tone {
   return 'weak';
 }
 
+type MapMode = 'signal' | 'demand' | 'coverage';
+
 function MapPoint(args: {
   point: AdminMarketConsoleState['map']['points'][number];
   active: boolean;
+  mode: MapMode;
+  dimmed?: boolean;
   onHover: (shopId: string | null) => void;
   onSelect: (shopId: string) => void;
 }) {
+  const haloSize =
+    args.mode === 'demand'
+      ? 16 + args.point.demandPressure * 0.62
+      : args.mode === 'coverage'
+        ? 14 + args.point.oemCount * 4
+        : 10 + args.point.demandPressure * 0.42;
+  const pointSize =
+    args.mode === 'demand'
+      ? args.point.demandPressure >= 75
+        ? 'h-3.5 w-3.5'
+        : args.point.demandPressure >= 55
+          ? 'h-3 w-3'
+          : scoreSize(args.point.score)
+      : args.mode === 'coverage'
+        ? args.point.oemCount >= 5
+          ? 'h-3.5 w-3.5'
+          : args.point.oemCount >= 2
+            ? 'h-3 w-3'
+            : scoreSize(args.point.score)
+        : scoreSize(args.point.score);
+
   return (
     <button
       type="button"
@@ -123,6 +148,8 @@ function MapPoint(args: {
       onClick={() => args.onSelect(args.point.shopId)}
       className={`absolute -translate-x-1/2 -translate-y-1/2 z-20 transition-all duration-150 hover:scale-150 ${
         args.active ? 'scale-150' : ''
+      } ${
+        args.dimmed ? 'opacity-35' : 'opacity-100'
       }`}
       style={{ left: `${args.point.x}%`, top: `${args.point.y}%` }}
       title={`${args.point.name} · SEO ${args.point.score}`}
@@ -130,15 +157,20 @@ function MapPoint(args: {
       <span
         className="absolute left-1/2 top-1/2 block -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#67e8f9]/20 bg-[#06b6d4]/[0.03]"
         style={{
-          width: `${10 + args.point.demandPressure * 0.42}px`,
-          height: `${10 + args.point.demandPressure * 0.42}px`
+          width: `${haloSize}px`,
+          height: `${haloSize}px`
         }}
       />
       <span
-        className={`relative block border ${signalToneClasses[args.point.tone]} ${scoreSize(args.point.score)} ${
+        className={`relative block border ${signalToneClasses[args.point.tone]} ${pointSize} ${
           args.active ? 'border-white' : 'border-white/60'
         }`}
       />
+      {args.active ? (
+        <span className="absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 whitespace-nowrap border border-[#1e293b] bg-[#08111b]/90 px-2 py-1 text-[9px] font-mono uppercase tracking-[0.18em] text-[#e2e8f0]">
+          {args.point.name}
+        </span>
+      ) : null}
       <span className="sr-only">{args.point.name}</span>
     </button>
   );
@@ -158,15 +190,67 @@ export function MarketConsole(args: {
 }) {
   const [activeShopId, setActiveShopId] = useState(args.state.drawer.defaultShopId);
   const [hoveredShopId, setHoveredShopId] = useState<string | null>(null);
+  const [mapCity, setMapCity] = useState('all');
+  const [mapMode, setMapMode] = useState<MapMode>('signal');
+  const [mapSearch, setMapSearch] = useState('');
   const [search, setSearch] = useState('');
   const [selectedCity, setSelectedCity] = useState('all');
   const [selectedPresence, setSelectedPresence] = useState<'all' | 'missing-site' | 'missing-maps' | 'hidden-operators' | 'published-only'>('all');
   const deferredSearch = useDeferredValue(search);
+  const deferredMapSearch = useDeferredValue(mapSearch);
   const activeShop = activeShopId ? args.state.drawer.shops[activeShopId] || null : null;
   const hoveredPoint = useMemo(
     () => args.state.map.points.find((point) => point.shopId === hoveredShopId) || null,
     [args.state.map.points, hoveredShopId]
   );
+  const explorerRowByShopId = useMemo(
+    () => new Map(args.state.explorer.rows.map((row) => [row.shopId, row])),
+    [args.state.explorer.rows]
+  );
+  const mapPoints = useMemo(() => {
+    const term = deferredMapSearch.trim().toLowerCase();
+    return args.state.map.points.filter((point) => {
+      if (mapCity !== 'all' && point.city !== mapCity) return false;
+      if (!term) return true;
+      return `${point.name} ${point.city} ${point.typeLabel}`.toLowerCase().includes(term);
+    });
+  }, [args.state.map.points, deferredMapSearch, mapCity]);
+  const activeMapPoint = useMemo(
+    () => mapPoints.find((point) => point.shopId === activeShopId) || hoveredPoint,
+    [mapPoints, activeShopId, hoveredPoint]
+  );
+  const mapClusters = useMemo(() => {
+    const base = new Map<string, { city: string; x: number[]; y: number[]; pressure: number[]; count: number }>();
+    mapPoints.forEach((point) => {
+      const current = base.get(point.city) || { city: point.city, x: [], y: [], pressure: [], count: 0 };
+      current.x.push(point.x);
+      current.y.push(point.y);
+      current.pressure.push(point.demandPressure);
+      current.count += 1;
+      base.set(point.city, current);
+    });
+
+    return Array.from(base.values()).map((cluster) => {
+      const intel = args.state.externalIntel.cityPressure.find((row) => row.city === cluster.city);
+      const avgPressure = Math.round(cluster.pressure.reduce((sum, value) => sum + value, 0) / Math.max(1, cluster.pressure.length));
+      const crashPressure = intel?.crashPressure || avgPressure;
+      const tone = crashPressure >= 70 ? 'strong' : crashPressure >= 55 ? 'warning' : crashPressure >= 40 ? 'neutral' : 'weak';
+      return {
+        city: cluster.city,
+        x: cluster.x.reduce((sum, value) => sum + value, 0) / Math.max(1, cluster.x.length),
+        y: cluster.y.reduce((sum, value) => sum + value, 0) / Math.max(1, cluster.y.length),
+        count: cluster.count,
+        pressure: crashPressure,
+        tone
+      };
+    });
+  }, [mapPoints, args.state.externalIntel.cityPressure]);
+  const activeOverlapPoints = useMemo(() => {
+    if (!activeShop) return [];
+    const overlapNames = new Set(activeShop.overlap.map((row) => row.name));
+    return mapPoints.filter((point) => overlapNames.has(point.name));
+  }, [activeShop, mapPoints]);
+  const mapInspector = activeMapPoint ? explorerRowByShopId.get(activeMapPoint.shopId) || null : null;
   const explorerRows = useMemo(() => {
     const term = deferredSearch.trim().toLowerCase();
     return args.state.explorer.rows.filter((row) => {
@@ -831,9 +915,54 @@ export function MarketConsole(args: {
                     <span className="h-2.5 w-2.5 rounded-full border border-[#67e8f9]/50 bg-[#06b6d4]/10" />
                     Demand Halo
                   </span>
+                  <span className="flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full border border-[#94a3b8]/50 bg-[#0f172a]" />
+                    City Cluster
+                  </span>
                 </div>
               )}
-              <div className="relative h-[450px] overflow-hidden border-t border-[#1e293b] bg-[#020408] p-2">
+              <div className="border-t border-[#1e293b] bg-[#020408]">
+                <div className="grid gap-2 border-b border-[#1e293b] bg-[#081018] px-3 py-2 lg:grid-cols-[1fr_auto_auto]">
+                  <label className="flex items-center gap-2 border border-[#1e293b] bg-[#0f172a] px-3 py-2">
+                    <span className="text-[9px] font-mono uppercase tracking-[0.18em] text-[#94a3b8]">Map Search</span>
+                    <input
+                      value={mapSearch}
+                      onChange={(event) => setMapSearch(event.target.value)}
+                      placeholder="Werkheiser, Aurora, hail..."
+                      className="w-full bg-transparent text-sm text-[#e2e8f0] outline-none placeholder:text-[#475569]"
+                    />
+                  </label>
+                  <label className="flex items-center gap-2 border border-[#1e293b] bg-[#0f172a] px-3 py-2">
+                    <span className="text-[9px] font-mono uppercase tracking-[0.18em] text-[#94a3b8]">City</span>
+                    <select
+                      value={mapCity}
+                      onChange={(event) => setMapCity(event.target.value)}
+                      className="w-full bg-transparent text-sm text-[#e2e8f0] outline-none"
+                    >
+                      <option value="all">All metro</option>
+                      {args.state.explorer.cities.map((city) => (
+                        <option key={city} value={city} className="bg-[#0f172a]">
+                          {city}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="flex border border-[#1e293b] bg-[#0f172a] text-[9px] font-mono uppercase tracking-[0.2em]">
+                    {(['signal', 'demand', 'coverage'] as MapMode[]).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setMapMode(mode)}
+                        className={`px-3 py-2 transition ${
+                          mapMode === mode ? 'bg-[#1e293b] text-[#e2e8f0]' : 'text-[#94a3b8] hover:text-[#e2e8f0]'
+                        }`}
+                      >
+                        {mode}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              <div className="relative h-[450px] overflow-hidden p-2">
                 <svg className="absolute inset-0 h-full w-full opacity-30 pointer-events-none" viewBox="0 0 1000 500" preserveAspectRatio="none">
                   <path d="M-100 250 Q 200 100 500 300 T 1100 200" fill="none" stroke="#1e293b" strokeWidth="1" />
                   <path d="M-50 400 Q 300 200 600 450 T 1100 100" fill="none" stroke="#1e293b" strokeWidth="1" strokeDasharray="4" />
@@ -846,11 +975,58 @@ export function MarketConsole(args: {
                   </path>
                 </svg>
 
-                {args.state.map.points.map((point) => (
+                {mapClusters.map((cluster) => (
+                  <button
+                    key={cluster.city}
+                    type="button"
+                    onClick={() => setMapCity((current) => (current === cluster.city ? 'all' : cluster.city))}
+                    className="absolute -translate-x-1/2 -translate-y-1/2 z-10"
+                    style={{ left: `${cluster.x}%`, top: `${cluster.y}%` }}
+                  >
+                    <span
+                      className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10"
+                      style={{
+                        width: `${40 + cluster.pressure * 1.2}px`,
+                        height: `${40 + cluster.pressure * 1.2}px`,
+                        background:
+                          cluster.tone === 'strong'
+                            ? 'rgba(6,182,212,0.06)'
+                            : cluster.tone === 'warning'
+                              ? 'rgba(245,158,11,0.06)'
+                              : 'rgba(59,130,246,0.05)'
+                      }}
+                    />
+                    <span className="relative block border border-[#1e293b] bg-[#08111b]/90 px-2 py-1 text-[8px] font-mono uppercase tracking-[0.2em] text-[#cbd5e1]">
+                      {cluster.city} · {cluster.count}
+                    </span>
+                  </button>
+                ))}
+
+                {activeMapPoint && activeOverlapPoints.length ? (
+                  <svg className="absolute inset-0 h-full w-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    {activeOverlapPoints.map((point) => (
+                      <line
+                        key={`${activeMapPoint.shopId}-${point.shopId}`}
+                        x1={activeMapPoint.x}
+                        y1={activeMapPoint.y}
+                        x2={point.x}
+                        y2={point.y}
+                        stroke="#0ea5e9"
+                        strokeOpacity="0.38"
+                        strokeWidth="0.35"
+                        strokeDasharray="1.5 1.5"
+                      />
+                    ))}
+                  </svg>
+                ) : null}
+
+                {mapPoints.map((point) => (
                   <MapPoint
                     key={point.shopId}
                     point={point}
                     active={point.shopId === activeShopId}
+                    mode={mapMode}
+                    dimmed={Boolean(activeMapPoint && point.shopId !== activeMapPoint.shopId && !activeOverlapPoints.some((row) => row.shopId === point.shopId))}
                     onHover={setHoveredShopId}
                     onSelect={setActiveShopId}
                   />
@@ -878,6 +1054,10 @@ export function MarketConsole(args: {
                         <span className="font-bold text-[#67e8f9]">{hoveredPoint.demandPressure}</span>{' '}
                         <span className="text-[9px] text-[#94a3b8]">demand</span>
                       </div>
+                      <div>
+                        <span className="font-bold text-[#93c5fd]">{hoveredPoint.oemCount}</span>{' '}
+                        <span className="text-[9px] text-[#94a3b8]">OEM</span>
+                      </div>
                     </div>
                     <div className="mt-2 border-t border-[#1e293b] pt-1 text-[8px] uppercase tracking-[0.2em] text-[#94a3b8]">
                       Scan: {hoveredPoint.scanAgeLabel}
@@ -885,8 +1065,62 @@ export function MarketConsole(args: {
                   </div>
                 ) : null}
 
+                {activeMapPoint && mapInspector ? (
+                  <div className="absolute right-3 top-3 w-[260px] border border-[#334155] bg-[#0b1220]/95 p-3 shadow-xl backdrop-blur-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-[#67e8f9]">{mapMode} view</div>
+                        <div className="mt-1 text-sm font-semibold text-[#e2e8f0]">{activeMapPoint.name}</div>
+                        <div className="mt-1 text-[10px] font-mono uppercase tracking-[0.18em] text-[#94a3b8]">
+                          {activeMapPoint.city} · {activeMapPoint.typeLabel}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveShopId(activeMapPoint.shopId)}
+                        className="border border-[#1e293b] bg-[#111827] px-2 py-1 text-[8px] font-mono uppercase tracking-[0.18em] text-[#cbd5e1] hover:bg-[#1e293b]"
+                      >
+                        Open
+                      </button>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <div className="border border-[#1e293b] bg-[#08111b] px-2 py-2">
+                        <div className="text-[8px] font-mono uppercase tracking-[0.18em] text-[#94a3b8]">SEO</div>
+                        <div className={`mt-1 text-lg font-mono font-bold ${signalTextClasses[activeMapPoint.tone]}`}>{activeMapPoint.score}</div>
+                      </div>
+                      <div className="border border-[#1e293b] bg-[#08111b] px-2 py-2">
+                        <div className="text-[8px] font-mono uppercase tracking-[0.18em] text-[#94a3b8]">Demand</div>
+                        <div className="mt-1 text-lg font-mono font-bold text-[#67e8f9]">{activeMapPoint.demandPressure}</div>
+                      </div>
+                      <div className="border border-[#1e293b] bg-[#08111b] px-2 py-2">
+                        <div className="text-[8px] font-mono uppercase tracking-[0.18em] text-[#94a3b8]">Reviews</div>
+                        <div className="mt-1 text-lg font-mono font-bold text-[#e2e8f0]">{activeMapPoint.reviews.toLocaleString()}</div>
+                      </div>
+                      <div className="border border-[#1e293b] bg-[#08111b] px-2 py-2">
+                        <div className="text-[8px] font-mono uppercase tracking-[0.18em] text-[#94a3b8]">Coverage</div>
+                        <div className="mt-1 text-lg font-mono font-bold text-[#93c5fd]">{mapInspector.sourceCoverageScore.toFixed(0)}</div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 space-y-2">
+                      <div className="flex flex-wrap gap-1">
+                        {statusPill(mapInspector.websiteStatus, mapInspector.websiteStatus === 'site' ? 'strong' : 'warning')}
+                        {statusPill(mapInspector.googleStatus, mapInspector.googleStatus === 'maps' ? 'neutral' : 'weak')}
+                        {statusPill(mapInspector.publishedStatus, mapInspector.publishedStatus === 'published' ? 'strong' : 'weak')}
+                      </div>
+                      <div className="text-[10px] leading-5 text-[#cbd5e1]">
+                        Last scan {activeMapPoint.scanAgeLabel}. Hidden operator score {mapInspector.hiddenOperatorScore.toFixed(1)}.
+                      </div>
+                      <div className="text-[9px] font-mono uppercase tracking-[0.18em] text-[#94a3b8]">
+                        {activeOverlapPoints.length} visible overlap nodes linked on map
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="absolute left-2 top-2 text-[9px] font-mono uppercase text-[#94a3b8]/80">
-                  Sector: DEN-ALPHA | Zoom: 12x | Grid: 24m²
+                  Sector: DEN-ALPHA | Zoom: 12x | Grid: 24m² | {mapPoints.length} plotted
                 </div>
                 <div className="absolute bottom-2 right-2 flex items-center gap-2 text-[9px] font-mono uppercase text-[#94a3b8]">
                   <span className="flex items-center gap-1">
@@ -894,15 +1128,23 @@ export function MarketConsole(args: {
                     Scan Age: {args.state.map.averageScanAgeHours}
                   </span>
                   <span>|</span>
-                  <span>Coord: 39°44&apos;21&quot;N 104°59&apos;5&quot;W</span>
+                    <span>Coord: 39°44&apos;21&quot;N 104°59&apos;5&quot;W</span>
                 </div>
                 <div className="absolute bottom-2 left-2 flex max-w-[72%] gap-2 overflow-x-auto text-[8px] font-mono uppercase tracking-[0.18em] text-[#94a3b8]">
-                  {args.state.externalIntel.cityPressure.slice(0, 5).map((row) => (
-                    <span key={row.city} className="border border-[#1e293b] bg-[#08111b]/90 px-2 py-1 whitespace-nowrap">
+                  {args.state.externalIntel.cityPressure.slice(0, 6).map((row) => (
+                    <button
+                      key={row.city}
+                      type="button"
+                      onClick={() => setMapCity((current) => (current === row.city ? 'all' : row.city))}
+                      className={`border px-2 py-1 whitespace-nowrap ${
+                        mapCity === row.city ? 'border-[#06b6d4] bg-[#0c1724] text-[#e2e8f0]' : 'border-[#1e293b] bg-[#08111b]/90'
+                      }`}
+                    >
                       {row.city}: {Math.round(row.crashPressure * 0.5 + row.trafficExposure * 0.25 + row.hailPressure * 0.25)}
-                    </span>
+                    </button>
                   ))}
                 </div>
+              </div>
               </div>
             </TacticalPanel>
 
