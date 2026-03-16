@@ -109,6 +109,28 @@ function hotspotTone(avgScore: number): Tone {
 
 type MapMode = 'signal' | 'demand' | 'coverage';
 
+const denverMapLabels = [
+  { label: 'Boulder', x: 18, y: 10, tone: 'neutral' as Tone },
+  { label: 'Arvada', x: 24, y: 28, tone: 'neutral' as Tone },
+  { label: 'Lakewood', x: 23, y: 53, tone: 'warning' as Tone },
+  { label: 'Denver', x: 40, y: 44, tone: 'strong' as Tone },
+  { label: 'Englewood', x: 41, y: 60, tone: 'warning' as Tone },
+  { label: 'Littleton', x: 34, y: 72, tone: 'warning' as Tone },
+  { label: 'Aurora', x: 60, y: 46, tone: 'neutral' as Tone },
+  { label: 'Centennial', x: 57, y: 70, tone: 'warning' as Tone },
+  { label: 'Westminster', x: 35, y: 20, tone: 'neutral' as Tone },
+  { label: 'Thornton', x: 46, y: 18, tone: 'neutral' as Tone },
+  { label: 'DIA', x: 83, y: 24, tone: 'weak' as Tone }
+];
+
+const denverCorridors = [
+  { label: 'I-25', x: 31, y: 12, rotate: 90 },
+  { label: 'I-70', x: 92, y: 42, rotate: 0 },
+  { label: 'US-6', x: 20, y: 58, rotate: -8 },
+  { label: 'C-470', x: 23, y: 78, rotate: -12 },
+  { label: 'Colfax', x: 56, y: 38, rotate: -3 }
+];
+
 function MapPoint(args: {
   point: AdminMarketConsoleState['map']['points'][number];
   active: boolean;
@@ -1043,6 +1065,45 @@ export function MarketConsole(args: {
                       {cluster.city} · {cluster.count}
                     </span>
                   </button>
+                ))}
+
+                {mapClusters.map((cluster) => (
+                  <div
+                    key={`${cluster.city}-heat`}
+                    className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full blur-2xl pointer-events-none"
+                    style={{
+                      left: `${cluster.x}%`,
+                      top: `${cluster.y}%`,
+                      width: `${80 + cluster.pressure * 1.6}px`,
+                      height: `${56 + cluster.pressure * 1.1}px`,
+                      background:
+                        cluster.tone === 'strong'
+                          ? 'radial-gradient(circle, rgba(6,182,212,0.16) 0%, rgba(6,182,212,0.04) 55%, rgba(6,182,212,0) 100%)'
+                          : cluster.tone === 'warning'
+                            ? 'radial-gradient(circle, rgba(245,158,11,0.16) 0%, rgba(245,158,11,0.04) 55%, rgba(245,158,11,0) 100%)'
+                            : 'radial-gradient(circle, rgba(59,130,246,0.12) 0%, rgba(59,130,246,0.03) 55%, rgba(59,130,246,0) 100%)'
+                    }}
+                  />
+                ))}
+
+                {denverMapLabels.map((label) => (
+                  <div
+                    key={label.label}
+                    className={`absolute -translate-x-1/2 -translate-y-1/2 z-[5] text-[9px] font-mono uppercase tracking-[0.22em] ${signalTextClasses[label.tone]} pointer-events-none`}
+                    style={{ left: `${label.x}%`, top: `${label.y}%` }}
+                  >
+                    {label.label}
+                  </div>
+                ))}
+
+                {denverCorridors.map((corridor) => (
+                  <div
+                    key={corridor.label}
+                    className="absolute z-[4] text-[8px] font-mono uppercase tracking-[0.3em] text-[#cbd5e1]/45 pointer-events-none"
+                    style={{ left: `${corridor.x}%`, top: `${corridor.y}%`, transform: `rotate(${corridor.rotate}deg)` }}
+                  >
+                    {corridor.label}
+                  </div>
                 ))}
 
                 {activeMapPoint && activeOverlapPoints.length ? (
