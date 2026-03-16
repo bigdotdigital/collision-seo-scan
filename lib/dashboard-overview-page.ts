@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { parseJson } from '@/lib/json';
 import { getCityDemandContext } from '@/lib/market-intel';
+import { getShopFallbackIntel } from '@/lib/shop-fallback-intel';
 import { parseReportPayload } from '@/lib/report-payload';
 import type { Issue } from '@/lib/types';
 import { deriveCompetitorSuggestions } from '@/lib/dashboard-suggestions';
@@ -76,7 +77,22 @@ export async function buildDashboardOverviewPageState(orgId: string) {
   ]);
 
   const rawPayload = latestScan ? parseJson<unknown>(latestScan.rawChecksJson, null) : null;
-  const reportPayload = parseReportPayload(rawPayload);
+  const baseReportPayload = parseReportPayload(rawPayload);
+  const fallbackIntel = latestScan
+    ? await getShopFallbackIntel({
+        organizationId: orgId
+      })
+    : null;
+  const reportPayload = baseReportPayload
+    ? {
+        ...baseReportPayload,
+        googlePlace: baseReportPayload.googlePlace || fallbackIntel?.googlePlace || undefined,
+        sources:
+          baseReportPayload.sources && fallbackIntel?.googlePlace?.userRatingCount && baseReportPayload.sources.reviews === 'fallback'
+            ? { ...baseReportPayload.sources, reviews: 'cached' as const }
+            : baseReportPayload.sources
+      }
+    : null;
   const rawMoneyKeywords = parseJson<Array<{ keyword?: string; volume?: number | null }>>(
     latestScan?.moneyKeywordsJson || '',
     []

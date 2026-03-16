@@ -516,6 +516,13 @@ function chainLabel(websiteUrl?: string | null) {
   return null;
 }
 
+function hasMalformedWebsiteUrl(websiteUrl?: string | null) {
+  const host = hostnameOf(websiteUrl);
+  if (!websiteUrl) return false;
+  if (!host) return true;
+  return /^https?www\./i.test(host);
+}
+
 function cityDemandPressure(
   city: string | null | undefined,
   cityPressureByCity: Map<string, { crashPressure: number; trafficExposure: number; hailPressure: number }>
@@ -1149,7 +1156,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
 
   const duplicateWarnings = Array.from(
     rows.reduce((map, row) => {
-      const host = row.websiteUrl ? new URL(row.websiteUrl).hostname.replace(/^www\./i, '').toLowerCase() : '';
+      const host = hostnameOf(row.websiteUrl);
       if (!host) return map;
       const existing = map.get(host) || { host, shopIds: new Set<string>(), cities: new Set<string>() };
       existing.shopIds.add(row.id);
@@ -1188,6 +1195,8 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     .sort((a, b) => b.locationCount - a.locationCount)
     .slice(0, 6);
 
+  const malformedWebsiteRows = rows.filter((row) => hasMalformedWebsiteUrl(row.websiteUrl));
+
   const dataQualityCandidates = [
     ...malformedLocationRows.slice(0, 4).map((row) => ({
       shopId: row.id,
@@ -1196,6 +1205,14 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
       issue: 'Malformed location',
       detail: `${row.address || 'No address'} · state ${row.state || 'missing'}`,
       tone: 'weak' as Tone
+    })),
+    ...malformedWebsiteRows.slice(0, 3).map((row) => ({
+      shopId: row.id,
+      name: row.name,
+      city: row.city || market.city,
+      issue: 'Malformed website',
+      detail: row.websiteUrl || 'No website on file',
+      tone: 'warning' as Tone
     })),
     ...rows
       .filter((row) => !row.latestScan && (row.digitalPresenceSnapshot?.googleReviewCount || 0) >= 25)
@@ -1359,7 +1376,11 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
           id: row.id,
           name: row.name,
           addressLabel: row.address || marketLabel(row.city || market.city, row.state || market.state),
-          websiteLabel: row.websiteUrl ? new URL(row.websiteUrl).hostname.replace(/^www\./i, '') : 'No website on file',
+          websiteLabel: row.websiteUrl
+            ? hasMalformedWebsiteUrl(row.websiteUrl)
+              ? 'Malformed website URL'
+              : hostnameOf(row.websiteUrl) || 'Malformed website URL'
+            : 'No website on file',
           publicReportUrl,
           reviews: reviewCountForDisplay(row),
           score: row.latestScan?.scoreTotal || 0,

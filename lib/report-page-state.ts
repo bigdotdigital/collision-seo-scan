@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { parseJson } from '@/lib/json';
 import { getCityDemandContext } from '@/lib/market-intel';
+import { getShopFallbackIntel } from '@/lib/shop-fallback-intel';
 import type { Issue } from '@/lib/types';
 import { buildReportViewModel, type ReportData } from '@/lib/report-view-model';
 import { parseReportPayload } from '@/lib/report-payload';
@@ -230,6 +231,10 @@ export async function loadReportPageState(scanId: string) {
   const calendly = process.env.CALENDLY_LINK || 'https://calendly.com/bigdotdigital/30min';
   const salesPhone = process.env.SALES_PHONE || '+13035551234';
   const demandContext = await getCityDemandContext({ city: scanRecord.city });
+  const fallbackIntel = await getShopFallbackIntel({
+    shopId: dbScan?.shopId || null,
+    organizationId: dbScan?.organizationId || null
+  });
   const reportData: ReportData = {
     scanId: scanRecord.id,
     shopName: scanRecord.shopName,
@@ -254,6 +259,7 @@ export async function loadReportPageState(scanId: string) {
     }
   };
   const vm = buildReportViewModel(reportData);
+  const googlePlace = payload?.googlePlace || fallbackIntel?.googlePlace || undefined;
   const filteredCompetitorAdvantages = competitorAdvantages
     .map((row) => ({
       ...row,
@@ -278,9 +284,27 @@ export async function loadReportPageState(scanId: string) {
   );
   const reviewGap = payload?.reviewGap ?? vm.reviewGap;
   const mapPack = payload?.mapPack ?? vm.mapPack;
-  const googlePlace = payload?.googlePlace;
+  const payloadSources = payload?.sources
+    ? {
+        ...payload.sources,
+        reviews:
+          payload.sources.reviews === 'fallback' && fallbackIntel?.googlePlace?.userRatingCount
+            ? 'cached'
+            : payload.sources.reviews
+      }
+    : fallbackIntel?.googlePlace?.userRatingCount
+      ? {
+          pagespeed: 'fallback' as const,
+          serp: 'fallback' as const,
+          aiSummary: 'fallback' as const,
+          reviews: 'cached' as const,
+          mapPack: 'fallback' as const,
+          competitors: 'fallback' as const,
+          keywords: 'modeled' as const
+        }
+      : null;
   const sourceState = buildSourceConfidenceState({
-    payloadSources: payload?.sources,
+    payloadSources,
     reviewGap,
     mapPack,
     googlePlace,

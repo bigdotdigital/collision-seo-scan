@@ -226,7 +226,13 @@ export default async function DashboardOverviewPage({
           <div className="card-header">
             <div className="card-title">Google Profile Snapshot</div>
             <div className="card-action" style={{ color: 'var(--accent-blue)' }}>
-              {reportPayload?.googlePlace?.googleMapsUri ? 'Maps linked' : 'No live profile link'}
+              {reportPayload?.googlePlace?.googleMapsUri
+                ? reportPayload?.sources?.reviews === 'cached'
+                  ? 'Stored profile linked'
+                  : 'Maps linked'
+                : reportPayload?.googlePlace
+                  ? 'Stored profile'
+                  : 'No profile saved'}
             </div>
           </div>
           <HeroMetric
@@ -242,8 +248,10 @@ export default async function DashboardOverviewPage({
           />
           <div className="hero-footer">
             {reportPayload?.googlePlace
-              ? `Google Places snapshot${typeof reportPayload.googlePlace.rating === 'number' ? ` • ${reportPayload.googlePlace.rating.toFixed(1)} star rating` : ''}.`
-              : 'No live Google Places profile was captured in the latest payload.'}
+              ? `${reportPayload?.sources?.reviews === 'cached' ? 'Stored Google profile snapshot' : 'Google Places snapshot'}${
+                  typeof reportPayload.googlePlace.rating === 'number' ? ` • ${reportPayload.googlePlace.rating.toFixed(1)} star rating` : ''
+                }.`
+              : 'No saved Google profile snapshot yet.'}
           </div>
           <a
             className="button-pill"

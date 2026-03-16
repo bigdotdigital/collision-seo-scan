@@ -759,12 +759,12 @@ export default async function ReportPage({ params }: { params: { scanId: string 
               {googlePlace?.rating?.toFixed(1)} stars • {googlePlace?.userRatingCount ?? 0} reviews
             </p>
             <p className="mt-1 text-sm text-slate-600">
-              Competitor review comparison was unavailable in this run.
+              We have your stored Google profile data, but a reliable competitor review comparison was not captured in this run.
             </p>
           </div>
         ) : (
           <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            Live review comparison data was unavailable in this run.
+            We do not have enough saved review data yet to show a reliable comparison for this run.
           </div>
         )}
       </section>
@@ -778,13 +778,13 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         </div>
         {!hasUsableMapPackData ? (
           <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            Live map-pack data was unavailable for this run.
+            A reliable map-pack snapshot was not captured in this run.
           </p>
         ) : null}
         <p className="mt-1 text-sm text-slate-600">
           {hasUsableMapPackData
             ? mapPack.info
-            : 'Map pack ranks were unavailable in this run and will be pulled during teardown.'}
+            : 'We will keep using stored market data and refresh map-pack ranks on a later scan.'}
         </p>
         {hasUsableMapPackData ? (
           <div className="mt-4 space-y-3">
@@ -814,7 +814,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
           </ul>
         ) : (
           <p className="mt-3 text-sm text-slate-600">
-            We could not compute reliable map-pack ranking signals for this run.
+            We could not compute reliable map-pack ranking signals from the saved data for this run yet.
           </p>
         )}
       </section>
