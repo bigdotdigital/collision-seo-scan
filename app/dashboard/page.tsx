@@ -49,7 +49,9 @@ export default async function DashboardOverviewPage({
     organization,
     setupReadiness,
     nextSteps,
-    dataHealth
+    dataHealth,
+    weeklySummary,
+    valueMoments
   } = await buildDashboardOverviewPageState(ctx.orgId);
   const refreshState = searchParams?.refresh || '';
 
@@ -92,6 +94,54 @@ export default async function DashboardOverviewPage({
           Refresh failed. Check the workspace details and try again.
         </div>
       ) : null}
+
+      <section className="card overflow-hidden">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+          <div className="p-6">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="dashboard-status dashboard-status-cached">Weekly owner brief</span>
+              <span
+                className={`dashboard-status ${
+                  weeklySummary.urgency === 'high'
+                    ? 'dashboard-status-warning'
+                    : weeklySummary.urgency === 'medium'
+                      ? 'dashboard-status-modeled'
+                      : 'dashboard-status-live'
+                }`}
+              >
+                {weeklySummary.urgency === 'high'
+                  ? 'Needs attention'
+                  : weeklySummary.urgency === 'medium'
+                    ? 'Worth acting on'
+                    : 'In a good place'}
+              </span>
+            </div>
+            <h2 className="mt-4 text-3xl font-semibold tracking-tight text-[var(--text-main)]">
+              {weeklySummary.headline}
+            </h2>
+            <p className="mt-3 max-w-3xl text-base leading-7 text-[var(--text-secondary)]">
+              {weeklySummary.subhead}
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {nextSteps.slice(0, 3).map((step) => (
+                <span key={step.title} className="rounded-full border border-[var(--border-color)] bg-[var(--bg-body)] px-3 py-1.5 text-sm text-[var(--text-secondary)]">
+                  {step.title}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-px bg-[var(--border-color)] xl:grid-rows-3">
+            {valueMoments.map((item) => (
+              <div key={item.label} className="bg-[var(--bg-card)] p-5">
+                <div className="text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">{item.label}</div>
+                <div className="mt-2 text-xl font-semibold text-[var(--text-main)]">{item.value}</div>
+                <p className="mt-2 text-sm text-[var(--text-secondary)]">{item.detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
         <section className="card overflow-hidden">

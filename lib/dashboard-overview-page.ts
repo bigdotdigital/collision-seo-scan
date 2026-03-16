@@ -210,6 +210,58 @@ export async function buildDashboardOverviewPageState(orgId: string) {
     competitorStatus: `${competitorCount} tracked`,
     lastScanAgeLabel
   };
+  const weeklySummary = {
+    headline: !latestScan
+      ? 'Run your first scan to start the weekly dashboard loop.'
+      : trends?.overall
+        ? trends.overall.type === 'up'
+          ? `Your score is up ${trends.overall.value} since the last completed scan.`
+          : `Your score is down ${trends.overall.value} since the last completed scan.`
+        : 'Your weekly baseline is set. Keep refreshing to build real trend history.',
+    subhead: latestScan
+      ? `${issues.length} active issues, ${reportPayload?.googlePlace?.userRatingCount ?? 'pending'} saved reviews, ${activeKeywords} tracked keywords.`
+      : 'Once your first scan lands, this space turns into a weekly owner brief.',
+    urgency:
+      revenueLeak.severity === 'High'
+        ? 'high'
+        : demandContext?.urgencyLabel === 'High Pressure'
+          ? 'high'
+          : nextSteps.length > 0
+            ? 'medium'
+            : 'low'
+  } as const;
+  const valueMoments = [
+    {
+      label: 'Biggest win available',
+      value:
+        marketInsights.issueRates.noEstimate >= 25
+          ? 'Estimate flow'
+          : marketInsights.issueRates.noOem >= 10
+            ? 'Trust/OEM proof'
+            : 'Review visibility',
+      detail:
+        marketInsights.issueRates.noEstimate >= 25
+          ? `In our scan dataset, shops with an estimate flow materially outperform those without one.`
+          : marketInsights.issueRates.noOem >= 10
+            ? 'Certification and trust signals still separate stronger collision shops from weaker ones.'
+            : 'Review proof is still one of the fastest visible wins in this market.'
+    },
+    {
+      label: 'Business context',
+      value: demandContext ? demandContext.urgencyLabel : 'Monitoring',
+      detail: demandContext
+        ? demandContext.summary
+        : 'Demand context fills in once city-level crash, traffic, and hail observations are attached.'
+    },
+    {
+      label: 'Data confidence',
+      value: hasGoogleProfile || hasWebsite ? 'Strong' : 'Building',
+      detail:
+        hasGoogleProfile || hasWebsite
+          ? 'This dashboard can fall back to saved shop data if third-party provider calls come back thin.'
+          : 'Connect more saved sources to make the dashboard more resilient week to week.'
+    }
+  ];
 
   return {
     latestScan,
@@ -247,6 +299,8 @@ export async function buildDashboardOverviewPageState(orgId: string) {
     competitorCount,
     setupReadiness,
     nextSteps,
-    dataHealth
+    dataHealth,
+    weeklySummary,
+    valueMoments
   };
 }
