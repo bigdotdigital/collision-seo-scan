@@ -15,6 +15,7 @@ export async function clearScanObservationArtifacts(scanId: string) {
     prisma.shopConversionObservation.deleteMany({ where: { scanId } }),
     prisma.shopSiteFeatureObservation.deleteMany({ where: { scanId } }),
     prisma.shopInsuranceRelationshipObservation.deleteMany({ where: { scanId } }),
+    prisma.shopSourceObservation.deleteMany({ where: { scanId } }),
     prisma.shopGraphEdge.deleteMany({ where: { scanId } })
   ]);
 }

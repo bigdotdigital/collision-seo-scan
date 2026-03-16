@@ -62,6 +62,21 @@ type ShopBaseRow = {
     confidence: number;
     observedAt: Date;
   }>;
+  digitalPresenceSnapshot: {
+    hasWebsite: boolean;
+    hasGoogleProfile: boolean;
+    hasYelp: boolean;
+    hasFacebook: boolean;
+    hasInstagram: boolean;
+    hasCarwise: boolean;
+    hasNewsMentions: boolean;
+    hasRedditMentions: boolean;
+    googleReviewCount: number | null;
+    yelpReviewCount: number | null;
+    sourceCoverageScore: number | null;
+    hiddenOperatorScore: number | null;
+    lastObservedAt: Date | null;
+  } | null;
 };
 
 export type AdminMarketConsoleState = {
@@ -80,6 +95,27 @@ export type AdminMarketConsoleState = {
     queueToday: number;
     medianRuntimeMs: number | null;
     updatedAtLabel: string;
+  };
+  sourceCoverage: {
+    totals: Array<{ label: string; value: number }>;
+    hiddenOperators: Array<{
+      shopId: string;
+      name: string;
+      city: string;
+      reviews: number;
+      score: number | null;
+      hiddenOperatorScore: number;
+      typeLabel: string;
+    }>;
+    gaps: Array<{
+      shopId: string;
+      name: string;
+      reviews: number;
+      hasWebsite: boolean;
+      hasGoogleProfile: boolean;
+      hasCarwise: boolean;
+      sourceCoverageScore: number;
+    }>;
   };
   map: {
     averageScanAgeHours: string;
@@ -242,9 +278,28 @@ function scoreTone(score: number): Tone {
   return 'weak';
 }
 
+function marketSignalScore(row: ShopBaseRow) {
+  if (row.latestScan?.scoreTotal) return row.latestScan.scoreTotal;
+  const reviews = row.digitalPresenceSnapshot?.googleReviewCount ?? row.latestReview?.reviewCount ?? 0;
+  const hiddenOperator = row.digitalPresenceSnapshot?.hiddenOperatorScore ?? 0;
+  return Math.round(Math.min(79, Math.log10(reviews + 1) * 20 + hiddenOperator * 0.6));
+}
+
+function marketSignalTone(row: ShopBaseRow): Tone {
+  if (row.latestScan?.scoreTotal) return scoreTone(row.latestScan.scoreTotal);
+  const reviews = row.digitalPresenceSnapshot?.googleReviewCount ?? row.latestReview?.reviewCount ?? 0;
+  if (reviews >= 100) return 'neutral';
+  if (reviews >= 25) return 'warning';
+  return 'weak';
+}
+
 function average(values: number[]) {
   if (!values.length) return 0;
   return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function isPresent<T>(value: T | null | undefined): value is T {
+  return value != null;
 }
 
 function median(values: number[]) {
@@ -436,7 +491,8 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     reviewCount,
     siteFeatureCount,
     insurerCount,
-    graphEdgeCount
+    graphEdgeCount,
+    sourceObservationCount
   ] = await Promise.all([
     prisma.shop.findMany({
       where: { marketId: { in: marketIds } },
@@ -508,6 +564,23 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
             confidence: true,
             observedAt: true
           }
+        },
+        digitalPresenceSnapshot: {
+          select: {
+            hasWebsite: true,
+            hasGoogleProfile: true,
+            hasYelp: true,
+            hasFacebook: true,
+            hasInstagram: true,
+            hasCarwise: true,
+            hasNewsMentions: true,
+            hasRedditMentions: true,
+            googleReviewCount: true,
+            yelpReviewCount: true,
+            sourceCoverageScore: true,
+            hiddenOperatorScore: true,
+            lastObservedAt: true
+          }
         }
       }
     }),
@@ -533,6 +606,9 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
       where: {
         OR: [{ sourceShop: { marketId: { in: marketIds } } }, { targetShop: { marketId: { in: marketIds } } }]
       }
+    }),
+    prisma.shopSourceObservation.count({
+      where: { OR: [{ marketId: { in: marketIds } }, { shop: { marketId: { in: marketIds } } }] }
     })
   ]);
 
@@ -549,12 +625,19 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     latestScan: shop.scans[0] || null,
     latestReview: shop.reviewObservations[0] || null,
     latestSiteFeature: shop.siteFeatureObservations[0] || null,
-    insurers: shop.insuranceRelationshipObservations
+    insurers: shop.insuranceRelationshipObservations,
+    digitalPresenceSnapshot: shop.digitalPresenceSnapshot
   }));
 
   const scoredRows = rows.filter((row) => row.latestScan);
   const leaderboardRows = [...scoredRows].sort((a, b) => (b.latestScan?.scoreTotal || 0) - (a.latestScan?.scoreTotal || 0));
-  const mapRows = leaderboardRows.slice(0, 80);
+  const mapRows = [...rows]
+    .sort((a, b) => {
+      const scoreDelta = marketSignalScore(b) - marketSignalScore(a);
+      if (scoreDelta !== 0) return scoreDelta;
+      return (b.digitalPresenceSnapshot?.googleReviewCount ?? b.latestReview?.reviewCount ?? 0) - (a.digitalPresenceSnapshot?.googleReviewCount ?? a.latestReview?.reviewCount ?? 0);
+    })
+    .slice(0, 120);
   const projected = projectMarketMap(mapRows);
   const pointByShopId = new Map(projected.map((point) => [point.shopId, point]));
   const averageScanAge = average(
@@ -706,7 +789,59 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     .filter((row) => row.foundCount > 0 || row.gapCount > 0)
     .slice(0, 8);
 
-  const totalObservations = reviewCount + siteFeatureCount + insurerCount + graphEdgeCount;
+  const sourceCoverageTotals = [
+    { label: 'Website', value: rows.filter((row) => row.digitalPresenceSnapshot?.hasWebsite || row.websiteUrl).length },
+    { label: 'Google', value: rows.filter((row) => row.digitalPresenceSnapshot?.hasGoogleProfile).length },
+    { label: 'Yelp', value: rows.filter((row) => row.digitalPresenceSnapshot?.hasYelp).length },
+    { label: 'Facebook', value: rows.filter((row) => row.digitalPresenceSnapshot?.hasFacebook).length },
+    { label: 'Instagram', value: rows.filter((row) => row.digitalPresenceSnapshot?.hasInstagram).length },
+    { label: 'Carwise', value: rows.filter((row) => row.digitalPresenceSnapshot?.hasCarwise).length }
+  ];
+
+  const hiddenOperators = rows
+    .map((row) => {
+      const snapshot = row.digitalPresenceSnapshot;
+      if (!snapshot) return null;
+      const reviews = snapshot.googleReviewCount ?? row.latestReview?.reviewCount ?? 0;
+      const score = row.latestScan?.scoreTotal ?? null;
+      const hiddenOperatorScore = snapshot.hiddenOperatorScore ?? 0;
+      if (!snapshot.hasGoogleProfile || reviews < 15 || hiddenOperatorScore < 20) return null;
+      if (snapshot.hasWebsite && score !== null && score >= 60) return null;
+      return {
+        shopId: row.id,
+        name: row.name,
+        city: row.city || market.city,
+        reviews,
+        score,
+        hiddenOperatorScore,
+        typeLabel: row.websiteUrl && /(caliber|gerber|crashchampions|serviceking|maaco)/i.test(row.websiteUrl) ? 'Chain' : 'Independent'
+      };
+    })
+    .filter(isPresent)
+    .sort((a, b) => b.hiddenOperatorScore - a.hiddenOperatorScore)
+    .slice(0, 6) as AdminMarketConsoleState['sourceCoverage']['hiddenOperators'];
+
+  const sourceGaps = rows
+    .map((row) => {
+      const snapshot = row.digitalPresenceSnapshot;
+      if (!snapshot) return null;
+      const reviews = snapshot.googleReviewCount ?? row.latestReview?.reviewCount ?? 0;
+      if (reviews < 10) return null;
+      return {
+        shopId: row.id,
+        name: row.name,
+        reviews,
+        hasWebsite: snapshot.hasWebsite || Boolean(row.websiteUrl),
+        hasGoogleProfile: snapshot.hasGoogleProfile,
+        hasCarwise: snapshot.hasCarwise,
+        sourceCoverageScore: snapshot.sourceCoverageScore ?? 0
+      };
+    })
+    .filter(isPresent)
+    .sort((a, b) => a.sourceCoverageScore - b.sourceCoverageScore)
+    .slice(0, 6) as AdminMarketConsoleState['sourceCoverage']['gaps'];
+
+  const totalObservations = reviewCount + siteFeatureCount + insurerCount + graphEdgeCount + sourceObservationCount;
   const publishedCount = scoredRows.filter((row) => row.latestScan?.publicStatus === 'published').length;
   const privateCount = Math.max(0, scoredRows.length - publishedCount);
   const queueRecentByBucket = new Array(12).fill(0);
@@ -878,6 +1013,11 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
         timeZoneName: 'short'
       }).format(new Date())
     },
+    sourceCoverage: {
+      totals: sourceCoverageTotals,
+      hiddenOperators,
+      gaps: sourceGaps
+    },
     map: {
       averageScanAgeHours: averageScanAge ? `${averageScanAge.toFixed(1)}h avg` : 'n/a',
       points: mapRows.map((row) => {
@@ -886,14 +1026,19 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
           shopId: row.id,
           name: row.name,
           city: row.city || market.city,
-          score: row.latestScan?.scoreTotal || 0,
-          reviews: row.latestReview?.reviewCount || 0,
+          score: marketSignalScore(row),
+          reviews: (row.digitalPresenceSnapshot?.googleReviewCount ?? row.latestReview?.reviewCount) || 0,
           typeLabel: row.websiteUrl && /(caliber|gerber|crashchampions|serviceking|maaco)/i.test(row.websiteUrl) ? 'Chain' : 'Independent',
           oemCount: row.latestSiteFeature?.oemSignalCount || 0,
-          tone: scoreTone(row.latestScan?.scoreTotal || 0),
+          tone: marketSignalTone(row),
           x: point.x,
           y: point.y,
-          scanAgeLabel: formatRelativeTime(row.latestScan?.finishedAt || row.latestScan?.createdAt)
+          scanAgeLabel: formatRelativeTime(
+            row.latestScan?.finishedAt ||
+              row.latestScan?.createdAt ||
+              row.digitalPresenceSnapshot?.lastObservedAt ||
+              row.latestReview?.observedAt
+          )
         };
       })
     },

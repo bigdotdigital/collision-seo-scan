@@ -19,7 +19,9 @@ import {
   recordKeywordObservations,
   recordReviewObservation,
   recordSerpObservations,
+  recordShopSourceObservation,
   recordSiteFeatureObservation,
+  refreshShopDigitalPresenceSnapshot,
   upsertShopFromInput
 } from '@/lib/shop-data';
 import { recordMapPackEdges, recordScanCompetitorEdges } from '@/lib/shop-graph';
@@ -467,6 +469,29 @@ export async function savePreparedScan(args: {
       checks: args.prepared.result.checks,
       missingPages: args.prepared.result.missingPages
     }),
+    recordShopSourceObservation({
+      shopId: shop.id,
+      scanId: scan.id,
+      observedAt: scan.createdAt,
+      city: googlePlace?.city || args.city,
+      state: googlePlace?.state || args.state || null,
+      vertical,
+      sourceType: 'WEBSITE',
+      sourceUrl: args.prepared.websiteUrl,
+      observedName: args.shopName,
+      observedPhone: args.phone || googlePlace?.nationalPhoneNumber || null,
+      observedAddress: args.address || googlePlace?.formattedAddress || null,
+      activityScore: args.prepared.result.checks.checkedUrls.length,
+      metadata: {
+        checkedUrlCount: args.prepared.result.checks.checkedUrls.length,
+        servicePageCount: args.prepared.result.checks.checkedUrls.filter((url) =>
+          /\/(services?|collision|repair|paint|hail|dent|cert|estimate|contact)\b/i.test(url)
+        ).length,
+        hasEstimateCta: args.prepared.result.checks.estimateCtaDetected,
+        hasOnlineEstimateFlow: args.prepared.result.checks.onlineEstimateFlow,
+        hasReviewProof: args.prepared.result.checks.reviewProofPresent
+      }
+    }),
     recordInsuranceRelationshipObservations({
       shopId: shop.id,
       scanId: scan.id,
@@ -483,6 +508,31 @@ export async function savePreparedScan(args: {
           vertical,
           profile: googlePlace,
           confidence: args.prepared.googlePlaceResult.source
+        })
+      : Promise.resolve(null),
+    googlePlace
+      ? recordShopSourceObservation({
+          shopId: shop.id,
+          scanId: scan.id,
+          observedAt: scan.createdAt,
+          city: googlePlace.city || args.city,
+          state: googlePlace.state || args.state || null,
+          vertical,
+          sourceType: 'GOOGLE_MAPS',
+          sourceUrl: googlePlace.googleMapsUri,
+          externalId: googlePlace.placeId,
+          observedName: googlePlace.name,
+          observedPhone: googlePlace.nationalPhoneNumber,
+          observedAddress: googlePlace.formattedAddress,
+          rating: googlePlace.rating,
+          reviewCount: googlePlace.userRatingCount,
+          metadata: {
+            websiteUri: googlePlace.websiteUri,
+            primaryTypeDisplayName: googlePlace.primaryTypeDisplayName,
+            lat: googlePlace.lat,
+            lng: googlePlace.lng
+          },
+          confidence: args.prepared.googlePlaceResult.source === 'live' ? 0.95 : 0.5
         })
       : Promise.resolve(null),
     recordSerpObservations({
@@ -577,6 +627,8 @@ export async function savePreparedScan(args: {
       response: args.prepared.googlePlaceResult
     })
   ]);
+
+  await refreshShopDigitalPresenceSnapshot({ shopId: shop.id });
 
   const rankPositions = rankPositionsFor(args.prepared.result);
   const score = computeScoreV01({

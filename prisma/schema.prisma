@@ -65,6 +65,7 @@ model Scan {
   conversionObservations ShopConversionObservation[]
   siteFeatureObservations ShopSiteFeatureObservation[]
   insuranceRelationshipObservations ShopInsuranceRelationshipObservation[]
+  sourceObservations ShopSourceObservation[]
   graphEdges        ShopGraphEdge[]
 
   @@index([shopId])
@@ -160,6 +161,7 @@ model Market {
   serpObservations    ShopSerpObservation[]
   conversionObservations ShopConversionObservation[]
   siteFeatureObservations ShopSiteFeatureObservation[]
+  sourceObservations  ShopSourceObservation[]
   benchmarkSnapshots  BenchmarkSnapshot[]
 
   @@index([vertical, state, city])
@@ -196,6 +198,8 @@ model Shop {
   conversionObservations ShopConversionObservation[]
   siteFeatureObservations ShopSiteFeatureObservation[]
   insuranceRelationshipObservations ShopInsuranceRelationshipObservation[]
+  sourceObservations ShopSourceObservation[]
+  digitalPresenceSnapshot ShopDigitalPresenceSnapshot?
   competitorSourceObservations ShopCompetitorObservation[] @relation("ObservationSourceShop")
   competitorTargetObservations ShopCompetitorObservation[] @relation("ObservationTargetShop")
   outgoingGraphEdges ShopGraphEdge[] @relation("ShopGraphEdgeSource")
@@ -206,6 +210,68 @@ model Shop {
   @@index([websiteUrl])
   @@index([normalizedWebsiteHost])
   @@index([marketId])
+}
+
+model ShopSourceObservation {
+  id              String   @id @default(cuid())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  shopId          String
+  marketId        String?
+  scanId          String?
+  sourceType      String
+  sourceUrl       String?
+  externalId      String?
+  observedName    String?
+  observedPhone   String?
+  observedAddress String?
+  city            String?
+  state           String?
+  rating          Float?
+  reviewCount     Int?
+  followerCount   Int?
+  postCount       Int?
+  activityScore   Float?
+  confidence      Float    @default(0)
+  metadata        Json?
+  observedAt      DateTime
+  shop            Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  market          Market?  @relation(fields: [marketId], references: [id], onDelete: SetNull)
+  scan            Scan?    @relation(fields: [scanId], references: [id], onDelete: SetNull)
+
+  @@index([shopId])
+  @@index([sourceType])
+  @@index([observedAt])
+  @@index([shopId, sourceType])
+  @@index([marketId, observedAt])
+  @@index([scanId])
+}
+
+model ShopDigitalPresenceSnapshot {
+  id                  String   @id @default(cuid())
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  shopId               String   @unique
+  hasWebsite           Boolean  @default(false)
+  hasGoogleProfile     Boolean  @default(false)
+  hasYelp              Boolean  @default(false)
+  hasFacebook          Boolean  @default(false)
+  hasInstagram         Boolean  @default(false)
+  hasCarwise           Boolean  @default(false)
+  hasNewsMentions      Boolean  @default(false)
+  hasRedditMentions    Boolean  @default(false)
+  googleReviewCount    Int?
+  yelpReviewCount      Int?
+  instagramActivity    Float?
+  facebookActivity     Float?
+  sourceCoverageScore  Float?
+  hiddenOperatorScore  Float?
+  lastObservedAt       DateTime?
+  shop                 Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([lastObservedAt])
+  @@index([sourceCoverageScore])
+  @@index([hiddenOperatorScore])
 }
 
 model ShopGraphEdge {

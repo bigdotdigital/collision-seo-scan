@@ -16,7 +16,9 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:push": "prisma db push",
     "crawl:batch": "node --import ./scripts/register-path-alias.mjs --experimental-strip-types --experimental-specifier-resolution=node scripts/crawl-batch.ts",
-    "scan:metro": "node --import ./scripts/register-path-alias.mjs --experimental-strip-types --experimental-specifier-resolution=node scripts/scan-metro.ts"
+    "scan:metro": "node --import ./scripts/register-path-alias.mjs --experimental-strip-types --experimental-specifier-resolution=node scripts/scan-metro.ts",
+    "backfill:sources": "node --import ./scripts/register-path-alias.mjs --experimental-strip-types --experimental-specifier-resolution=node scripts/backfill-source-observations.ts",
+    "discover:denver": "node --import ./scripts/register-path-alias.mjs --experimental-strip-types --experimental-specifier-resolution=node scripts/discover-denver-shops.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",

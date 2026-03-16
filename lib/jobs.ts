@@ -5,7 +5,7 @@ import { generateAlertsForOrg } from '@/lib/alerts';
 import { fetchGooglePlaceProfile } from '@/lib/google-places';
 import { enqueueScheduledJob } from '@/lib/queue/enqueue';
 import { runQueueWorkerOnce } from '@/lib/queue/worker';
-import { recordReviewObservation } from '@/lib/shop-data';
+import { recordReviewObservation, recordShopSourceObservation, refreshShopDigitalPresenceSnapshot } from '@/lib/shop-data';
 import { recordTrackedCompetitorEdgesForOrg } from '@/lib/shop-graph';
 
 function startOfUtcDay(input = new Date()) {
@@ -143,6 +143,29 @@ export async function runDailyObservationRefresh(args?: { shopBatch?: number; or
         confidence: profile.source,
         profile: profile.profile
       });
+      await recordShopSourceObservation({
+        shopId: shop.id,
+        observedAt: new Date(),
+        city: shop.city,
+        state: shop.state,
+        vertical: shop.verticalDefault,
+        sourceType: 'GOOGLE_MAPS',
+        sourceUrl: profile.profile.googleMapsUri,
+        externalId: profile.profile.placeId,
+        observedName: profile.profile.name,
+        observedPhone: profile.profile.nationalPhoneNumber,
+        observedAddress: profile.profile.formattedAddress,
+        rating: profile.profile.rating,
+        reviewCount: profile.profile.userRatingCount,
+        metadata: {
+          websiteUri: profile.profile.websiteUri,
+          primaryTypeDisplayName: profile.profile.primaryTypeDisplayName,
+          lat: profile.profile.lat,
+          lng: profile.profile.lng
+        },
+        confidence: profile.source === 'live' ? 0.95 : 0.5
+      });
+      await refreshShopDigitalPresenceSnapshot({ shopId: shop.id });
       reviewSnapshots += 1;
     } catch (error) {
       reviewFailures += 1;

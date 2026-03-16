@@ -3,6 +3,7 @@ import { normalizeWebsiteUrl } from '../lib/security/url.ts';
 import { scanHostKey } from '../lib/security/scan-submit-guard.ts';
 import { normalizeInsurerName } from '../lib/insurance-normalization.ts';
 import { extractInsuranceRelationshipSignals } from '../lib/insurance-signals.ts';
+import { sourceConfidenceScore } from '../lib/shop-source-observations.ts';
 import {
   buildCollisionArchitectureSummary,
   buildMapsAuthoritySummary,
@@ -220,6 +221,12 @@ function testInsuranceSignalExtraction() {
   assert.ok(signals.some((row) => row.insurerName === 'Progressive'));
 }
 
+function testSourceConfidence() {
+  assert.equal(sourceConfidenceScore('GOOGLE_MAPS'), 0.95);
+  assert.equal(sourceConfidenceScore('YELP'), 0.65);
+  assert.equal(sourceConfidenceScore('REDDIT'), 0.35);
+}
+
 function run() {
   testUrlValidation();
   testScanHostKey();
@@ -230,6 +237,7 @@ function run() {
   testPremiumGating();
   testInsuranceNormalization();
   testInsuranceSignalExtraction();
+  testSourceConfidence();
   console.log('test-core: all checks passed');
 }
 
