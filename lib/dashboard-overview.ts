@@ -80,24 +80,24 @@ export function buildOverviewBadges(args: {
 }): HeaderBadge[] {
   return [
     {
-      label: `Keywords ${args.hasModeledKeywords ? 'modeled' : 'unavailable'}`,
+      label: `Keywords ${args.hasModeledKeywords ? 'modeled' : 'pending'}`,
       tone: args.hasModeledKeywords ? 'modeled' : 'unknown',
       title: args.hasModeledKeywords
         ? 'Opportunity metrics use keyword-volume inputs from the latest scan payload.'
-        : 'No money-keyword volume was captured in the latest scan.'
+        : 'No saved money-keyword volume is attached to the latest scan yet.'
     },
     {
-      label: `Reviews ${args.sources?.reviews || 'unavailable'}`,
+      label: `Reviews ${args.sources?.reviews || 'pending'}`,
       tone: sourceTone(args.sources?.reviews),
       title: 'Google profile and review cards use the latest scan source label.'
     },
     {
-      label: `Competitors ${args.sources?.competitors || 'unavailable'}`,
+      label: `Competitors ${args.sources?.competitors || 'pending'}`,
       tone: sourceTone(args.sources?.competitors),
       title: 'Competitor sections only show saved or source-backed competitor data.'
     },
     {
-      label: `Map pack ${args.sources?.mapPack || 'unavailable'}`,
+      label: `Map pack ${args.sources?.mapPack || 'pending'}`,
       tone: sourceTone(args.sources?.mapPack),
       title: 'Map positioning is only precise when geo-backed source data exists.'
     }

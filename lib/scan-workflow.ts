@@ -7,6 +7,7 @@ import { capturePageSnapshot } from '@/lib/page-snapshot';
 import { fetchGooglePlaceProfile } from '@/lib/google-places';
 import { computeScoreV01 } from '@/lib/scoring';
 import { assertPublicHostname, normalizeWebsiteUrl } from '@/lib/security/url';
+import { NonRetryableError } from '@/lib/errors';
 import { createScanRecord, createSnapshot, ensureOrganizationForShop, storeRawProviderResponse } from '@/lib/org-data';
 import { seedDashboardFromScan } from '@/lib/dashboard-prefill';
 import { publishScanIfQualified } from '@/lib/public-report';
@@ -199,65 +200,79 @@ export function normalizeScanWebsiteUrl(input: string) {
   return normalizeWebsiteUrl(input);
 }
 
-export async function prepareScan(args: ScanWorkflowArgs): Promise<PreparedScan> {
-  const websiteUrl = normalizeWebsiteUrl(args.websiteUrl);
-  if (!websiteUrl) throw new Error('invalid_website_url');
-
-  await assertPublicHostname(websiteUrl);
-
-  const vertical = args.vertical || 'collision';
-  const pagespeedLive = await runPageSpeed(websiteUrl);
-  const googlePlaceResult = await fetchGooglePlaceProfile({
-    shopName: args.shopName,
-    city: args.city,
-    stateHint: args.state || null,
-    addressHint: args.address || null,
-    websiteUrl
-  });
-  const result = await runScan(websiteUrl, args.city, args.shopName, args.capabilities || {}, pagespeedLive);
-  const capture = await capturePageSnapshot(websiteUrl);
-
-  let pagespeed = pagespeedLive;
-  let pageSpeedStatus: 'live' | 'cached' | 'modeled' = 'live';
-
-  if (pagespeed.status === 'error') {
-    const cached = await recentPageSpeed(websiteUrl).catch(() => null);
-    if (cached) {
-      pagespeed = {
-        ...cached,
-        message: 'Showing recent PageSpeed data while live test is unavailable.'
-      };
-      pageSpeedStatus = 'cached';
-    } else {
-      pagespeed = modeledPageSpeed(result);
-      pageSpeedStatus = 'modeled';
-    }
+function normalizePreparationFailure(error: unknown) {
+  if (!(error instanceof Error)) return error;
+  if (
+    error.message === 'invalid_website_url' ||
+    error.message === 'Unable to resolve hostname' ||
+    error.message === 'Private or loopback IPs are not allowed' ||
+    error.message === 'Private network targets are blocked'
+  ) {
+    return new NonRetryableError(error.message);
   }
+  return error;
+}
 
-  const preview = scannerPreview({
-    websiteUrl,
-    result,
-    capture
-  });
+export async function prepareScan(args: ScanWorkflowArgs): Promise<PreparedScan> {
+  try {
+    const websiteUrl = normalizeWebsiteUrl(args.websiteUrl);
+    if (!websiteUrl) throw new NonRetryableError('invalid_website_url');
 
-  const reportPayload = buildReportPayload({
-    city: args.city,
-    shopName: args.shopName,
-    checks: result.checks,
-    categoryScores: result.categoryScores,
-    detectedSignals: result.detectedSignals,
-    missingSignals: result.missingSignals,
-    capabilityMissing: result.capabilityMissing,
-    topFixes: result.topFixes,
-    competitorAdvantages: result.competitorAdvantages,
-    nationalBenchmark: result.nationalBenchmark,
-    missingPages: result.missingPages,
-    pageFetchMeta: result.pageFetchMeta,
-    scanDurationMs: result.scanDurationMs,
-    competitors: result.competitors,
-    mapPack: result.mapPack,
-    scannerPreview: preview,
-    googlePlace: googlePlaceResult.profile || undefined,
+    await assertPublicHostname(websiteUrl);
+
+    const vertical = args.vertical || 'collision';
+    const pagespeedLive = await runPageSpeed(websiteUrl);
+    const googlePlaceResult = await fetchGooglePlaceProfile({
+      shopName: args.shopName,
+      city: args.city,
+      stateHint: args.state || null,
+      addressHint: args.address || null,
+      websiteUrl
+    });
+    const result = await runScan(websiteUrl, args.city, args.shopName, args.capabilities || {}, pagespeedLive);
+    const capture = await capturePageSnapshot(websiteUrl);
+
+    let pagespeed = pagespeedLive;
+    let pageSpeedStatus: 'live' | 'cached' | 'modeled' = 'live';
+
+    if (pagespeed.status === 'error') {
+      const cached = await recentPageSpeed(websiteUrl).catch(() => null);
+      if (cached) {
+        pagespeed = {
+          ...cached,
+          message: 'Showing recent PageSpeed data while live test is unavailable.'
+        };
+        pageSpeedStatus = 'cached';
+      } else {
+        pagespeed = modeledPageSpeed(result);
+        pageSpeedStatus = 'modeled';
+      }
+    }
+
+    const preview = scannerPreview({
+      websiteUrl,
+      result,
+      capture
+    });
+
+    const reportPayload = buildReportPayload({
+      city: args.city,
+      shopName: args.shopName,
+      checks: result.checks,
+      categoryScores: result.categoryScores,
+      detectedSignals: result.detectedSignals,
+      missingSignals: result.missingSignals,
+      capabilityMissing: result.capabilityMissing,
+      topFixes: result.topFixes,
+      competitorAdvantages: result.competitorAdvantages,
+      nationalBenchmark: result.nationalBenchmark,
+      missingPages: result.missingPages,
+      pageFetchMeta: result.pageFetchMeta,
+      scanDurationMs: result.scanDurationMs,
+      competitors: result.competitors,
+      mapPack: result.mapPack,
+      scannerPreview: preview,
+      googlePlace: googlePlaceResult.profile || undefined,
     sources: {
       pagespeed: pageSpeedStatus,
       serp: result.sources.serp,
@@ -278,15 +293,18 @@ export async function prepareScan(args: ScanWorkflowArgs): Promise<PreparedScan>
     })
   });
 
-  return {
-    websiteUrl,
-    vertical,
-    pagespeed,
-    pageSpeedStatus,
-    googlePlaceResult,
-    result,
-    reportPayload
-  };
+    return {
+      websiteUrl,
+      vertical,
+      pagespeed,
+      pageSpeedStatus,
+      googlePlaceResult,
+      result,
+      reportPayload
+    };
+  } catch (error) {
+    throw normalizePreparationFailure(error);
+  }
 }
 
 async function syncWorkspace(args: {

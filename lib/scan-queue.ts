@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { toJson } from '@/lib/json';
 import { claimNextJobs, heartbeatJobLease, releaseJobLease } from '@/lib/queue/claim-jobs';
+import { isNonRetryableError } from '@/lib/errors';
 
 const DEFAULT_SCAN_RETRY_DELAY_MS = 2 * 60 * 1000;
 
@@ -68,7 +69,7 @@ export async function failQueueJob(args: {
 }) {
   const message = args.error instanceof Error ? args.error.message : 'Unknown failure';
   const errorType = args.error instanceof Error ? args.error.name : 'QueueJobError';
-  const shouldRetry = args.attempts < args.maxAttempts;
+  const shouldRetry = args.attempts < args.maxAttempts && !isNonRetryableError(args.error);
 
   const job = await prisma.queueJob.update({
     where: { id: args.id },

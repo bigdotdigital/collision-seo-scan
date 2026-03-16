@@ -4,6 +4,7 @@ import { scanHostKey } from '../lib/security/scan-submit-guard.ts';
 import { normalizeInsurerName } from '../lib/insurance-normalization.ts';
 import { extractInsuranceRelationshipSignals } from '../lib/insurance-signals.ts';
 import { sourceConfidenceScore } from '../lib/shop-source-observations.ts';
+import { NonRetryableError, isNonRetryableError } from '../lib/errors.ts';
 import {
   buildCollisionArchitectureSummary,
   buildMapsAuthoritySummary,
@@ -168,7 +169,13 @@ function testMapsFallbackBehavior() {
       }
     })
   );
-  assert.ok(summary.highLevelGaps.some((item) => /unavailable from the current provider/i.test(item)));
+  assert.ok(summary.highLevelGaps.some((item) => /No saved Google profile data/i.test(item)));
+  assert.ok(summary.highLevelGaps.some((item) => /will appear/i.test(item) || /not stored yet/i.test(item)));
+}
+
+function testNonRetryableErrors() {
+  assert.equal(isNonRetryableError(new NonRetryableError('invalid_website_url')), true);
+  assert.equal(isNonRetryableError(new Error('random_failure')), false);
 }
 
 function testRevenueLeakSeverity() {
@@ -233,6 +240,7 @@ function run() {
   testSignalDetection();
   testCollisionArchitectureSummary();
   testMapsFallbackBehavior();
+  testNonRetryableErrors();
   testRevenueLeakSeverity();
   testPremiumGating();
   testInsuranceNormalization();

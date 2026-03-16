@@ -150,6 +150,8 @@ export function buildMapsAuthoritySummary(payload: ReportPayload | null) {
   const checks = payload?.checks;
   const googlePlace = payload?.googlePlace;
   const reviewGap = payload?.reviewGap;
+  const reviewSource = payload?.sources?.reviews;
+  const mapPackSource = payload?.sources?.mapPack;
   const gaps: string[] = [];
   const actions: string[] = [];
   let score = 45;
@@ -160,14 +162,22 @@ export function buildMapsAuthoritySummary(payload: ReportPayload | null) {
   if (checks?.directionsOrReviewsCta) score += 8;
   if (payload?.mapPack?.queries?.length) score += 8;
 
-  if (!googlePlace) gaps.push('Google profile data was unavailable from the current provider.');
+  if (!googlePlace) gaps.push('No saved Google profile data is available yet for this shop.');
   if (!checks?.mapsLinkDetected) gaps.push('No clear Google Maps or profile CTA was detected on-site.');
   if (!checks?.directionsOrReviewsCta) gaps.push('Directions or review CTA is weak.');
   if (reviewGap && typeof reviewGap.reviewGap === 'number' && reviewGap.reviewGap > 0) {
     gaps.push(`Local review gap of ${reviewGap.reviewGap} reviews versus the strongest competitor snapshot.`);
   }
-  gaps.push('Photo gap unavailable from current provider.');
-  gaps.push('GBP category/service delta unavailable from current provider.');
+  gaps.push(
+    reviewSource === 'cached' || reviewSource === 'live'
+      ? 'Google photo coverage is not stored yet in the current observation set.'
+      : 'Google photo coverage will appear once we store more profile observations.'
+  );
+  gaps.push(
+    mapPackSource === 'cached' || mapPackSource === 'live'
+      ? 'GBP category and service deltas are not modeled from the stored profile yet.'
+      : 'GBP category and service deltas will appear after a stronger profile refresh.'
+  );
 
   if (reviewGap && typeof reviewGap.reviewGap === 'number' && reviewGap.reviewGap > 0) {
     actions.push('Close the review gap with a structured post-repair review ask.');
@@ -183,7 +193,9 @@ export function buildMapsAuthoritySummary(payload: ReportPayload | null) {
         ? reviewGap.reviewGap > 0
           ? 'A nearby competitor appears stronger on reviews.'
           : 'Your review position is not obviously behind the competitor snapshot.'
-        : 'Competitor Maps comparison is partial in the current payload.',
+        : reviewSource === 'cached'
+          ? 'Using stored Google profile data, but competitor Maps comparison is still partial.'
+          : 'Competitor Maps comparison is partial in the current payload.',
     actionSuggestions: actions.slice(0, 3),
     teaser: 'Maps authority gaps detected. Upgrade to unlock comparison detail and action guidance.'
   } satisfies MapsAuthoritySummary;
