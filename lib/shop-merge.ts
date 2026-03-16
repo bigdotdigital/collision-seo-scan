@@ -82,6 +82,11 @@ export async function mergeShopRecords(args: {
   }
 
   return prisma.$transaction(async (tx) => {
+    const [sourceSnapshot, destinationSnapshot] = await Promise.all([
+      tx.shopDigitalPresenceSnapshot.findUnique({ where: { shopId: source.id } }),
+      tx.shopDigitalPresenceSnapshot.findUnique({ where: { shopId: destination.id } })
+    ]);
+
     await tx.shop.update({
       where: { id: destination.id },
       data: {
@@ -110,6 +115,10 @@ export async function mergeShopRecords(args: {
       tx.scan.updateMany({ where: { shopId: source.id }, data: { shopId: destination.id } }),
       tx.organization.updateMany({ where: { shopId: source.id }, data: { shopId: destination.id } }),
       tx.trackedCompetitor.updateMany({ where: { shopId: source.id }, data: { shopId: destination.id } }),
+      tx.shopSourceObservation.updateMany({
+        where: { shopId: source.id },
+        data: { shopId: destination.id, marketId: destination.marketId || source.marketId || undefined }
+      }),
       tx.shopKeywordObservation.updateMany({ where: { shopId: source.id }, data: { shopId: destination.id } }),
       tx.shopReviewObservation.updateMany({
         where: { shopId: source.id },
@@ -131,6 +140,10 @@ export async function mergeShopRecords(args: {
         where: { shopId: source.id },
         data: { shopId: destination.id, marketId: destination.marketId || source.marketId || undefined }
       }),
+      tx.shopInsuranceRelationshipObservation.updateMany({
+        where: { shopId: source.id },
+        data: { shopId: destination.id }
+      }),
       tx.shopCompetitorObservation.updateMany({
         where: { sourceShopId: source.id },
         data: { sourceShopId: destination.id }
@@ -138,8 +151,25 @@ export async function mergeShopRecords(args: {
       tx.shopCompetitorObservation.updateMany({
         where: { competitorShopId: source.id },
         data: { competitorShopId: destination.id }
+      }),
+      tx.shopGraphEdge.updateMany({
+        where: { sourceShopId: source.id },
+        data: { sourceShopId: destination.id }
+      }),
+      tx.shopGraphEdge.updateMany({
+        where: { targetShopId: source.id },
+        data: { targetShopId: destination.id }
       })
     ]);
+
+    if (sourceSnapshot && destinationSnapshot) {
+      await tx.shopDigitalPresenceSnapshot.delete({ where: { shopId: source.id } });
+    } else if (sourceSnapshot && !destinationSnapshot) {
+      await tx.shopDigitalPresenceSnapshot.update({
+        where: { shopId: source.id },
+        data: { shopId: destination.id }
+      });
+    }
 
     await tx.shop.delete({
       where: { id: source.id }

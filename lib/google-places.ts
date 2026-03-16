@@ -143,11 +143,9 @@ export async function fetchGooglePlaceProfile(args: {
     const picked = [...places].sort((a, b) => score(b) - score(a))[0];
     const displayName = (picked.displayName as { text?: string } | undefined)?.text || '';
     const formattedAddress = String(picked.formattedAddress || '') || null;
-    const addressParts = formattedAddress
-      ? formattedAddress.split(',').map((part) => part.trim())
-      : [];
-    const city = addressParts.length >= 2 ? addressParts[addressParts.length - 3] || null : null;
-    const stateZip = addressParts.length >= 2 ? addressParts[addressParts.length - 2] || '' : '';
+    const addressParts = formattedAddress ? formattedAddress.split(',').map((part) => part.trim()) : [];
+    const city = addressParts.length >= 3 ? addressParts[addressParts.length - 2] || null : null;
+    const stateZip = addressParts.length >= 3 ? addressParts[addressParts.length - 1] || '' : '';
     const state = stateZip ? stateZip.split(' ')[0] || null : null;
 
     const profile: GooglePlaceProfile = {
