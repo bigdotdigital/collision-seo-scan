@@ -100,6 +100,13 @@ function formatRuntime(ms: number) {
   return `${Math.round(ms / 1000)}s`;
 }
 
+function hotspotTone(avgScore: number): Tone {
+  if (avgScore >= 80) return 'strong';
+  if (avgScore >= 60) return 'warning';
+  if (avgScore >= 40) return 'neutral';
+  return 'weak';
+}
+
 function MapPoint(args: {
   point: AdminMarketConsoleState['map']['points'][number];
   active: boolean;
@@ -160,6 +167,20 @@ export function MarketConsole(args: { state: AdminMarketConsoleState }) {
   }, [args.state.explorer.rows, deferredSearch, selectedCity, selectedPresence]);
   const telemetryMaxScans = Math.max(1, ...args.state.telemetry.weekly.map((week) => week.scans));
   const telemetryMaxScore = Math.max(100, ...args.state.telemetry.weekly.map((week) => week.avgScore));
+  const atlasNodes = useMemo(
+    () =>
+      args.state.marketBrief.cityHotspots.map((row, index, list) => {
+        const angle = (index / Math.max(1, list.length)) * Math.PI * 2 - Math.PI / 2;
+        const radius = 28 + (index % 3) * 10;
+        return {
+          ...row,
+          tone: hotspotTone(row.avgScore),
+          x: 50 + Math.cos(angle) * radius,
+          y: 50 + Math.sin(angle) * radius
+        };
+      }),
+    [args.state.marketBrief.cityHotspots]
+  );
 
   return (
     <>
@@ -447,6 +468,131 @@ export function MarketConsole(args: { state: AdminMarketConsoleState }) {
                           </div>
                           <span className="text-[#e2e8f0]">{week.completed}/{week.scans}</span>
                           <span className="text-[#67e8f9]">{formatRuntime(week.medianRuntimeMs)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </TacticalPanel>
+
+            <TacticalPanel className="col-span-12">
+              {panelHeader(
+                'Signal Atlas',
+                <div className="text-[9px] font-mono uppercase tracking-[0.22em] text-[#94a3b8]">
+                  Jer Thorp-inspired market structure view: density, pressure, and weak pockets
+                </div>
+              )}
+              <div className="grid gap-3 bg-[#071019] p-3 xl:grid-cols-[1.2fr_0.8fr]">
+                <div className="relative overflow-hidden border border-[#1e293b] bg-[radial-gradient(circle_at_center,#081526_0%,#04070d_58%,#020308_100%)] p-4">
+                  <svg viewBox="0 0 1000 420" className="h-[340px] w-full">
+                    <defs>
+                      <linearGradient id="atlasFlow" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.45" />
+                        <stop offset="50%" stopColor="#22d3ee" stopOpacity="0.22" />
+                        <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.12" />
+                      </linearGradient>
+                    </defs>
+
+                    <path d="M-40 210 C 140 60, 260 340, 470 180 S 820 80, 1040 220" fill="none" stroke="url(#atlasFlow)" strokeWidth="2" />
+                    <path d="M-20 260 C 180 120, 320 380, 520 250 S 800 120, 1040 280" fill="none" stroke="#0f2740" strokeWidth="1.2" strokeDasharray="5 7" />
+                    <path d="M40 90 C 220 20, 380 160, 540 130 S 760 10, 980 100" fill="none" stroke="#0a2033" strokeWidth="1" />
+
+                    <circle cx="500" cy="210" r="84" fill="none" stroke="#0b2d48" strokeWidth="1" />
+                    <circle cx="500" cy="210" r="146" fill="none" stroke="#0b2235" strokeWidth="1" />
+
+                    {atlasNodes.map((node, index) => (
+                      <g key={node.city} transform={`translate(${node.x * 10},${node.y * 4.2})`}>
+                        {index > 0 ? (
+                          <line
+                            x1={500 - node.x * 10}
+                            y1={210 - node.y * 4.2}
+                            x2="0"
+                            y2="0"
+                            stroke="#10263b"
+                            strokeWidth="1"
+                          />
+                        ) : null}
+                        <circle
+                          r={Math.max(10, Math.min(28, 8 + node.shopCount))}
+                          fill="#09121d"
+                          stroke={lineTone(node.tone)}
+                          strokeWidth="2"
+                        />
+                        <circle
+                          r={Math.max(16, Math.min(40, 14 + node.strongCount * 2))}
+                          fill="none"
+                          stroke={lineTone(node.tone)}
+                          strokeOpacity="0.18"
+                          strokeWidth="1"
+                        />
+                        <text x="0" y="3" fill="#e2e8f0" fontSize="11" fontFamily="monospace" textAnchor="middle">
+                          {node.city.slice(0, 3).toUpperCase()}
+                        </text>
+                      </g>
+                    ))}
+                  </svg>
+
+                  <div className="absolute left-4 top-4 max-w-[260px]">
+                    <div className="text-[10px] font-mono uppercase tracking-[0.24em] text-[#67e8f9]">Denver Narrative Surface</div>
+                    <p className="mt-2 text-sm leading-6 text-[#cbd5e1]">
+                      The atlas emphasizes pressure zones instead of a flat ranking list. Strong hubs carry density, weak pockets reveal where
+                      SEO surface area is thin, and the surrounding field shows how much market mass is clustering around each city node.
+                    </p>
+                  </div>
+
+                  <div className="absolute bottom-4 left-4 right-4 grid gap-2 md:grid-cols-3">
+                    {atlasNodes.slice(0, 3).map((node) => (
+                      <button
+                        key={node.city}
+                        type="button"
+                        className="border border-[#1e293b] bg-[#08111b]/90 px-3 py-2 text-left font-mono"
+                        onClick={() => setSelectedCity(node.city)}
+                      >
+                        <div className="text-[10px] uppercase tracking-[0.18em] text-[#94a3b8]">{node.city}</div>
+                        <div className={`mt-1 text-lg font-bold ${signalTextClasses[node.tone]}`}>{node.shopCount} shops</div>
+                        <div className="mt-1 text-[10px] text-[#cbd5e1]">
+                          avg score {node.avgScore} · {node.avgReviews} avg reviews
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="border border-[#1e293b] bg-[#081018] p-3">
+                    <div className="text-[9px] font-mono uppercase tracking-[0.24em] text-[#94a3b8]">Field Notes</div>
+                    <div className="mt-3 space-y-3">
+                      {args.state.marketBrief.cityHotspots.slice(0, 5).map((node) => {
+                        const tone = hotspotTone(node.avgScore);
+                        return (
+                          <div key={node.city} className="border-l-2 border-[#1e293b] pl-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-sm font-mono text-[#e2e8f0]">{node.city}</span>
+                              <span className={`text-[10px] font-mono uppercase tracking-[0.18em] ${signalTextClasses[tone]}`}>
+                                {node.strongCount} strong / {node.weakCount} weak
+                              </span>
+                            </div>
+                            <p className="mt-1 text-[12px] leading-5 text-[#cbd5e1]">
+                              {node.shopCount} shops create a visible market cluster here. Average score is {node.avgScore}, with {node.avgReviews} average
+                              reviews carrying the authority layer.
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="border border-[#1e293b] bg-[#081018] p-3">
+                    <div className="text-[9px] font-mono uppercase tracking-[0.24em] text-[#94a3b8]">Weekly Rhythm</div>
+                    <div className="mt-3 space-y-2">
+                      {args.state.telemetry.weekly.slice(-6).map((week) => (
+                        <div key={week.label} className="grid grid-cols-[48px_1fr_auto] items-center gap-3 font-mono text-[11px]">
+                          <span className="text-[#94a3b8]">{week.label}</span>
+                          <div className="h-2 bg-[#0d1722]">
+                            <div className="h-2 bg-[linear-gradient(90deg,#06b6d4_0%,#22d3ee_60%,#f59e0b_100%)]" style={{ width: `${Math.max(4, Math.round((week.scans / telemetryMaxScans) * 100))}%` }} />
+                          </div>
+                          <span className="text-[#e2e8f0]">{week.scans} scans</span>
                         </div>
                       ))}
                     </div>
