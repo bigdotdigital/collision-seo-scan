@@ -7,7 +7,7 @@ import { capturePageSnapshot } from '@/lib/page-snapshot';
 import { fetchGooglePlaceProfile } from '@/lib/google-places';
 import { computeScoreV01 } from '@/lib/scoring';
 import { assertPublicHostname, normalizeWebsiteUrl } from '@/lib/security/url';
-import { createScanRecord, createSnapshot, storeRawProviderResponse } from '@/lib/org-data';
+import { createScanRecord, createSnapshot, ensureOrganizationForShop, storeRawProviderResponse } from '@/lib/org-data';
 import { seedDashboardFromScan } from '@/lib/dashboard-prefill';
 import { publishScanIfQualified } from '@/lib/public-report';
 import {
@@ -317,7 +317,6 @@ async function syncWorkspace(args: {
       state,
       lat: args.googlePlace?.lat || null,
       lng: args.googlePlace?.lng || null,
-      googlePlaceId: args.googlePlace?.placeId || null,
       primaryCategory: args.googlePlace?.primaryTypeDisplayName || null,
       verticalDefault: args.vertical
     }
@@ -381,8 +380,23 @@ export async function savePreparedScan(args: {
     vertical
   });
 
-  await syncWorkspace({
+  const organization = await ensureOrganizationForShop({
     orgId: args.orgId,
+    shopId: shop.id,
+    name: args.shopName,
+    websiteUrl: args.prepared.websiteUrl,
+    phone: args.phone || googlePlace?.nationalPhoneNumber || null,
+    address: args.address || googlePlace?.formattedAddress || null,
+    city: googlePlace?.city || args.city,
+    state: googlePlace?.state || args.state || null,
+    lat: googlePlace?.lat,
+    lng: googlePlace?.lng,
+    primaryCategory: googlePlace?.primaryTypeDisplayName || null,
+    vertical
+  });
+
+  await syncWorkspace({
+    orgId: organization.id,
     shopId: shop.id,
     shopName: args.shopName,
     websiteUrl: args.prepared.websiteUrl,
@@ -400,7 +414,7 @@ export async function savePreparedScan(args: {
           where: { id: args.scanId },
           data: {
             shopId: shop.id,
-            organizationId: args.orgId,
+            organizationId: organization.id,
             shopName: args.shopName,
             city: args.city,
             websiteUrl: args.prepared.websiteUrl,
@@ -420,7 +434,7 @@ export async function savePreparedScan(args: {
             vertical,
             executionStatus: 'running'
           },
-          args.orgId,
+          organization.id,
           shop.id
         );
 
@@ -445,7 +459,7 @@ export async function savePreparedScan(args: {
 
   await Promise.all([
     claimShopForOrganization({
-      orgId: args.orgId,
+      orgId: organization.id,
       shopId: shop.id,
       name: args.shopName,
       websiteUrl: args.prepared.websiteUrl,
@@ -574,7 +588,7 @@ export async function savePreparedScan(args: {
     }),
     recordConversionObservation({
       shopId: shop.id,
-      organizationId: args.orgId,
+      organizationId: organization.id,
       scanId: scan.id,
       observedAt: scan.createdAt,
       city: args.city,
@@ -586,7 +600,7 @@ export async function savePreparedScan(args: {
     }),
     storeRawProviderResponse({
       scanId: scan.id,
-      organizationId: args.orgId,
+      organizationId: organization.id,
       provider: 'website_audit',
       endpoint: 'runScan',
       cacheKey: `website:${args.prepared.websiteUrl}`,
@@ -600,7 +614,7 @@ export async function savePreparedScan(args: {
     }),
     storeRawProviderResponse({
       scanId: scan.id,
-      organizationId: args.orgId,
+      organizationId: organization.id,
       provider: 'pagespeed',
       endpoint: 'runPagespeed',
       cacheKey: `pagespeed:mobile:${args.prepared.websiteUrl}`,
@@ -613,7 +627,7 @@ export async function savePreparedScan(args: {
     }),
     storeRawProviderResponse({
       scanId: scan.id,
-      organizationId: args.orgId,
+      organizationId: organization.id,
       provider: 'google_places',
       endpoint: 'places.searchText',
       cacheKey: `google_places:${args.city.toLowerCase()}:${args.shopName.toLowerCase()}`,
@@ -640,7 +654,7 @@ export async function savePreparedScan(args: {
 
   const snapshot = await createSnapshot({
     scanId: scan.id,
-    organizationId: args.orgId,
+    organizationId: organization.id,
     visibilityScore: score.visibilityScore,
     scoringModelVersion: score.scoringModelVersion,
     reviewCount: googlePlace?.userRatingCount ?? null,
@@ -658,7 +672,7 @@ export async function savePreparedScan(args: {
   });
 
   await seedDashboardFromScan({
-    organizationId: args.orgId,
+    organizationId: organization.id,
     scanId: scan.id,
     shopName: args.shopName,
     websiteUrl: args.prepared.websiteUrl,

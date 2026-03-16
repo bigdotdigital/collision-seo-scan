@@ -39,7 +39,6 @@ export async function upsertOrganizationFromInput(input: OrganizationInput) {
   const name = (input.shop_name || '').trim() || 'Unknown Shop';
   const websiteUrl = (input.website_url || '').trim() || undefined;
   const city = input.city || input.city_or_zip || undefined;
-  const websiteDomain = domainOf(websiteUrl);
 
   const shop = await upsertShopFromInput({
     name,
@@ -60,16 +59,19 @@ export async function upsertOrganizationFromInput(input: OrganizationInput) {
     where: {
       OR: [
         { shopId: shop.id },
-        input.googlePlaceId ? { googlePlaceId: input.googlePlaceId } : undefined,
         websiteUrl
           ? {
               websiteUrl
             }
           : undefined,
-        {
-          name,
-          city
-        }
+        input.phone && input.address
+          ? {
+              phone: input.phone,
+              address: input.address,
+              city,
+              state: input.state || undefined
+            }
+          : undefined
       ].filter(Boolean) as Array<Record<string, unknown>>
     }
   });
@@ -88,7 +90,6 @@ export async function upsertOrganizationFromInput(input: OrganizationInput) {
         zip: input.zip || existing.zip,
         lat: input.lat ?? existing.lat,
         lng: input.lng ?? existing.lng,
-        googlePlaceId: input.googlePlaceId || existing.googlePlaceId,
         primaryCategory: input.primaryCategory || existing.primaryCategory,
         verticalDefault: input.vertical || existing.verticalDefault
       }
@@ -107,9 +108,75 @@ export async function upsertOrganizationFromInput(input: OrganizationInput) {
       zip: input.zip || undefined,
       lat: input.lat ?? undefined,
       lng: input.lng ?? undefined,
-      googlePlaceId: input.googlePlaceId || undefined,
       primaryCategory: input.primaryCategory || undefined,
       verticalDefault: input.vertical || undefined
+    }
+  });
+}
+
+export async function ensureOrganizationForShop(args: {
+  orgId: string;
+  shopId: string;
+  name: string;
+  websiteUrl?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  primaryCategory?: string | null;
+  vertical?: string | null;
+}) {
+  const organization = await prisma.organization.findUnique({
+    where: { id: args.orgId }
+  });
+
+  if (!organization) {
+    throw new Error('organization_not_found');
+  }
+
+  if (!organization.shopId || organization.shopId === args.shopId) {
+    return organization;
+  }
+
+  const existingForShop = await prisma.organization.findFirst({
+    where: {
+      OR: [
+        { shopId: args.shopId },
+        args.websiteUrl ? { websiteUrl: args.websiteUrl } : undefined,
+        args.phone && args.address
+          ? {
+              phone: args.phone,
+              address: args.address,
+              city: args.city || undefined,
+              state: args.state || undefined
+            }
+          : undefined
+      ].filter(Boolean) as Array<Record<string, unknown>>
+    },
+    orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }]
+  });
+
+  if (existingForShop) {
+    return existingForShop;
+  }
+
+  return prisma.organization.create({
+    data: {
+      shopId: args.shopId,
+      name: args.name,
+      websiteUrl: args.websiteUrl || undefined,
+      phone: args.phone || undefined,
+      address: args.address || undefined,
+      city: args.city || undefined,
+      state: args.state || undefined,
+      zip: args.zip || undefined,
+      lat: args.lat ?? undefined,
+      lng: args.lng ?? undefined,
+      primaryCategory: args.primaryCategory || undefined,
+      verticalDefault: args.vertical || organization.verticalDefault || 'collision'
     }
   });
 }
