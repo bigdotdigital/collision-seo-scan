@@ -43,6 +43,7 @@ export default async function DashboardOverviewPage({
     competitorGap,
     repairPlan,
     revenueLeak,
+    demandContext,
     overviewBadges
   } = await buildDashboardOverviewPageState(ctx.orgId);
   const refreshState = searchParams?.refresh || '';
@@ -122,6 +123,35 @@ export default async function DashboardOverviewPage({
           className="lg:col-span-1"
         />
       </div>
+
+      {demandContext ? (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+          <MetricCard
+            value={demandContext.demandPressure}
+            label={`${demandContext.city} Demand Pressure`}
+            subtitle={`${demandContext.urgencyLabel} market`}
+            className="lg:col-span-1"
+          />
+          <MetricCard
+            value={demandContext.crashPressure}
+            label="Crash Pressure"
+            subtitle="Stored weekly city demand signal"
+            className="lg:col-span-1"
+          />
+          <MetricCard
+            value={demandContext.hailPressure}
+            label="Hail Pressure"
+            subtitle="Storm-driven repair demand context"
+            className="lg:col-span-1"
+          />
+          <MetricCard
+            value={demandContext.trafficExposure}
+            label="Traffic Exposure"
+            subtitle="Corridor intensity around your market"
+            className="lg:col-span-1"
+          />
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <MetricCard
@@ -311,6 +341,39 @@ export default async function DashboardOverviewPage({
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <DashboardModuleCard
+          title="Local Demand Context"
+          subtitle="How hard your local market is pressing right now based on crash, traffic, and hail signals."
+          score={demandContext?.demandPressure}
+          badge={
+            <span className={`dashboard-status ${demandContext?.urgencyLabel === 'High Pressure' ? 'dashboard-status-warning' : demandContext?.urgencyLabel === 'Active' ? 'dashboard-status-modeled' : 'dashboard-status-live'}`}>
+              {demandContext?.urgencyLabel || 'Unavailable'}
+            </span>
+          }
+        >
+          {demandContext ? (
+            <div className="space-y-3">
+              <p className="text-sm text-[var(--dashboard-text)]">{demandContext.summary}</p>
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="dashboard-subpanel rounded-[18px] p-3">
+                  <p className="dashboard-label">Crash</p>
+                  <p className="mt-2 text-2xl font-semibold text-[var(--dashboard-text)]">{demandContext.crashPressure}</p>
+                </div>
+                <div className="dashboard-subpanel rounded-[18px] p-3">
+                  <p className="dashboard-label">Traffic</p>
+                  <p className="mt-2 text-2xl font-semibold text-[var(--dashboard-text)]">{demandContext.trafficExposure}</p>
+                </div>
+                <div className="dashboard-subpanel rounded-[18px] p-3">
+                  <p className="dashboard-label">Hail</p>
+                  <p className="mt-2 text-2xl font-semibold text-[var(--dashboard-text)]">{demandContext.hailPressure}</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <LockedModuleTeaser title="Local demand data is still filling in" body="Run a market-intel refresh to unlock city-level crash, traffic, and hail context." />
+          )}
+        </DashboardModuleCard>
+
         <DashboardModuleCard
           title="Competitor Gap Snapshot"
           subtitle="How nearby competitors appear to out-cover or out-convert your site."

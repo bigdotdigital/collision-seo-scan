@@ -433,6 +433,17 @@ export type MarketIntelSnapshot = {
   sourceLinks: Array<{ label: string; url: string }>;
 };
 
+export type CityDemandContext = {
+  city: string;
+  crashPressure: number;
+  trafficExposure: number;
+  hailPressure: number;
+  demandPressure: number;
+  urgencyLabel: 'Calm' | 'Active' | 'High Pressure';
+  summary: string;
+  sourceLinks: Array<{ label: string; url: string }>;
+} | null;
+
 function toTone(value: number): 'strong' | 'warning' | 'weak' | 'neutral' {
   if (value >= 80) return 'strong';
   if (value >= 60) return 'warning';
@@ -633,4 +644,49 @@ export async function getMarketIntelSnapshot(args: {
       { label: 'NWS Boulder Events', url: NWS_HAIL_URL }
     ]
   };
+}
+
+export async function getCityDemandContext(args: { city: string | null | undefined }) {
+  const city = args.city?.trim();
+  if (!city) return null;
+
+  const rows = await prisma.marketIntelObservation.findMany({
+    where: {
+      dimensionKey: 'city',
+      dimensionValue: city,
+      signalType: { in: ['crash_pressure', 'traffic_exposure', 'hail_pressure'] }
+    },
+    orderBy: { observedAt: 'desc' },
+    select: {
+      signalType: true,
+      metricValue: true,
+      metadata: true
+    }
+  });
+
+  if (!rows.length) return null;
+
+  const crashPressure = Math.round(rows.find((row) => row.signalType === 'crash_pressure')?.metricValue || 0);
+  const trafficExposure = Math.round(rows.find((row) => row.signalType === 'traffic_exposure')?.metricValue || 0);
+  const hailPressure = Math.round(rows.find((row) => row.signalType === 'hail_pressure')?.metricValue || 0);
+  const rationale =
+    (rows.find((row) => row.signalType === 'crash_pressure')?.metadata as { rationale?: string } | null)?.rationale ||
+    'Stored Denver market-demand signal from official sources.';
+  const demandPressure = Math.round(crashPressure * 0.5 + trafficExposure * 0.25 + hailPressure * 0.25);
+  const urgencyLabel = demandPressure >= 80 ? 'High Pressure' : demandPressure >= 60 ? 'Active' : 'Calm';
+
+  return {
+    city,
+    crashPressure,
+    trafficExposure,
+    hailPressure,
+    demandPressure,
+    urgencyLabel,
+    summary: rationale,
+    sourceLinks: [
+      { label: 'Denver Vision Zero', url: DENVER_VISION_ZERO_URL },
+      { label: 'CDOT OTIS', url: CDOT_OTIS_URL },
+      { label: 'NWS Boulder Events', url: NWS_HAIL_URL }
+    ]
+  } satisfies CityDemandContext;
 }

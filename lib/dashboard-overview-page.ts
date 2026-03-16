@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { parseJson } from '@/lib/json';
+import { getCityDemandContext } from '@/lib/market-intel';
 import { parseReportPayload } from '@/lib/report-payload';
 import type { Issue } from '@/lib/types';
 import { deriveCompetitorSuggestions } from '@/lib/dashboard-suggestions';
@@ -117,6 +118,7 @@ export async function buildDashboardOverviewPageState(orgId: string) {
     competitor: competitorGap,
     topFixes: reportPayload?.topFixes || []
   });
+  const demandContext = await getCityDemandContext({ city: latestScan?.city });
 
   return {
     latestScan,
@@ -144,6 +146,7 @@ export async function buildDashboardOverviewPageState(orgId: string) {
     competitorGap,
     repairPlan,
     revenueLeak,
+    demandContext,
     overviewBadges: buildOverviewBadges({
       hasModeledKeywords: hasRevenueInputs,
       sources: reportPayload?.sources

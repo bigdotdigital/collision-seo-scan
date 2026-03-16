@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { parseJson } from '@/lib/json';
+import { getCityDemandContext } from '@/lib/market-intel';
 import type { Issue } from '@/lib/types';
 import { buildReportViewModel, type ReportData } from '@/lib/report-view-model';
 import { parseReportPayload } from '@/lib/report-payload';
@@ -228,6 +229,7 @@ export async function loadReportPageState(scanId: string) {
 
   const calendly = process.env.CALENDLY_LINK || 'https://calendly.com/bigdotdigital/30min';
   const salesPhone = process.env.SALES_PHONE || '+13035551234';
+  const demandContext = await getCityDemandContext({ city: scanRecord.city });
   const reportData: ReportData = {
     scanId: scanRecord.id,
     shopName: scanRecord.shopName,
@@ -244,6 +246,7 @@ export async function loadReportPageState(scanId: string) {
     aiSummary: scanRecord.aiSummary,
     calendlyBase: calendly,
     salesPhone,
+    demandContext,
     rawChecks: {
       reviews: (raw.reviews as { rating?: number; reviews?: number } | undefined) || undefined,
       competitorReviews:

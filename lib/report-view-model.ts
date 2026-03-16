@@ -27,6 +27,15 @@ export interface ReportData {
       reviews?: number;
     };
   };
+  demandContext?: {
+    city: string;
+    crashPressure: number;
+    trafficExposure: number;
+    hailPressure: number;
+    demandPressure: number;
+    urgencyLabel: 'Calm' | 'Active' | 'High Pressure';
+    summary: string;
+  } | null;
 }
 
 type ReviewGap = {
@@ -65,6 +74,15 @@ type CompetitorView = {
 export type ReportViewModel = {
   dataStatusBanner: string | null;
   opportunity: ReturnType<typeof estimateOpportunity>;
+  marketDemand: {
+    city: string;
+    demandPressure: number;
+    crashPressure: number;
+    trafficExposure: number;
+    hailPressure: number;
+    urgencyLabel: 'Calm' | 'Active' | 'High Pressure';
+    summary: string;
+  } | null;
   reviewGap: ReviewGap | null;
   mapPack: {
     queries: MapPackQuery[];
@@ -203,8 +221,12 @@ export function buildReportViewModel(reportData: ReportData): ReportViewModel {
   const competitors = competitorViewModel(reportData.city, reportData.competitors, reviewGap);
   const mapQueries = mapPackView(reportData.city, reportData.shopName, competitors);
   const keyword = keywordViewModel(reportData.moneyKeywords);
+  const demandMultiplier = reportData.demandContext ? 0.85 + reportData.demandContext.demandPressure / 200 : 1;
 
-  const opportunity = estimateOpportunity(reportData.scoreTotal, reportData.moneyKeywords);
+  const opportunity = estimateOpportunity(reportData.scoreTotal, reportData.moneyKeywords, {
+    demandMultiplier,
+    demandLabel: reportData.demandContext?.urgencyLabel || undefined
+  });
   const calendlyTrackedUrl = withCalendlyParams(reportData.calendlyBase, {
     scanId: reportData.scanId,
     shop: reportData.shopName,
@@ -218,6 +240,17 @@ export function buildReportViewModel(reportData: ReportData): ReportViewModel {
       ? 'Some metrics are estimated until competitor + keyword sources are connected.'
       : null,
     opportunity,
+    marketDemand: reportData.demandContext
+      ? {
+          city: reportData.demandContext.city,
+          demandPressure: reportData.demandContext.demandPressure,
+          crashPressure: reportData.demandContext.crashPressure,
+          trafficExposure: reportData.demandContext.trafficExposure,
+          hailPressure: reportData.demandContext.hailPressure,
+          urgencyLabel: reportData.demandContext.urgencyLabel,
+          summary: reportData.demandContext.summary
+        }
+      : null,
     reviewGap,
     mapPack: {
       queries: mapQueries,

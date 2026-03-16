@@ -280,6 +280,31 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         </div>
       </section>
 
+      {vm.marketDemand ? (
+        <section className="report-arch-section mb-6">
+          <div className="report-arch-section-head">
+            <h3 className="report-arch-section-title">Demand Pressure</h3>
+            <span className="report-arch-meta">{vm.marketDemand.city} • {vm.marketDemand.urgencyLabel}</span>
+          </div>
+          <div className="report-arch-grid3">
+            <article className="report-arch-cell">
+              <p className="report-arch-label">Demand Index</p>
+              <p className="report-arch-big">{vm.marketDemand.demandPressure}</p>
+              <p className="report-arch-sub">Crash, traffic, and hail weighted together</p>
+            </article>
+            <article className="report-arch-cell">
+              <p className="report-arch-label">Local Context</p>
+              <p className="text-sm text-slate-800">{vm.marketDemand.summary}</p>
+            </article>
+            <article className="report-arch-cell">
+              <p className="report-arch-label">Revenue Weighting</p>
+              <p className="report-arch-big">{Math.round(vm.opportunity.demandMultiplier * 100)}%</p>
+              <p className="report-arch-sub">Applied to opportunity based on local pressure</p>
+            </article>
+          </div>
+        </section>
+      ) : null}
+
       {vm.dataStatusBanner ? (
         <section className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           {vm.dataStatusBanner} We only show measured data as primary; estimated items are clearly marked.
@@ -308,7 +333,26 @@ export default async function ReportPage({ params }: { params: { scanId: string 
 
         <article className="variant-report-card">
           <p className="variant-card-label">Local market context</p>
-          {hasUsableCompetitorData ? (
+          {vm.marketDemand ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-white/55">Crash Pressure</p>
+                <p className="mt-2 text-3xl font-semibold text-white">{vm.marketDemand.crashPressure}</p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-white/55">Hail Pressure</p>
+                <p className="mt-2 text-3xl font-semibold text-white">{vm.marketDemand.hailPressure}</p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-white/55">Traffic Exposure</p>
+                <p className="mt-2 text-3xl font-semibold text-white">{vm.marketDemand.trafficExposure}</p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-white/55">Urgency</p>
+                <p className="mt-2 text-xl font-semibold text-white">{vm.marketDemand.urgencyLabel}</p>
+              </div>
+            </div>
+          ) : hasUsableCompetitorData ? (
             <table className="variant-table">
               <thead>
                 <tr>
@@ -986,13 +1030,18 @@ export default async function ReportPage({ params }: { params: { scanId: string 
             ? 'Estimate based on live keyword demand and visibility gaps. Not a guarantee.'
             : 'Estimate based on modeled local demand and visibility gaps. Not a guarantee.'}
         </p>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <div className="rounded-lg bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Monthly search demand estimate</p>
-            <p className="mt-1 text-2xl font-bold">{vm.opportunity.monthlySearchDemand.toLocaleString()}</p>
-          </div>
-          <div className="rounded-lg bg-white p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Modeled missed leads/month</p>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg bg-white p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Monthly search demand estimate</p>
+              <p className="mt-1 text-2xl font-bold">{vm.opportunity.monthlySearchDemand.toLocaleString()}</p>
+              {vm.marketDemand ? (
+                <p className="text-xs text-slate-500">
+                  Base demand {vm.opportunity.baselineMonthlySearchDemand.toLocaleString()} • {vm.marketDemand.urgencyLabel.toLowerCase()} market weighting
+                </p>
+              ) : null}
+            </div>
+            <div className="rounded-lg bg-white p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Modeled missed leads/month</p>
             <p className="mt-1 text-2xl font-bold">{vm.opportunity.missedLeads.toLocaleString()}</p>
           </div>
           <div className="rounded-lg bg-white p-4">
