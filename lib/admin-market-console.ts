@@ -203,6 +203,26 @@ export type AdminMarketConsoleState = {
       tone: Tone;
     }>;
   };
+  externalIntel: {
+    demandRadar: Array<{
+      label: string;
+      value: string;
+      detail: string;
+      tone: Tone;
+      sourceLabel: string;
+      sourceUrl: string;
+    }>;
+    hailTracker: Array<{
+      dateLabel: string;
+      title: string;
+      detail: string;
+      sourceUrl: string;
+    }>;
+    sourceLinks: Array<{
+      label: string;
+      url: string;
+    }>;
+  };
   map: {
     averageScanAgeHours: string;
     points: Array<{
@@ -1160,6 +1180,92 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     .filter((row, index, list) => row.shopId !== '' && list.findIndex((item) => item.shopId === row.shopId && item.issue === row.issue) === index)
     .slice(0, 10);
 
+  const externalIntel =
+    marketSlug === 'denver'
+      ? {
+          demandRadar: [
+            {
+              label: 'Denver Crash Layer',
+              value: 'Vision Zero',
+              detail: 'City crash dashboard and map for corridor and neighborhood pressure.',
+              tone: 'strong' as Tone,
+              sourceLabel: 'Denver Vision Zero',
+              sourceUrl: 'https://www.denvergov.org/Government/Citywide-Programs-and-Initiatives/Vision-Zero/Statistics'
+            },
+            {
+              label: 'State Crash Context',
+              value: 'CDOT',
+              detail: 'Statewide and county crash data for metro trend, severity, and cause analysis.',
+              tone: 'neutral' as Tone,
+              sourceLabel: 'CDOT Crash Data',
+              sourceUrl: 'https://www.codot.gov/safety/traffic-safety/data-analysis/crash-data'
+            },
+            {
+              label: 'Regional Severity',
+              value: '9,228',
+              detail: 'DRCOG reported 9,228 fatal or serious injury crashes from 2019-2023 in the region.',
+              tone: 'warning' as Tone,
+              sourceLabel: 'DRCOG Crash Dashboard',
+              sourceUrl: 'https://www.drcog.org/transportation-planning/planning-future/safety/denver-regional-crash-data-consortium'
+            },
+            {
+              label: 'Traffic Exposure',
+              value: 'OTIS',
+              detail: 'Use CDOT OTIS traffic counts to rank high-volume corridors against shop coverage.',
+              tone: 'neutral' as Tone,
+              sourceLabel: 'CDOT OTIS',
+              sourceUrl: 'https://dtdapps.coloradodot.info/otis/'
+            }
+          ],
+          hailTracker: [
+            {
+              dateLabel: 'May 30, 2024',
+              title: 'Denver Metro Severe Hail Event',
+              detail: 'Major Front Range hail event with direct collision demand relevance across the metro.',
+              sourceUrl: 'https://www.weather.gov/bou/events'
+            },
+            {
+              dateLabel: 'May 18, 2025',
+              title: 'Eastern Colorado Severe Weather Outbreak',
+              detail: 'Regional severe-weather signal worth tracking for spillover repair demand and scan surges.',
+              sourceUrl: 'https://www.weather.gov/bou/events'
+            },
+            {
+              dateLabel: 'Seasonal',
+              title: 'Front Range Hail Pressure Window',
+              detail: 'Late spring through summer should be treated as a demand-monitoring season for Denver collision and PDR-heavy shops.',
+              sourceUrl: 'https://www.weather.gov/bou/events'
+            }
+          ],
+          sourceLinks: [
+            {
+              label: 'Denver Vision Zero',
+              url: 'https://www.denvergov.org/Government/Citywide-Programs-and-Initiatives/Vision-Zero/Statistics'
+            },
+            {
+              label: 'CDOT Crash Data',
+              url: 'https://www.codot.gov/safety/traffic-safety/data-analysis/crash-data'
+            },
+            {
+              label: 'DRCOG Crash Data',
+              url: 'https://www.drcog.org/transportation-planning/planning-future/safety/denver-regional-crash-data-consortium'
+            },
+            {
+              label: 'CDOT OTIS',
+              url: 'https://dtdapps.coloradodot.info/otis/'
+            },
+            {
+              label: 'NWS Boulder Events',
+              url: 'https://www.weather.gov/bou/events'
+            }
+          ]
+        }
+      : {
+          demandRadar: [],
+          hailTracker: [],
+          sourceLinks: []
+        };
+
   const suspiciousScans = scoredRows
     .map((row) => {
       const payload = parsePayload(row.latestScan?.rawChecksJson);
@@ -1388,6 +1494,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
       shopsWithoutReports,
       candidates: dataQualityCandidates
     },
+    externalIntel,
     map: {
       averageScanAgeHours: averageScanAge ? `${averageScanAge.toFixed(1)}h avg` : 'n/a',
       points: mapRows.map((row) => {

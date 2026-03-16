@@ -478,6 +478,77 @@ export function MarketConsole(args: { state: AdminMarketConsoleState }) {
 
             <TacticalPanel className="col-span-12">
               {panelHeader(
+                'Demand Radar',
+                <div className="text-[9px] font-mono uppercase tracking-[0.22em] text-[#94a3b8]">
+                  Official Denver / Colorado safety and storm signals
+                </div>
+              )}
+              <div className="grid gap-3 bg-[#0a0d14] p-3 xl:grid-cols-[1fr_0.95fr]">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  {args.state.externalIntel.demandRadar.map((item) => (
+                    <a
+                      key={item.label}
+                      href={item.sourceUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={`border p-3 transition hover:bg-[#111827] ${signalBgClasses[item.tone]}`}
+                    >
+                      <div className="text-[9px] font-mono uppercase tracking-[0.24em] text-[#94a3b8]">{item.label}</div>
+                      <div className={`mt-2 text-2xl font-mono font-bold ${signalTextClasses[item.tone]}`}>{item.value}</div>
+                      <div className="mt-2 text-[11px] leading-5 text-[#cbd5e1]">{item.detail}</div>
+                      <div className="mt-3 text-[9px] font-mono uppercase tracking-[0.18em] text-[#94a3b8]">{item.sourceLabel}</div>
+                    </a>
+                  ))}
+                </div>
+
+                <div className="grid gap-3 lg:grid-cols-[1fr_0.9fr]">
+                  <div className="border border-[#1e293b] bg-[#081018] p-3">
+                    <div className="text-[9px] font-mono uppercase tracking-[0.24em] text-[#94a3b8]">Hail Storm Tracker</div>
+                    <div className="mt-3 space-y-2">
+                      {args.state.externalIntel.hailTracker.map((event) => (
+                        <a
+                          key={`${event.dateLabel}-${event.title}`}
+                          href={event.sourceUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block border border-[#1e293b] bg-[#0f172a] px-3 py-3 transition hover:bg-slate-900"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#67e8f9]">{event.dateLabel}</div>
+                              <div className="mt-1 text-sm text-[#e2e8f0]">{event.title}</div>
+                            </div>
+                            <span className="h-2 w-2 bg-[#f59e0b] shadow-[0_0_12px_rgba(245,158,11,0.35)]" />
+                          </div>
+                          <div className="mt-2 text-[12px] leading-5 text-[#cbd5e1]">{event.detail}</div>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="border border-[#1e293b] bg-[#081018] p-3">
+                    <div className="text-[9px] font-mono uppercase tracking-[0.24em] text-[#94a3b8]">Source Stack</div>
+                    <div className="mt-3 space-y-2">
+                      {args.state.externalIntel.sourceLinks.map((source) => (
+                        <a
+                          key={source.label}
+                          href={source.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center justify-between border border-[#1e293b] bg-[#0f172a] px-3 py-2 text-[11px] font-mono text-[#e2e8f0] transition hover:bg-slate-900"
+                        >
+                          <span>{source.label}</span>
+                          <span className="text-[#67e8f9]">Open</span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </TacticalPanel>
+
+            <TacticalPanel className="col-span-12">
+              {panelHeader(
                 'Signal Atlas',
                 <div className="text-[9px] font-mono uppercase tracking-[0.22em] text-[#94a3b8]">
                   Jer Thorp-inspired market structure view: density, pressure, and weak pockets
