@@ -96,6 +96,30 @@ export type AdminMarketConsoleState = {
     medianRuntimeMs: number | null;
     updatedAtLabel: string;
   };
+  marketBrief: {
+    websiteCoveragePct: number;
+    googleCoveragePct: number;
+    publishedPct: number;
+    avgReviewCount: number;
+    highSignalCount: number;
+    hiddenOperatorCount: number;
+    cityHotspots: Array<{
+      city: string;
+      shopCount: number;
+      avgScore: number;
+      avgReviews: number;
+      strongCount: number;
+      weakCount: number;
+    }>;
+    watchlist: Array<{
+      shopId: string;
+      name: string;
+      city: string;
+      label: string;
+      detail: string;
+      tone: Tone;
+    }>;
+  };
   sourceCoverage: {
     totals: Array<{ label: string; value: number }>;
     hiddenOperators: Array<{
@@ -296,6 +320,11 @@ function marketSignalTone(row: ShopBaseRow): Tone {
 function average(values: number[]) {
   if (!values.length) return 0;
   return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function percent(part: number, total: number) {
+  if (!total) return 0;
+  return Math.round((part / total) * 100);
 }
 
 function isPresent<T>(value: T | null | undefined): value is T {
@@ -918,6 +947,73 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
     .filter(Boolean as never)
     .slice(0, 8) as Array<{ shopId: string; name: string; reason: string; score: number }>;
 
+  const cityHotspots = Array.from(
+    rows.reduce((map, row) => {
+      const city = row.city || market.city;
+      const current =
+        map.get(city) || {
+          city,
+          shopCount: 0,
+          scores: [] as number[],
+          reviews: [] as number[],
+          strongCount: 0,
+          weakCount: 0
+        };
+      current.shopCount += 1;
+      const score = marketSignalScore(row);
+      current.scores.push(score);
+      current.reviews.push((row.digitalPresenceSnapshot?.googleReviewCount ?? row.latestReview?.reviewCount) || 0);
+      if (score >= 80) current.strongCount += 1;
+      if (score < 50) current.weakCount += 1;
+      map.set(city, current);
+      return map;
+    }, new Map<string, { city: string; shopCount: number; scores: number[]; reviews: number[]; strongCount: number; weakCount: number }>())
+      .values()
+  )
+    .map((row) => ({
+      city: row.city,
+      shopCount: row.shopCount,
+      avgScore: Math.round(average(row.scores)),
+      avgReviews: Math.round(average(row.reviews)),
+      strongCount: row.strongCount,
+      weakCount: row.weakCount
+    }))
+    .sort((a, b) => {
+      const pressureDelta = b.shopCount * 2 + b.avgReviews * 0.04 - (a.shopCount * 2 + a.avgReviews * 0.04);
+      if (pressureDelta !== 0) return pressureDelta;
+      return b.avgScore - a.avgScore;
+    })
+    .slice(0, 6);
+
+  const watchlist = [
+    ...opportunities.slice(0, 4).map((row) => ({
+      shopId: row.shopId,
+      name: row.name,
+      city: rows.find((item) => item.id === row.shopId)?.city || market.city,
+      label: 'High-authority SEO gap',
+      detail: `${row.reviews.toLocaleString()} reviews · score ${row.score} · ${row.missingCount} gaps`,
+      tone: 'warning' as Tone
+    })),
+    ...hiddenOperators.slice(0, 4).map((row) => ({
+      shopId: row.shopId,
+      name: row.name,
+      city: row.city,
+      label: 'Hidden operator',
+      detail: `${row.reviews.toLocaleString()} reviews · hidden score ${row.hiddenOperatorScore.toFixed(1)}`,
+      tone: 'neutral' as Tone
+    })),
+    ...suspiciousScans.slice(0, 3).map((row) => ({
+      shopId: row.shopId,
+      name: row.name,
+      city: rows.find((item) => item.id === row.shopId)?.city || market.city,
+      label: 'Integrity watch',
+      detail: `${row.reason} · score ${row.score}`,
+      tone: 'weak' as Tone
+    }))
+  ]
+    .filter((row, index, list) => list.findIndex((item) => item.shopId === row.shopId && item.label === row.label) === index)
+    .slice(0, 8);
+
   const topologyOverlapByShop = new Map<string, Array<{ name: string; percent: number; tone: Tone }>>();
   if (topologyEdges.length) {
     const scoreByShopId = new Map(topLeaderboard.map((row) => [row.shopId, row.score]));
@@ -1012,6 +1108,22 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
         minute: '2-digit',
         timeZoneName: 'short'
       }).format(new Date())
+    },
+    marketBrief: {
+      websiteCoveragePct: percent(rows.filter((row) => row.websiteUrl || row.digitalPresenceSnapshot?.hasWebsite).length, rows.length),
+      googleCoveragePct: percent(rows.filter((row) => row.digitalPresenceSnapshot?.hasGoogleProfile).length, rows.length),
+      publishedPct: percent(publishedCount, Math.max(1, scoredRows.length)),
+      avgReviewCount: Math.round(
+        average(
+          rows
+            .map((row) => row.digitalPresenceSnapshot?.googleReviewCount ?? row.latestReview?.reviewCount ?? 0)
+            .filter((value) => value > 0)
+        )
+      ),
+      highSignalCount: rows.filter((row) => marketSignalScore(row) >= 80).length,
+      hiddenOperatorCount: hiddenOperators.length,
+      cityHotspots,
+      watchlist
     },
     sourceCoverage: {
       totals: sourceCoverageTotals,

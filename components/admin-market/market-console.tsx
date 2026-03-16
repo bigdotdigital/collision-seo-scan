@@ -47,6 +47,16 @@ function MetricChip(args: { label: string; value: string; delta?: string; tone?:
   );
 }
 
+function BriefCard(args: { label: string; value: string; detail: string; tone?: Tone }) {
+  return (
+    <div className={`border p-3 ${signalBgClasses[args.tone || 'neutral']}`}>
+      <div className="text-[9px] font-mono uppercase tracking-[0.24em] text-[#94a3b8]">{args.label}</div>
+      <div className={`mt-2 text-2xl font-mono font-bold ${signalTextClasses[args.tone || 'neutral']}`}>{args.value}</div>
+      <div className="mt-1 text-[10px] font-mono text-[#cbd5e1]">{args.detail}</div>
+    </div>
+  );
+}
+
 function TacticalPanel(args: { children: React.ReactNode; className?: string }) {
   return (
     <section className={`overflow-hidden border border-[#1e293b] bg-[rgba(10,13,20,0.88)] backdrop-blur-sm ${args.className || ''}`}>
@@ -168,6 +178,107 @@ export function MarketConsole(args: { state: AdminMarketConsoleState }) {
 
         <div className="bg-[#05070a] bg-[linear-gradient(rgba(14,27,46,0.6)_1px,transparent_1px),linear-gradient(90deg,rgba(14,27,46,0.6)_1px,transparent_1px)] bg-[size:24px_24px] bg-[-1px_-1px] p-3">
           <div className="mx-auto grid max-w-[1920px] grid-cols-12 auto-rows-min gap-3 pb-8">
+            <TacticalPanel className="col-span-12">
+              {panelHeader(
+                'Market Brief',
+                <div className="text-[9px] font-mono uppercase tracking-[0.22em] text-[#94a3b8]">
+                  Real Denver market coverage from Google + website scans
+                </div>
+              )}
+              <div className="grid gap-3 bg-[#0a0d14] p-3 lg:grid-cols-[1.2fr_0.9fr_0.9fr]">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  <BriefCard
+                    label="Website Coverage"
+                    value={formatPercent(args.state.marketBrief.websiteCoveragePct)}
+                    detail={`${args.state.metrics.totalShops} canonical shops in current Denver slice`}
+                    tone="strong"
+                  />
+                  <BriefCard
+                    label="Google Coverage"
+                    value={formatPercent(args.state.marketBrief.googleCoveragePct)}
+                    detail="Canonical shops with maps/profile signal"
+                    tone="neutral"
+                  />
+                  <BriefCard
+                    label="Published Reports"
+                    value={formatPercent(args.state.marketBrief.publishedPct)}
+                    detail={`${args.state.integrity.publishedCount} public pages live`}
+                    tone="warning"
+                  />
+                  <BriefCard
+                    label="Avg Reviews"
+                    value={String(args.state.marketBrief.avgReviewCount)}
+                    detail="Google-weighted review density across the market"
+                    tone="neutral"
+                  />
+                  <BriefCard
+                    label="High Signal Shops"
+                    value={String(args.state.marketBrief.highSignalCount)}
+                    detail="Shops showing strong current market signal"
+                    tone="strong"
+                  />
+                  <BriefCard
+                    label="Hidden Operators"
+                    value={String(args.state.marketBrief.hiddenOperatorCount)}
+                    detail="Strong reputation without strong site visibility"
+                    tone="warning"
+                  />
+                </div>
+
+                <div className="space-y-2 border border-[#1e293b] bg-[#081018] p-3">
+                  <div className="text-[9px] font-mono uppercase tracking-[0.24em] text-[#94a3b8]">City Hotspots</div>
+                  {args.state.marketBrief.cityHotspots.map((row) => (
+                    <button
+                      key={row.city}
+                      type="button"
+                      className="grid w-full grid-cols-[1fr_auto_auto] gap-3 border border-[#1e293b] bg-[#0f172a] px-3 py-2 text-left font-mono transition hover:bg-slate-900"
+                    >
+                      <div>
+                        <div className="text-[11px] text-[#e2e8f0]">{row.city}</div>
+                        <div className="mt-1 text-[10px] text-[#94a3b8]">
+                          {row.shopCount} shops · avg score {row.avgScore}
+                        </div>
+                      </div>
+                      <div className="text-right text-[11px] text-[#67e8f9]">{row.avgReviews}</div>
+                      <div className="text-right text-[10px] text-[#94a3b8]">
+                        <div>{row.strongCount} strong</div>
+                        <div className="text-[#fb7185]">{row.weakCount} weak</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="space-y-2 border border-[#1e293b] bg-[#081018] p-3">
+                  <div className="text-[9px] font-mono uppercase tracking-[0.24em] text-[#94a3b8]">Market Watchlist</div>
+                  {args.state.marketBrief.watchlist.length ? (
+                    args.state.marketBrief.watchlist.map((row) => (
+                      <button
+                        key={`${row.shopId}-${row.label}`}
+                        type="button"
+                        onClick={() => setActiveShopId(row.shopId)}
+                        className="w-full border border-[#1e293b] bg-[#0f172a] px-3 py-2 text-left font-mono transition hover:bg-slate-900"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-[11px] text-[#e2e8f0]">{row.name}</div>
+                            <div className="mt-1 text-[9px] uppercase tracking-[0.18em] text-[#94a3b8]">
+                              {row.city} · {row.label}
+                            </div>
+                          </div>
+                          <span className={`mt-0.5 h-2 w-2 ${signalToneClasses[row.tone]}`} />
+                        </div>
+                        <div className="mt-2 text-[10px] text-[#cbd5e1]">{row.detail}</div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="border border-[#1e293b] bg-[#0f172a] px-3 py-2 text-[11px] font-mono text-[#64748b]">
+                      No urgent market watch items in the current slice.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </TacticalPanel>
+
             <TacticalPanel className="col-span-12 lg:col-span-8">
               {panelHeader(
                 'Denver Metro Market Map',
