@@ -17,35 +17,34 @@ export async function checkScanSubmissionGuard(args: { websiteUrl: string }) {
   }
 
   const dayAgo = new Date(Date.now() - DOMAIN_WINDOW_MS);
+  const candidates = await prisma.scan.findMany({
+    where: {
+      createdAt: { gte: dayAgo },
+      executionStatus: { in: ['queued', 'running', 'completed'] }
+    },
+    select: {
+      id: true,
+      createdAt: true,
+      executionStatus: true,
+      websiteUrl: true,
+      shop: {
+        select: {
+          normalizedWebsiteHost: true
+        }
+      }
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 200
+  });
 
-  const [inFlight, recent] = await Promise.all([
-    prisma.scan.findFirst({
-      where: {
-        createdAt: { gte: dayAgo },
-        executionStatus: { in: ['queued', 'running'] },
-        shop: { normalizedWebsiteHost: host }
-      },
-      select: {
-        id: true,
-        createdAt: true,
-        executionStatus: true
-      },
-      orderBy: { createdAt: 'desc' }
-    }),
-    prisma.scan.findFirst({
-      where: {
-        createdAt: { gte: dayAgo },
-        executionStatus: { in: ['queued', 'running', 'completed'] },
-        shop: { normalizedWebsiteHost: host }
-      },
-      select: {
-        id: true,
-        createdAt: true,
-        executionStatus: true
-      },
-      orderBy: { createdAt: 'desc' }
-    })
-  ]);
+  const matching = candidates.filter((scan) => {
+    const shopHost = (scan.shop?.normalizedWebsiteHost || '').replace(/^www\./i, '').toLowerCase();
+    const scanHost = scanHostKey(scan.websiteUrl || '');
+    return shopHost === host || scanHost === host;
+  });
+
+  const inFlight = matching.find((scan) => scan.executionStatus === 'queued' || scan.executionStatus === 'running');
+  const recent = matching[0];
 
   if (inFlight) {
     return {
