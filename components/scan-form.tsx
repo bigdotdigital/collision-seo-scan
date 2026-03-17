@@ -9,6 +9,14 @@ function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function navigateTo(nextUrl: string, router: ReturnType<typeof useRouter>) {
+  if (typeof window !== 'undefined') {
+    window.location.assign(nextUrl);
+    return;
+  }
+  router.push(nextUrl);
+}
+
 export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalSlug }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -56,11 +64,11 @@ export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalS
       });
 
       const json = await res.json();
+      if (typeof json?.nextUrl === 'string' && json.nextUrl) {
+        navigateTo(json.nextUrl, router);
+        return;
+      }
       if (!res.ok) {
-        if ((res.status === 429 || res.status === 409) && typeof json?.nextUrl === 'string' && json.nextUrl) {
-          router.push(json.nextUrl);
-          return;
-        }
         throw new Error(json?.error || 'Scan failed');
       }
 
@@ -71,7 +79,7 @@ export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalS
 
       await wait(850);
 
-      router.push(typeof json?.nextUrl === 'string' && json.nextUrl ? json.nextUrl : `/report/${json.scanId}`);
+      navigateTo(typeof json?.nextUrl === 'string' && json.nextUrl ? json.nextUrl : `/report/${json.scanId}`, router);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unexpected error');
       setScanComplete(false);

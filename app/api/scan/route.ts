@@ -17,6 +17,10 @@ function clientIp(req: Request) {
   return req.headers.get('x-real-ip') || 'unknown';
 }
 
+function appBaseUrl(req: Request) {
+  return process.env.NEXT_PUBLIC_BASE_URL || new URL(req.url).origin || 'http://localhost:3000';
+}
+
 function badRequest(message: string, traceId: string, status = 400) {
   return NextResponse.json({ error: message, traceId }, { status });
 }
@@ -61,7 +65,8 @@ export async function POST(req: Request) {
 
     const submissionGuard = await checkScanSubmissionGuard({ websiteUrl });
     if (!submissionGuard.ok) {
-      const existingReportUrl = submissionGuard.existingScanId ? `/report/${submissionGuard.existingScanId}` : null;
+      const baseUrl = appBaseUrl(req);
+      const existingReportUrl = submissionGuard.existingScanId ? `${baseUrl}/report/${submissionGuard.existingScanId}` : null;
       if (existingReportUrl) {
         return NextResponse.json({
           ok: true,
@@ -160,7 +165,8 @@ export async function POST(req: Request) {
       shopId: org.shopId || null
     });
 
-    const reportPath = `/report/${scan.id}`;
+    const baseUrl = appBaseUrl(req);
+    const reportPath = `${baseUrl}/report/${scan.id}`;
     const monitoringUrl = `/monitoring?scanId=${encodeURIComponent(scan.id)}&orgId=${encodeURIComponent(org.id)}`;
 
     return NextResponse.json({
