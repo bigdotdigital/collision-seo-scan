@@ -57,6 +57,10 @@ export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalS
 
       const json = await res.json();
       if (!res.ok) {
+        if ((res.status === 429 || res.status === 409) && typeof json?.nextUrl === 'string' && json.nextUrl) {
+          router.push(json.nextUrl);
+          return;
+        }
         throw new Error(json?.error || 'Scan failed');
       }
 
