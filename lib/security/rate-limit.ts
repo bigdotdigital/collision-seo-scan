@@ -8,7 +8,7 @@ const store = globalState.__scanRateLimit ?? new Map<string, Entry>();
 if (!globalState.__scanRateLimit) globalState.__scanRateLimit = store;
 
 const SCAN_WINDOW_MS = 60 * 60_000;
-const SCAN_LIMIT = 10;
+const SCAN_LIMIT = 100;
 
 function checkRateLimit(
   key: string,
