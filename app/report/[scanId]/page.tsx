@@ -4,6 +4,7 @@ import { ScoreRing } from '@/components/score-ring';
 import { InfoTooltip } from '@/components/info-tooltip';
 import { ReportEmailCapture } from '@/components/report-email-capture';
 import { ReportCtaActions, ReportShareActions } from '@/components/report-cta-actions';
+import { ReportStatusWatcher } from '@/components/report-status-watcher';
 import { formatCls, formatMilliseconds, formatScore } from '@/lib/metric-format';
 import { logEnvWarningsOnce } from '@/lib/env-check';
 import {
@@ -109,6 +110,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
             <p className="mt-6 text-sm text-slate-600">
               If you entered an email, the report will send when the scan completes.
             </p>
+            <ReportStatusWatcher scanId={scanRecord.id} />
             <Link href="/" className="mt-6 inline-block text-sm font-semibold text-teal-700 underline">
               Back to scanner
             </Link>
