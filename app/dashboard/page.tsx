@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { MetricCard } from '@/components/metric-card';
 import { MultiProgressBar } from '@/components/multi-progress-bar';
 import { CompetitorComparison } from '@/components/competitor-comparison';
@@ -10,7 +11,7 @@ import { PageHeader } from '@/components/page-header';
 import { DashboardModuleCard, LockedModuleTeaser } from '@/components/dashboard-module-card';
 import { RefreshDashboardButton } from '@/components/refresh-dashboard-button';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
-import type { DashboardModuleId } from '@/lib/dashboard-profile';
+import { getDashboardProfileById, isDashboardProfileId, type DashboardModuleId, type DashboardProfileId } from '@/lib/dashboard-profile';
 import { refreshDashboardData } from './actions';
 import { buildDashboardOverviewPageState } from '@/lib/dashboard-overview-page';
 
@@ -19,7 +20,7 @@ export const dynamic = 'force-dynamic';
 export default async function DashboardOverviewPage({
   searchParams
 }: {
-  searchParams?: { refresh?: string };
+  searchParams?: { refresh?: string; view?: string };
 }) {
   const ctx = await requireDashboardContext();
   const {
@@ -57,6 +58,8 @@ export default async function DashboardOverviewPage({
     dashboardProfile
   } = await buildDashboardOverviewPageState(ctx.orgId);
   const refreshState = searchParams?.refresh || '';
+  const forcedProfileId = isDashboardProfileId(searchParams?.view) ? searchParams?.view : null;
+  const effectiveProfile = forcedProfileId ? getDashboardProfileById(forcedProfileId) : dashboardProfile;
   const premiumBadge = (
     <span className={`dashboard-status ${entitlement === 'premium' ? 'dashboard-status-live' : 'dashboard-status-modeled'}`}>
       {entitlement === 'premium' ? 'Premium' : 'Teaser'}
@@ -102,7 +105,7 @@ export default async function DashboardOverviewPage({
     'revenueLeak',
     'repairPlan'
   ];
-  const primaryModuleIds = dashboardProfile.moduleIds;
+  const primaryModuleIds = effectiveProfile.moduleIds;
   const secondaryModuleIds = allModuleIds.filter((id) => !primaryModuleIds.includes(id));
   const moduleMeta: Record<DashboardModuleId, { title: string; summary: string }> = {
     architecture: {
@@ -138,26 +141,26 @@ export default async function DashboardOverviewPage({
     {
       title:
         nextSteps[0]?.title ||
-        (dashboardProfile.id === 'conversion'
+        (effectiveProfile.id === 'conversion'
           ? 'Tighten estimate capture'
-          : dashboardProfile.id === 'maps'
+          : effectiveProfile.id === 'maps'
             ? 'Increase review and GBP authority'
-            : dashboardProfile.id === 'storm'
+            : effectiveProfile.id === 'storm'
               ? 'Publish storm-intent pages'
-              : dashboardProfile.id === 'authority'
+              : effectiveProfile.id === 'authority'
                 ? 'Add trust and specialty proof'
                 : 'Keep weekly momentum'),
       detail:
         nextSteps[0]?.detail ||
-        dashboardProfile.nextPriority
+        effectiveProfile.nextPriority
     },
     {
       title:
-        dashboardProfile.id === 'storm'
+        effectiveProfile.id === 'storm'
           ? 'Watch hail-driven demand'
-          : dashboardProfile.id === 'maps'
+          : effectiveProfile.id === 'maps'
             ? 'Close the local trust gap'
-            : dashboardProfile.id === 'conversion'
+            : effectiveProfile.id === 'conversion'
               ? 'Reduce conversion leaks'
               : 'Use the strongest local signal',
       detail:
@@ -334,8 +337,51 @@ export default async function DashboardOverviewPage({
             )}
           </>
         );
+      }
+  };
+  const moduleDeltaMeta: Partial<Record<DashboardModuleId, { label: string; tone: 'up' | 'down' | 'flat' }>> = {
+    architecture: trends?.website
+      ? {
+          label: `${trends.website.type === 'up' ? '+' : '-'}${trends.website.value} vs last scan`,
+          tone: trends.website.type === 'up' ? 'up' : 'down'
+        }
+      : undefined,
+    maps: trends?.local
+      ? {
+          label: `${trends.local.type === 'up' ? '+' : '-'}${trends.local.value} vs last scan`,
+          tone: trends.local.type === 'up' ? 'up' : 'down'
+        }
+      : undefined,
+    revenueLeak: trends?.overall
+      ? {
+          label: `${trends.overall.type === 'up' ? 'Score up' : 'Score down'} ${trends.overall.value}`,
+          tone: trends.overall.type === 'up' ? 'up' : 'down'
+        }
+      : undefined,
+    demand: demandContext
+      ? {
+          label: `${demandContext.urgencyLabel} market`,
+          tone: demandContext.urgencyLabel === 'High Pressure' ? 'down' : 'flat'
+        }
+      : undefined,
+    competitorGap: competitors.length > 0
+      ? {
+          label: `${competitors.length} tracked competitors`,
+          tone: 'flat'
+        }
+      : undefined,
+    servicePages: architecture.pageOpportunities.length > 0
+      ? {
+          label: `${architecture.pageOpportunities.length} page gaps found`,
+          tone: 'flat'
+        }
+      : undefined,
+    repairPlan: {
+      label: latestScan ? dataHealth.lastScanAgeLabel : 'Awaiting first scan',
+      tone: 'flat'
     }
   };
+  const profileViewIds: DashboardProfileId[] = ['conversion', 'maps', 'authority', 'storm', 'balanced'];
 
   return (
     <div className="space-y-6">
@@ -429,18 +475,48 @@ export default async function DashboardOverviewPage({
         <div className="grid gap-px bg-[var(--border-color)] xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
           <div className="bg-[var(--bg-card)] p-6">
             <div className="text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">Workspace profile</div>
-            <h2 className="mt-3 text-2xl font-semibold text-[var(--text-main)]">{dashboardProfile.label}</h2>
-            <p className="mt-3 text-sm leading-7 text-[var(--text-secondary)]">{dashboardProfile.summary}</p>
+            <h2 className="mt-3 text-2xl font-semibold text-[var(--text-main)]">{effectiveProfile.label}</h2>
+            <p className="mt-3 text-sm leading-7 text-[var(--text-secondary)]">{effectiveProfile.summary}</p>
             <div className="mt-5 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">
               <div className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Current focus</div>
-              <div className="mt-2 text-lg font-semibold text-[var(--text-main)]">{dashboardProfile.focusLabel}</div>
-              <p className="mt-2 text-sm text-[var(--text-secondary)]">{dashboardProfile.nextPriority}</p>
+              <div className="mt-2 text-lg font-semibold text-[var(--text-main)]">{effectiveProfile.focusLabel}</div>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">{effectiveProfile.nextPriority}</p>
             </div>
           </div>
           <div className="bg-[var(--bg-card)] p-6">
-            <div className="text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">Recommended module stack</div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">Recommended module stack</div>
+              <span className="dashboard-status dashboard-status-cached">
+                {forcedProfileId ? 'Manual view' : 'Detected automatically'}
+              </span>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {profileViewIds.map((profileId) => {
+                const profile = getDashboardProfileById(profileId);
+                const isActive = effectiveProfile.id === profileId;
+                const params = new URLSearchParams();
+                if (profileId !== dashboardProfile.id) {
+                  params.set('view', profileId);
+                }
+                const href = params.toString() ? `/dashboard?${params.toString()}` : '/dashboard';
+
+                return (
+                  <Link
+                    key={profileId}
+                    href={href}
+                    className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                      isActive
+                        ? 'border-[var(--dashboard-border-strong)] bg-[var(--dashboard-bg-soft)] text-[var(--text-main)]'
+                        : 'border-[var(--border-color)] bg-[var(--bg-body)] text-[var(--text-secondary)] hover:text-[var(--text-main)]'
+                    }`}
+                  >
+                    {profile.label.replace(' Profile', '')}
+                  </Link>
+                );
+              })}
+            </div>
             <div className="mt-4 grid gap-3 md:grid-cols-3">
-              {dashboardProfile.moduleTitles.map((title, index) => (
+              {effectiveProfile.moduleTitles.map((title, index) => (
                 <div key={title} className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">
                   <div className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Module {index + 1}</div>
                   <div className="mt-2 text-sm font-semibold text-[var(--text-main)]">{title}</div>
@@ -866,7 +942,7 @@ export default async function DashboardOverviewPage({
             <div className="text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">Profile-driven focus</div>
             <h2 className="mt-3 text-2xl font-semibold text-[var(--text-main)]">Primary modules for this shop</h2>
             <p className="mt-3 text-sm leading-7 text-[var(--text-secondary)]">
-              This workspace is currently in the <span className="font-semibold text-[var(--text-main)]">{dashboardProfile.label}</span>, so we’re putting the most relevant modules first instead of making every card compete equally.
+              This workspace is currently in the <span className="font-semibold text-[var(--text-main)]">{effectiveProfile.label}</span>, so we’re putting the most relevant modules first instead of making every card compete equally.
             </p>
             <div className="mt-5 space-y-3">
               {primaryModuleIds.map((moduleId, index) => (
@@ -883,8 +959,8 @@ export default async function DashboardOverviewPage({
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">
                 <div className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Current focus</div>
-                <div className="mt-2 text-lg font-semibold text-[var(--text-main)]">{dashboardProfile.focusLabel}</div>
-                <p className="mt-2 text-sm text-[var(--text-secondary)]">{dashboardProfile.nextPriority}</p>
+                <div className="mt-2 text-lg font-semibold text-[var(--text-main)]">{effectiveProfile.focusLabel}</div>
+                <p className="mt-2 text-sm text-[var(--text-secondary)]">{effectiveProfile.nextPriority}</p>
               </div>
               <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">
                 <div className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Secondary stack</div>
@@ -908,7 +984,7 @@ export default async function DashboardOverviewPage({
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--text-muted)]">Primary modules</p>
             <h2 className="mt-2 text-2xl font-semibold text-[var(--text-main)]">What deserves attention first</h2>
           </div>
-          <span className="dashboard-status dashboard-status-live">{dashboardProfile.focusLabel}</span>
+          <span className="dashboard-status dashboard-status-live">{effectiveProfile.focusLabel}</span>
         </div>
         <div className="mb-6 grid gap-3 md:grid-cols-3">
           {profileActionCards.map((item, index) => (
@@ -930,7 +1006,7 @@ export default async function DashboardOverviewPage({
           {primaryModuleIds.map((moduleId, index) => {
             const tone =
               index === 0
-                ? dashboardProfile.id === 'storm'
+                ? effectiveProfile.id === 'storm'
                   ? 'warning'
                   : 'accent'
                 : 'default';
@@ -946,7 +1022,33 @@ export default async function DashboardOverviewPage({
                   tone={tone}
                   className={index === 0 ? 'shadow-md' : ''}
                 >
-                  {renderModuleBody(moduleId)}
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] px-4 py-3">
+                      <div>
+                        <div className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Why this is on top</div>
+                        <div className="mt-1 text-sm font-semibold text-[var(--text-main)]">
+                          {index === 0 ? profileActionCards[0].title : profileActionCards[Math.min(index, profileActionCards.length - 1)].title}
+                        </div>
+                        <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                          {index === 0 ? profileActionCards[0].detail : profileActionCards[Math.min(index, profileActionCards.length - 1)].detail}
+                        </p>
+                      </div>
+                      {moduleDeltaMeta[moduleId] ? (
+                        <span
+                          className={`dashboard-status ${
+                            moduleDeltaMeta[moduleId]?.tone === 'up'
+                              ? 'dashboard-status-live'
+                              : moduleDeltaMeta[moduleId]?.tone === 'down'
+                                ? 'dashboard-status-warning'
+                                : 'dashboard-status-cached'
+                          }`}
+                        >
+                          {moduleDeltaMeta[moduleId]?.label}
+                        </span>
+                      ) : null}
+                    </div>
+                    {renderModuleBody(moduleId)}
+                  </div>
                 </DashboardModuleCard>
               </div>
             );
@@ -974,7 +1076,25 @@ export default async function DashboardOverviewPage({
               tone="muted"
               compact
             >
-              {renderModuleBody(moduleId)}
+              <div className="space-y-3">
+                {moduleDeltaMeta[moduleId] ? (
+                  <div className="flex items-center justify-between rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] px-3 py-2">
+                    <span className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Weekly signal</span>
+                    <span
+                      className={`dashboard-status ${
+                        moduleDeltaMeta[moduleId]?.tone === 'up'
+                          ? 'dashboard-status-live'
+                          : moduleDeltaMeta[moduleId]?.tone === 'down'
+                            ? 'dashboard-status-warning'
+                            : 'dashboard-status-cached'
+                      }`}
+                    >
+                      {moduleDeltaMeta[moduleId]?.label}
+                    </span>
+                  </div>
+                ) : null}
+                {renderModuleBody(moduleId)}
+              </div>
             </DashboardModuleCard>
           ))}
         </div>
