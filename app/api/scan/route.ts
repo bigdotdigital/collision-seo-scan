@@ -40,20 +40,6 @@ export async function POST(req: Request) {
   try {
     logEnvWarningsOnce();
 
-    const limit = checkScanRateLimit(`scan:${clientIp(req)}`);
-    if (!limit.ok) {
-      return NextResponse.json(
-        {
-          error: 'Too many scans from this network. Please try again in a minute.',
-          traceId
-        },
-        {
-          status: 429,
-          headers: { 'Retry-After': String(limit.retryAfterSec || 60) }
-        }
-      );
-    }
-
     const body = await req.json();
     const input = scanInputSchema.parse(body);
     const clean = cleanedInput(input);
@@ -90,6 +76,20 @@ export async function POST(req: Request) {
         {
           status: 200,
           headers: submissionGuard.retryAfterSec ? { 'Retry-After': String(submissionGuard.retryAfterSec) } : undefined
+        }
+      );
+    }
+
+    const limit = checkScanRateLimit(`scan:${clientIp(req)}`);
+    if (!limit.ok) {
+      return NextResponse.json(
+        {
+          error: 'Too many scans from this network. Please try again in a minute.',
+          traceId
+        },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(limit.retryAfterSec || 60) }
         }
       );
     }
