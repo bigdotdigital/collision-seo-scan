@@ -66,9 +66,10 @@ export async function POST(req: Request) {
     const submissionGuard = await checkScanSubmissionGuard({ websiteUrl });
     if (!submissionGuard.ok) {
       const baseUrl = appBaseUrl(req);
-      const existingReportUrl = submissionGuard.existingScanId ? `${baseUrl}/report/${submissionGuard.existingScanId}` : null;
-      if (existingReportUrl) {
-        return NextResponse.json({
+      const existingReportUrl = submissionGuard.existingScanId ? `${baseUrl}/report/${submissionGuard.existingScanId}` : `${baseUrl}/collision`;
+
+      return NextResponse.json(
+        {
           ok: true,
           queued: false,
           reused: true,
@@ -76,34 +77,19 @@ export async function POST(req: Request) {
           scanId: submissionGuard.existingScanId || null,
           reportUrl: existingReportUrl,
           nextUrl: existingReportUrl,
-          statusUrl: submissionGuard.existingScanId ? `/api/scan/${submissionGuard.existingScanId}` : null,
+          statusUrl: submissionGuard.existingScanId ? `${baseUrl}/api/scan/${submissionGuard.existingScanId}` : null,
           monitoringUrl: null,
           score: null,
           emailSent: false,
           emailReason:
             submissionGuard.reason === 'scan_in_progress'
-              ? 'A recent scan is still processing. Opening the existing report.'
+              ? 'A scan is already in progress for this site. Opening the active report.'
               : 'A recent scan already exists for this site. Opening the latest report.',
           snapshotId: null
-        });
-      }
-
-      const error =
-        submissionGuard.reason === 'scan_in_progress'
-          ? 'A scan for this site is already running. Please check the existing report in a few minutes.'
-          : 'This site was scanned recently. Please try again tomorrow or open the latest report.';
-
-      return NextResponse.json(
-        {
-          error,
-          traceId,
-          reportUrl: existingReportUrl,
-          nextUrl: existingReportUrl,
-          existingScanId: submissionGuard.existingScanId || null
         },
         {
-          status: 429,
-          headers: { 'Retry-After': String(submissionGuard.retryAfterSec || 60) }
+          status: 200,
+          headers: submissionGuard.retryAfterSec ? { 'Retry-After': String(submissionGuard.retryAfterSec) } : undefined
         }
       );
     }
