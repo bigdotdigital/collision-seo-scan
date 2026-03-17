@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { MetricCard } from '@/components/metric-card';
 import { MultiProgressBar } from '@/components/multi-progress-bar';
 import { CompetitorComparison } from '@/components/competitor-comparison';
@@ -133,17 +134,64 @@ export default async function DashboardOverviewPage({
       summary: 'The four-week sprint most likely to move this shop next.'
     }
   };
-  const renderModule = (moduleId: DashboardModuleId) => {
+  const profileActionCards = [
+    {
+      title:
+        nextSteps[0]?.title ||
+        (dashboardProfile.id === 'conversion'
+          ? 'Tighten estimate capture'
+          : dashboardProfile.id === 'maps'
+            ? 'Increase review and GBP authority'
+            : dashboardProfile.id === 'storm'
+              ? 'Publish storm-intent pages'
+              : dashboardProfile.id === 'authority'
+                ? 'Add trust and specialty proof'
+                : 'Keep weekly momentum'),
+      detail:
+        nextSteps[0]?.detail ||
+        dashboardProfile.nextPriority
+    },
+    {
+      title:
+        dashboardProfile.id === 'storm'
+          ? 'Watch hail-driven demand'
+          : dashboardProfile.id === 'maps'
+            ? 'Close the local trust gap'
+            : dashboardProfile.id === 'conversion'
+              ? 'Reduce conversion leaks'
+              : 'Use the strongest local signal',
+      detail:
+        demandContext?.summary ||
+        'Use the demand layer to decide where urgency is real instead of treating every SEO task equally.'
+    },
+    {
+      title: 'Stay on the weekly loop',
+      detail:
+        latestScan
+          ? `${dataHealth.lastScanAgeLabel}. Keep refreshing so the dashboard can show movement instead of one-time diagnosis.`
+          : 'Run the first scan so the dashboard can start building real week-over-week history.'
+    }
+  ];
+  const moduleBadges: Partial<Record<DashboardModuleId, ReactNode>> = {
+    architecture: premiumBadge,
+    maps: premiumBadge,
+    demand: demandBadge,
+    competitorGap: premiumBadge,
+    servicePages: paidBadge,
+    revenueLeak: revenueBadge,
+    repairPlan: paidBadge
+  };
+  const moduleScores: Partial<Record<DashboardModuleId, string | number>> = {
+    architecture: architecture.score,
+    maps: mapsAuthority.score,
+    demand: demandContext?.demandPressure,
+    revenueLeak: revenueLeak.severity
+  };
+  const renderModuleBody = (moduleId: DashboardModuleId) => {
     switch (moduleId) {
       case 'architecture':
         return (
-          <DashboardModuleCard
-            key={moduleId}
-            title="Collision SEO Architecture"
-            subtitle="Page structure, collision-service coverage, trust layers, and conversion readiness."
-            score={architecture.score}
-            badge={premiumBadge}
-          >
+          <>
             {entitlement === 'premium' ? (
               <div className="space-y-4">
                 <div>
@@ -169,17 +217,11 @@ export default async function DashboardOverviewPage({
             ) : (
               <LockedModuleTeaser title="High-intent page opportunities detected" body={architecture.teaser} />
             )}
-          </DashboardModuleCard>
+          </>
         );
       case 'maps':
         return (
-          <DashboardModuleCard
-            key={moduleId}
-            title="Maps Authority"
-            subtitle="Google profile and local pack strength using the current provider data."
-            score={mapsAuthority.score}
-            badge={premiumBadge}
-          >
+          <>
             {entitlement === 'premium' ? (
               <div className="space-y-4">
                 <p className="dashboard-body-sm">{mapsAuthority.competitorComparison}</p>
@@ -194,17 +236,11 @@ export default async function DashboardOverviewPage({
             ) : (
               <LockedModuleTeaser title="Maps and GBP gap signals detected" body={mapsAuthority.teaser} />
             )}
-          </DashboardModuleCard>
+          </>
         );
       case 'demand':
         return (
-          <DashboardModuleCard
-            key={moduleId}
-            title="Local Demand Context"
-            subtitle="How hard your local market is pressing right now based on crash, traffic, and hail signals."
-            score={demandContext?.demandPressure}
-            badge={demandBadge}
-          >
+          <>
             {demandContext ? (
               <div className="space-y-3">
                 <p className="text-sm text-[var(--dashboard-text)]">{demandContext.summary}</p>
@@ -226,16 +262,11 @@ export default async function DashboardOverviewPage({
             ) : (
               <LockedModuleTeaser title="Local demand data is still filling in" body="Run a market-intel refresh to unlock city-level crash, traffic, and hail context." />
             )}
-          </DashboardModuleCard>
+          </>
         );
       case 'competitorGap':
         return (
-          <DashboardModuleCard
-            key={moduleId}
-            title="Competitor Gap Snapshot"
-            subtitle="How nearby competitors appear to out-cover or out-convert your site."
-            badge={premiumBadge}
-          >
+          <>
             {entitlement === 'premium' ? (
               <div className="space-y-3">
                 <p className="text-sm text-[var(--dashboard-text)]">{competitorGap.summary}</p>
@@ -249,16 +280,11 @@ export default async function DashboardOverviewPage({
             ) : (
               <LockedModuleTeaser title="Local competitors appear stronger in several areas" body={competitorGap.teaser} />
             )}
-          </DashboardModuleCard>
+          </>
         );
       case 'servicePages':
         return (
-          <DashboardModuleCard
-            key={moduleId}
-            title="Recommended Service Page Opportunities"
-            subtitle="Highest-value collision pages missing from the current architecture."
-            badge={paidBadge}
-          >
+          <>
             {entitlement === 'premium' ? (
               <div className="space-y-2">
                 {architecture.pageOpportunities.slice(0, 4).map((item) => (
@@ -271,17 +297,11 @@ export default async function DashboardOverviewPage({
             ) : (
               <LockedModuleTeaser title="High-intent page opportunities detected" body="Upgrade to unlock the exact service, OEM, and specialty page recommendations." />
             )}
-          </DashboardModuleCard>
+          </>
         );
       case 'revenueLeak':
         return (
-          <DashboardModuleCard
-            key={moduleId}
-            title="Revenue Leak Indicator"
-            subtitle="Severity of current visibility and conversion leakage."
-            score={revenueLeak.severity}
-            badge={revenueBadge}
-          >
+          <>
             {entitlement === 'premium' ? (
               <div className="space-y-3">
                 <p className="text-sm text-[var(--dashboard-text)]">{revenueLeak.summary}</p>
@@ -294,16 +314,11 @@ export default async function DashboardOverviewPage({
             ) : (
               <LockedModuleTeaser title={`Leak severity: ${revenueLeak.severity}`} body="Upgrade to see the drivers behind the missed opportunity and which fixes matter most." />
             )}
-          </DashboardModuleCard>
+          </>
         );
       case 'repairPlan':
         return (
-          <DashboardModuleCard
-            key={moduleId}
-            title="30-Day Repair Plan"
-            subtitle="Collision-shop language, sequenced into a practical four-week sprint."
-            badge={paidBadge}
-          >
+          <>
             {entitlement === 'premium' ? (
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 {repairPlan.map((item) => (
@@ -317,7 +332,7 @@ export default async function DashboardOverviewPage({
             ) : (
               <LockedModuleTeaser title="A prioritized 4-week repair plan is ready" body="Upgrade to unlock the exact weekly sequence instead of a generic summary." />
             )}
-          </DashboardModuleCard>
+          </>
         );
     }
   };
@@ -895,8 +910,47 @@ export default async function DashboardOverviewPage({
           </div>
           <span className="dashboard-status dashboard-status-live">{dashboardProfile.focusLabel}</span>
         </div>
+        <div className="mb-6 grid gap-3 md:grid-cols-3">
+          {profileActionCards.map((item, index) => (
+            <div
+              key={item.title}
+              className={`rounded-2xl border p-4 ${
+                index === 0
+                  ? 'border-[var(--dashboard-border-strong)] bg-[var(--dashboard-bg-soft)]'
+                  : 'border-[var(--border-color)] bg-[var(--bg-card)]'
+              }`}
+            >
+              <div className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Action {index + 1}</div>
+              <div className="mt-2 text-base font-semibold text-[var(--text-main)]">{item.title}</div>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">{item.detail}</p>
+            </div>
+          ))}
+        </div>
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          {primaryModuleIds.map((moduleId) => renderModule(moduleId))}
+          {primaryModuleIds.map((moduleId, index) => {
+            const tone =
+              index === 0
+                ? dashboardProfile.id === 'storm'
+                  ? 'warning'
+                  : 'accent'
+                : 'default';
+
+            return (
+              <div key={moduleId} className={index === 0 ? 'xl:col-span-2' : ''}>
+                <DashboardModuleCard
+                  title={moduleMeta[moduleId].title}
+                  subtitle={moduleMeta[moduleId].summary}
+                  score={moduleScores[moduleId]}
+                  badge={moduleBadges[moduleId]}
+                  eyebrow={index === 0 ? 'Primary spotlight' : `Priority ${index + 1}`}
+                  tone={tone}
+                  className={index === 0 ? 'shadow-md' : ''}
+                >
+                  {renderModuleBody(moduleId)}
+                </DashboardModuleCard>
+              </div>
+            );
+          })}
         </div>
       </section>
 
@@ -909,7 +963,20 @@ export default async function DashboardOverviewPage({
           <span className="dashboard-status dashboard-status-cached">Still available</span>
         </div>
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          {secondaryModuleIds.map((moduleId) => renderModule(moduleId))}
+          {secondaryModuleIds.map((moduleId) => (
+            <DashboardModuleCard
+              key={moduleId}
+              title={moduleMeta[moduleId].title}
+              subtitle={moduleMeta[moduleId].summary}
+              score={moduleScores[moduleId]}
+              badge={moduleBadges[moduleId]}
+              eyebrow="Secondary module"
+              tone="muted"
+              compact
+            >
+              {renderModuleBody(moduleId)}
+            </DashboardModuleCard>
+          ))}
         </div>
       </section>
 

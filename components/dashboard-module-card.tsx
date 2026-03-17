@@ -5,18 +5,36 @@ export function DashboardModuleCard({
   subtitle,
   score,
   children,
-  badge
+  badge,
+  eyebrow,
+  className,
+  tone = 'default',
+  compact = false
 }: {
   title: string;
   subtitle: string;
   score?: string | number;
   badge?: ReactNode;
+  eyebrow?: string;
+  className?: string;
+  tone?: 'default' | 'accent' | 'muted' | 'warning';
+  compact?: boolean;
   children: ReactNode;
 }) {
+  const toneClass =
+    tone === 'accent'
+      ? 'dashboard-panel-accent dashboard-panel-tone'
+      : tone === 'muted'
+        ? 'dashboard-panel-muted'
+        : tone === 'warning'
+          ? 'dashboard-panel-warning dashboard-panel-tone'
+          : '';
+
   return (
-    <article className="dashboard-panel">
+    <article className={['dashboard-panel', toneClass, compact ? 'p-4' : '', className].filter(Boolean).join(' ')}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
+          {eyebrow ? <p className="dashboard-label">{eyebrow}</p> : null}
           <h2 className="dashboard-section-title">{title}</h2>
           <p className="dashboard-body-sm mt-1">{subtitle}</p>
         </div>
