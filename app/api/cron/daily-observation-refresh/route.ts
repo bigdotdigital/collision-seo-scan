@@ -1,15 +1,10 @@
 import { NextResponse } from 'next/server';
+import { isAuthorizedCronRequest, unauthorizedCronResponse } from '@/lib/cron-auth';
 import { queueDailyObservationRefreshJobs } from '@/lib/jobs';
 
-function authorized(req: Request) {
-  const header = req.headers.get('x-cron-secret') || '';
-  const expected = process.env.CRON_SECRET || '';
-  return Boolean(expected && header === expected);
-}
-
-export async function POST(req: Request) {
-  if (!authorized(req)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+async function handle(req: Request) {
+  if (!isAuthorizedCronRequest(req)) {
+    return unauthorizedCronResponse();
   }
 
   const queued = await queueDailyObservationRefreshJobs();
@@ -19,4 +14,12 @@ export async function POST(req: Request) {
     mode: 'scheduled',
     queued
   });
+}
+
+export async function GET(req: Request) {
+  return handle(req);
+}
+
+export async function POST(req: Request) {
+  return handle(req);
 }
