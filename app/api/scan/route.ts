@@ -62,6 +62,27 @@ export async function POST(req: Request) {
     const submissionGuard = await checkScanSubmissionGuard({ websiteUrl });
     if (!submissionGuard.ok) {
       const existingReportUrl = submissionGuard.existingScanId ? `/report/${submissionGuard.existingScanId}` : null;
+      if (existingReportUrl) {
+        return NextResponse.json({
+          ok: true,
+          queued: false,
+          reused: true,
+          traceId,
+          scanId: submissionGuard.existingScanId || null,
+          reportUrl: existingReportUrl,
+          nextUrl: existingReportUrl,
+          statusUrl: submissionGuard.existingScanId ? `/api/scan/${submissionGuard.existingScanId}` : null,
+          monitoringUrl: null,
+          score: null,
+          emailSent: false,
+          emailReason:
+            submissionGuard.reason === 'scan_in_progress'
+              ? 'A recent scan is still processing. Opening the existing report.'
+              : 'A recent scan already exists for this site. Opening the latest report.',
+          snapshotId: null
+        });
+      }
+
       const error =
         submissionGuard.reason === 'scan_in_progress'
           ? 'A scan for this site is already running. Please check the existing report in a few minutes.'
