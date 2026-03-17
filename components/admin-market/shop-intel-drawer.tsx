@@ -4,6 +4,7 @@ type DrawerShop = {
   id: string;
   name: string;
   addressLabel: string;
+  websiteUrl: string | null;
   websiteLabel: string;
   publicReportUrl: string | null;
   reviews: number;
@@ -190,12 +191,20 @@ export function ShopIntelDrawer(args: {
         </div>
 
         <footer className="flex gap-3 border-t border-[#1e293b] bg-[#05070a] p-4">
-          <button
-            type="button"
-            className="flex-1 border border-[#06b6d4]/50 bg-transparent px-4 py-2.5 text-xs font-mono uppercase tracking-[0.24em] text-[#67e8f9] transition-colors hover:bg-[#1e293b]"
-          >
-            Force Rescan
-          </button>
+          {shop?.websiteUrl ? (
+            <a
+              href={shop.websiteUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="flex-1 border border-[#06b6d4]/50 bg-transparent px-4 py-2.5 text-center text-xs font-mono uppercase tracking-[0.24em] text-[#67e8f9] transition-colors hover:bg-[#1e293b]"
+            >
+              Open Website
+            </a>
+          ) : (
+            <div className="flex-1 border border-[#334155] px-4 py-2.5 text-center text-xs font-mono uppercase tracking-[0.24em] text-[#94a3b8]">
+              No Website
+            </div>
+          )}
           {shop?.publicReportUrl ? (
             <a
               href={shop.publicReportUrl}

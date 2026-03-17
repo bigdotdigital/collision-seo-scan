@@ -340,12 +340,13 @@ export type AdminMarketConsoleState = {
     defaultShopId: string | null;
     shops: Record<
       string,
-      {
-        id: string;
-        name: string;
-        addressLabel: string;
-        websiteLabel: string;
-        publicReportUrl: string | null;
+        {
+          id: string;
+          name: string;
+          addressLabel: string;
+          websiteUrl: string | null;
+          websiteLabel: string;
+          publicReportUrl: string | null;
         reviews: number;
         score: number;
         typeLabel: string;
@@ -1447,6 +1448,7 @@ export async function getAdminMarketConsoleState(marketSlug: string): Promise<Ad
           id: row.id,
           name: row.name,
           addressLabel: row.address || marketLabel(row.city || market.city, row.state || market.state),
+          websiteUrl: row.websiteUrl && !hasMalformedWebsiteUrl(row.websiteUrl) ? row.websiteUrl : null,
           websiteLabel: row.websiteUrl
             ? hasMalformedWebsiteUrl(row.websiteUrl)
               ? 'Malformed website URL'

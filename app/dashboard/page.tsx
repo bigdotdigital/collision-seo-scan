@@ -395,9 +395,12 @@ export default async function DashboardOverviewPage({
             <form action={refreshDashboardData}>
               <RefreshDashboardButton />
             </form>
-            <button className="rounded-md border border-[var(--border-color)] px-4 py-2 text-sm font-medium hover:bg-[var(--bg-body)]">
-              Last 30 Days ▼
-            </button>
+            <Link
+              href="/dashboard/reports"
+              className="rounded-md border border-[var(--border-color)] px-4 py-2 text-sm font-medium hover:bg-[var(--bg-body)]"
+            >
+              View Report History
+            </Link>
           </div>
         }
       />

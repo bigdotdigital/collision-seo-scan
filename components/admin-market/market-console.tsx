@@ -1261,9 +1261,12 @@ export function MarketConsole(args: {
             <TacticalPanel className="col-span-12 lg:col-span-4">
               {panelHeader(
                 'Top Shops Leaderboard',
-                <span className="cursor-pointer border border-[#334155] bg-[#1e293b] px-1.5 py-0.5 text-[9px] font-mono uppercase text-[#94a3b8] transition hover:bg-slate-700">
+                <a
+                  href={`/api/admin/benchmark-report?marketId=${args.state.market.id}&take=50&format=csv`}
+                  className="border border-[#334155] bg-[#1e293b] px-1.5 py-0.5 text-[9px] font-mono uppercase text-[#94a3b8] transition hover:bg-slate-700"
+                >
                   Export.CSV
-                </span>
+                </a>
               )}
               <div className="max-h-[450px] overflow-auto bg-[#0a0d14]">
                 <table className="w-full border-collapse whitespace-nowrap text-left">

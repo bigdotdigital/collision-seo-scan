@@ -1,6 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 function MagnifyingGlassIcon({ className }: { className?: string }) {
   return (
@@ -36,9 +38,39 @@ function Cog6ToothIcon({ className }: { className?: string }) {
 
 export function Topbar() {
   const [searchQuery, setSearchQuery] = useState('');
+  const router = useRouter();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return;
+
+    if (/(report|scan|history)/.test(query)) {
+      router.push('/dashboard/reports');
+      return;
+    }
+    if (/(rank|keyword|position)/.test(query)) {
+      router.push('/dashboard/rankings');
+      return;
+    }
+    if (/(competitor|rival|compare)/.test(query)) {
+      router.push('/dashboard/competitors');
+      return;
+    }
+    if (/(alert|notification|notify)/.test(query)) {
+      router.push('/dashboard/alerts');
+      return;
+    }
+    if (/(bill|invoice|payment|plan)/.test(query)) {
+      router.push('/dashboard/billing');
+      return;
+    }
+    if (/(setting|account|profile|keyword|location)/.test(query)) {
+      router.push('/dashboard/settings');
+      return;
+    }
+
+    router.push('/dashboard');
   };
 
   return (
@@ -60,12 +92,20 @@ export function Topbar() {
       </div>
 
       <div className="flex items-center gap-3 md:gap-6">
-        <button className="p-2 text-[var(--text-muted)] hover:text-[var(--text-main)]" type="button" aria-label="Notifications">
+        <Link
+          href="/dashboard/alerts"
+          className="p-2 text-[var(--text-muted)] hover:text-[var(--text-main)]"
+          aria-label="Notifications"
+        >
           <BellIcon className="h-5 w-5" />
-        </button>
-        <button className="p-2 text-[var(--text-muted)] hover:text-[var(--text-main)]" type="button" aria-label="Settings">
+        </Link>
+        <Link
+          href="/dashboard/settings"
+          className="p-2 text-[var(--text-muted)] hover:text-[var(--text-main)]"
+          aria-label="Settings"
+        >
           <Cog6ToothIcon className="h-5 w-5" />
-        </button>
+        </Link>
         <div className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-[var(--primary-light)] text-sm font-bold text-[var(--primary)]">
           DB
         </div>
