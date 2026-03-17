@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 
 const DOMAIN_WINDOW_MS = 24 * 60 * 60_000;
+const DOMAIN_DAILY_SCAN_LIMIT = 100;
 
 export function scanHostKey(websiteUrl: string) {
   try {
@@ -34,7 +35,7 @@ export async function checkScanSubmissionGuard(args: { websiteUrl: string }) {
       }
     },
     orderBy: { createdAt: 'desc' },
-    take: 200
+    take: 500
   });
 
   const matching = candidates.filter((scan) => {
@@ -44,7 +45,7 @@ export async function checkScanSubmissionGuard(args: { websiteUrl: string }) {
   });
 
   const inFlight = matching.find((scan) => scan.executionStatus === 'queued' || scan.executionStatus === 'running');
-  const recent = matching[0];
+  const completedRecent = matching.filter((scan) => scan.executionStatus === 'completed');
 
   if (inFlight) {
     return {
@@ -55,12 +56,13 @@ export async function checkScanSubmissionGuard(args: { websiteUrl: string }) {
     };
   }
 
-  if (recent) {
+  if (completedRecent.length >= DOMAIN_DAILY_SCAN_LIMIT) {
+    const oldestAllowed = completedRecent[DOMAIN_DAILY_SCAN_LIMIT - 1];
     return {
       ok: false as const,
       reason: 'domain_daily_limit',
-      retryAfterSec: Math.max(60, Math.ceil((recent.createdAt.getTime() + DOMAIN_WINDOW_MS - Date.now()) / 1000)),
-      existingScanId: recent.id
+      retryAfterSec: Math.max(60, Math.ceil((oldestAllowed.createdAt.getTime() + DOMAIN_WINDOW_MS - Date.now()) / 1000)),
+      existingScanId: completedRecent[0]?.id
     };
   }
 
