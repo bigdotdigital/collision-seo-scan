@@ -35,6 +35,28 @@
   ],
   "redirects": [
     {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "freecollisionseo.com"
+        }
+      ],
+      "destination": "https://shopseoscan.com/collision",
+      "permanent": true
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.freecollisionseo.com"
+        }
+      ],
+      "destination": "https://shopseoscan.com/collision",
+      "permanent": true
+    },
+    {
       "source": "/:path*",
       "has": [
         {
@@ -42,7 +64,7 @@
           "value": "freecollisionseo.com"
         }
       ],
-      "destination": "https://shopseoscan.com/scan",
+      "destination": "https://shopseoscan.com/collision",
       "permanent": true
     },
     {
@@ -53,7 +75,7 @@
           "value": "www.freecollisionseo.com"
         }
       ],
-      "destination": "https://shopseoscan.com/scan",
+      "destination": "https://shopseoscan.com/collision",
       "permanent": true
     },
     {
