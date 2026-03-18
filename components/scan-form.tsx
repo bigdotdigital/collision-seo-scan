@@ -18,6 +18,17 @@ function navigateTo(nextUrl: string, router: ReturnType<typeof useRouter>) {
   router.push(nextUrl);
 }
 
+function withFreshNavigation(url: string) {
+  try {
+    const next = new URL(url, typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+    next.searchParams.set('_rt', Date.now().toString());
+    return next.toString();
+  } catch {
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}_rt=${Date.now()}`;
+  }
+}
+
 async function waitForScanCompletion(statusUrl?: string | null) {
   if (!statusUrl) return;
 
@@ -137,7 +148,7 @@ export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalS
       await waitForScanCompletion(decision.statusUrl);
       await waitForReportReady(decision.nextUrl);
 
-      navigateTo(decision.nextUrl, router);
+      navigateTo(withFreshNavigation(decision.nextUrl), router);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unexpected error');
       setScanComplete(false);
