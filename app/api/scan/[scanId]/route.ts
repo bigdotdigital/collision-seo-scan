@@ -9,8 +9,14 @@ export async function GET(
 ) {
   const scan = await getScanRecord(params.scanId);
   if (!scan) {
-    return NextResponse.json({ error: 'Scan not found' }, { status: 404 });
+    return NextResponse.json(
+      { error: 'Scan not found' },
+      { status: 404, headers: { 'Cache-Control': 'no-store, max-age=0' } }
+    );
   }
 
-  return NextResponse.json({ scan });
+  return NextResponse.json(
+    { scan },
+    { headers: { 'Cache-Control': 'no-store, max-age=0' } }
+  );
 }

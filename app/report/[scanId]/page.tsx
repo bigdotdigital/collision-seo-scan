@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { unstable_noStore as noStore } from 'next/cache';
 import { ScoreRing } from '@/components/score-ring';
 import { InfoTooltip } from '@/components/info-tooltip';
 import { ReportEmailCapture } from '@/components/report-email-capture';
@@ -17,7 +18,11 @@ import {
 } from '@/lib/report-page-helpers';
 import { loadReportPageState } from '@/lib/report-page-state';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function ReportPage({ params }: { params: { scanId: string } }) {
+  noStore();
   logEnvWarningsOnce();
   const scanId = params.scanId;
   if (!isValidScanId(scanId)) return notFound();
