@@ -9,6 +9,27 @@ function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function isReportReady(scanId: string) {
+  const res = await fetch(`/report/${scanId}`, {
+    cache: 'no-store',
+    credentials: 'same-origin',
+    headers: {
+      accept: 'text/html'
+    }
+  });
+
+  if (!res.ok) {
+    return false;
+  }
+
+  const html = await res.text();
+  if (!html) {
+    return false;
+  }
+
+  return !html.includes('Report temporarily unavailable');
+}
+
 export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalSlug }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -40,6 +61,12 @@ export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalS
           clearInterval(intervalId);
           setScanComplete(true);
           setFinalScore(data.scan.scoreTotal || null);
+          while (!cancelled) {
+            const ready = await isReportReady(scanId).catch(() => false);
+            if (ready) break;
+            await wait(1500);
+          }
+          if (cancelled) return;
           await wait(850);
           if (cancelled) return;
           router.push(`/report/${scanId}`);
