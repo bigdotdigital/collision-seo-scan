@@ -1,59 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DEFAULT_VERTICAL, type VerticalSlug } from '@/lib/verticals';
-import { resolveScanSubmitDecision } from '@/lib/scan-submit-flow';
 import { ScanLoadingShell } from '@/components/scan-loading';
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function navigateTo(nextUrl: string, router: ReturnType<typeof useRouter>) {
-  if (typeof window !== 'undefined') {
-    window.location.assign(nextUrl);
-    return;
-  }
-  router.push(nextUrl);
-}
-
-async function waitForScanToFinish(statusUrl: string) {
-  for (;;) {
-    await wait(2000);
-
-    const res = await fetch(statusUrl, {
-      cache: 'no-store',
-      headers: { accept: 'application/json' }
-    });
-
-    if (!res.ok) {
-      continue;
-    }
-
-    const json = await res.json();
-    const status = String(json?.scan?.executionStatus || '').toLowerCase();
-
-    if (status && status !== 'queued' && status !== 'running') {
-      return;
-    }
-  }
-}
-
-type PendingScanState = {
-  scanId: string;
-  websiteUrl: string;
-  city: string;
-  shopName: string;
-};
-
-export function ScanForm({
-  vertical = DEFAULT_VERTICAL,
-  pendingScan,
-}: {
-  vertical?: VerticalSlug;
-  pendingScan?: PendingScanState | null;
-}) {
+export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalSlug }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [scanComplete, setScanComplete] = useState(false);
@@ -64,43 +20,6 @@ export function ScanForm({
     shopName: ''
   });
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!pendingScan?.scanId) return;
-
-    let cancelled = false;
-
-    setError(null);
-    setLoading(true);
-    setScanComplete(false);
-    setFinalScore(null);
-    setScanContext({
-      websiteUrl: pendingScan.websiteUrl,
-      city: pendingScan.city,
-      shopName: pendingScan.shopName,
-    });
-
-    const resume = async () => {
-      try {
-        await waitForScanToFinish(`/api/scan/${pendingScan.scanId}`);
-        if (cancelled) return;
-        setScanComplete(true);
-        await wait(600);
-        if (cancelled) return;
-        navigateTo(`/report/${pendingScan.scanId}`, router);
-      } catch {
-        if (cancelled) return;
-        setError('Scan status check failed. Please try again.');
-        setLoading(false);
-      }
-    };
-
-    resume();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [pendingScan?.city, pendingScan?.scanId, pendingScan?.shopName, pendingScan?.websiteUrl, router]);
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -137,29 +56,18 @@ export function ScanForm({
       });
 
       const json = await res.json();
-      const decision = resolveScanSubmitDecision({ ok: res.ok, json });
-
-      if (decision.action === 'reuse' || decision.action === 'redirect_on_error') {
-        navigateTo(decision.nextUrl, router);
-        return;
-      }
-
-      if (decision.action === 'error') {
-        throw new Error(decision.message);
+      if (!res.ok) {
+        throw new Error(json?.error || 'Scan failed');
       }
 
       if (typeof json?.score === 'number') {
         setFinalScore(json.score);
       }
-      const statusUrl =
-        typeof decision.statusUrl === 'string' && decision.statusUrl
-          ? decision.statusUrl
-          : `/api/scan/${json.scanId}`;
-
-      await waitForScanToFinish(statusUrl);
       setScanComplete(true);
-      await wait(600);
-      navigateTo(decision.nextUrl, router);
+
+      await wait(850);
+
+      router.push(`/report/${json.scanId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unexpected error');
       setScanComplete(false);

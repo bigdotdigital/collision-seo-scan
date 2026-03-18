@@ -2,18 +2,7 @@ import Link from 'next/link';
 import { ScanForm } from '@/components/scan-form';
 import { VERTICALS, type VerticalSlug } from '@/lib/verticals';
 
-export function VerticalLandingPage({
-  vertical,
-  pendingScan,
-}: {
-  vertical: VerticalSlug;
-  pendingScan?: {
-    scanId: string;
-    websiteUrl: string;
-    city: string;
-    shopName: string;
-  } | null;
-}) {
+export function VerticalLandingPage({ vertical }: { vertical: VerticalSlug }) {
   const cfg = VERTICALS[vertical];
 
   return (
@@ -41,12 +30,6 @@ export function VerticalLandingPage({
               href="/demo"
             >
               See Example Report
-            </Link>
-            <Link
-              className="inline-flex h-11 items-center rounded-md border border-slate-500/70 bg-white/5 px-5 text-sm font-medium text-slate-100 backdrop-blur"
-              href="/pricing"
-            >
-              Pricing
             </Link>
           </div>
           <p className="mt-3 text-sm text-slate-400">
@@ -135,7 +118,7 @@ export function VerticalLandingPage({
             Enter your shop details below to generate a full report and action plan.
           </p>
           <div className="mt-6">
-            <ScanForm vertical={vertical} pendingScan={pendingScan} />
+            <ScanForm vertical={vertical} />
           </div>
         </div>
       </section>
