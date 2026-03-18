@@ -92,11 +92,15 @@ export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalS
       });
 
       const json = await res.json();
-      if (typeof json?.nextUrl === 'string' && json.nextUrl) {
+      if (json?.reused && typeof json?.nextUrl === 'string' && json.nextUrl) {
         navigateTo(json.nextUrl, router);
         return;
       }
       if (!res.ok) {
+        if (typeof json?.nextUrl === 'string' && json.nextUrl) {
+          navigateTo(json.nextUrl, router);
+          return;
+        }
         throw new Error(json?.error || 'Scan failed');
       }
 
