@@ -1,8 +1,9 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { ScoreRing } from '@/components/score-ring';
 import { parseJson } from '@/lib/json';
+
 import type {
   CategoryScoreSet,
   CollisionSignal,
@@ -363,6 +364,12 @@ export default async function ReportPage({ params }: { params: { scanId: string 
   try {
     const scanRecord = await getScanRecord(scanId);
     if (!scanRecord) return notFound();
+
+    // If scan is still queued or running, redirect to scanner page
+    // This prevents the "Scan in progress" holding page from showing
+    if (scanRecord.executionStatus === 'queued' || scanRecord.executionStatus === 'running') {
+      redirect('/collision');
+    }
 
     const dbScan = await prisma.scan.findUnique({ where: { id: scanId } }).catch(() => null);
 

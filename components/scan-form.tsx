@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { DEFAULT_VERTICAL, type VerticalSlug } from '@/lib/verticals';
 import { ScanLoadingShell } from '@/components/scan-loading';
@@ -20,6 +20,43 @@ export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalS
     shopName: ''
   });
   const [error, setError] = useState<string | null>(null);
+  const [scanId, setScanId] = useState<string | null>(null);
+
+  // Poll scan status until complete
+  useEffect(() => {
+    if (!scanId || !loading) return;
+
+    let intervalId: NodeJS.Timeout;
+    let cancelled = false;
+
+    const checkScanStatus = async () => {
+      try {
+        const res = await fetch(`/api/scan/${scanId}`);
+        const data = await res.json();
+
+        if (cancelled) return;
+
+        if (data.scan && (data.scan.executionStatus === 'completed' || data.scan.scoreTotal !== null)) {
+          clearInterval(intervalId);
+          setScanComplete(true);
+          setFinalScore(data.scan.scoreTotal || null);
+          await wait(850);
+          if (cancelled) return;
+          router.push(`/report/${scanId}`);
+        }
+      } catch (err) {
+        console.error('Status check failed:', err);
+      }
+    };
+
+    intervalId = setInterval(checkScanStatus, 2000);
+    void checkScanStatus();
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [scanId, loading, router]);
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -35,6 +72,7 @@ export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalS
     setScanContext({ websiteUrl, city, shopName });
     setScanComplete(false);
     setFinalScore(null);
+    setScanId(null);
 
     try {
       const res = await fetch('/api/scan', {
@@ -60,18 +98,19 @@ export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalS
         throw new Error(json?.error || 'Scan failed');
       }
 
+      // Set scan ID to start polling, but DON'T redirect yet
+      setScanId(json.scanId);
+      
+      // If scan completed immediately (rare), show score
       if (typeof json?.score === 'number') {
         setFinalScore(json.score);
       }
-      setScanComplete(true);
 
-      await wait(850);
-
-      router.push(`/report/${json.scanId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unexpected error');
       setScanComplete(false);
       setLoading(false);
+      setScanId(null);
     }
   };
 
