@@ -18,69 +18,6 @@ function navigateTo(nextUrl: string, router: ReturnType<typeof useRouter>) {
   router.push(nextUrl);
 }
 
-function withFreshNavigation(url: string) {
-  try {
-    const next = new URL(url, typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
-    next.searchParams.set('_rt', Date.now().toString());
-    return next.toString();
-  } catch {
-    const separator = url.includes('?') ? '&' : '?';
-    return `${url}${separator}_rt=${Date.now()}`;
-  }
-}
-
-async function waitForScanCompletion(statusUrl?: string | null) {
-  if (!statusUrl) return;
-
-  const startedAt = Date.now();
-  const timeoutMs = 90_000;
-
-  while (Date.now() - startedAt < timeoutMs) {
-    await wait(2500);
-
-    try {
-      const res = await fetch(statusUrl, {
-        cache: 'no-store',
-        headers: { accept: 'application/json' }
-      });
-
-      if (!res.ok) continue;
-      const json = await res.json();
-      const status = String(json?.scan?.executionStatus || '');
-
-      if (status && status !== 'queued' && status !== 'running') {
-        return;
-      }
-    } catch {
-      // Keep waiting; if the status probe is flaky, the report page can still recover.
-    }
-  }
-}
-
-async function waitForReportReady(reportUrl: string) {
-  const startedAt = Date.now();
-  const timeoutMs = 20_000;
-
-  while (Date.now() - startedAt < timeoutMs) {
-    await wait(1200);
-
-    try {
-      const res = await fetch(reportUrl, {
-        cache: 'no-store',
-        headers: { accept: 'text/html' }
-      });
-
-      if (!res.ok) continue;
-      const html = await res.text();
-      if (!/Scan in progress/i.test(html)) {
-        return;
-      }
-    } catch {
-      // Keep waiting; if the report probe flakes, the final navigation still has the status-page fallback.
-    }
-  }
-}
-
 export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalSlug }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -145,10 +82,7 @@ export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalS
       setScanComplete(true);
 
       await wait(850);
-      await waitForScanCompletion(decision.statusUrl);
-      await waitForReportReady(decision.nextUrl);
-
-      navigateTo(withFreshNavigation(decision.nextUrl), router);
+      navigateTo(decision.nextUrl, router);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unexpected error');
       setScanComplete(false);
