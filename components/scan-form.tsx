@@ -18,6 +18,28 @@ function navigateTo(nextUrl: string, router: ReturnType<typeof useRouter>) {
   router.push(nextUrl);
 }
 
+async function waitForScanToFinish(statusUrl: string) {
+  for (;;) {
+    await wait(2000);
+
+    const res = await fetch(statusUrl, {
+      cache: 'no-store',
+      headers: { accept: 'application/json' }
+    });
+
+    if (!res.ok) {
+      continue;
+    }
+
+    const json = await res.json();
+    const status = String(json?.scan?.executionStatus || '').toLowerCase();
+
+    if (status && status !== 'queued' && status !== 'running') {
+      return;
+    }
+  }
+}
+
 export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalSlug }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -79,9 +101,14 @@ export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalS
       if (typeof json?.score === 'number') {
         setFinalScore(json.score);
       }
-      setScanComplete(true);
+      const statusUrl =
+        typeof decision.statusUrl === 'string' && decision.statusUrl
+          ? decision.statusUrl
+          : `/api/scan/${json.scanId}`;
 
-      await wait(850);
+      await waitForScanToFinish(statusUrl);
+      setScanComplete(true);
+      await wait(600);
       navigateTo(decision.nextUrl, router);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unexpected error');
