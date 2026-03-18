@@ -84,7 +84,7 @@ export async function POST(req: Request) {
     if (!limit.ok) {
       return NextResponse.json(
         {
-          error: 'Too many scans from this network. Please try again in a minute.',
+          error: 'Too many new scans from this network right now. Please try again shortly.',
           traceId
         },
         {
@@ -153,7 +153,8 @@ export async function POST(req: Request) {
 
     const baseUrl = appBaseUrl(req);
     const reportPath = `${baseUrl}/report/${scan.id}`;
-    const monitoringUrl = `/monitoring?scanId=${encodeURIComponent(scan.id)}&orgId=${encodeURIComponent(org.id)}`;
+    const statusUrl = `${baseUrl}/api/scan/${scan.id}`;
+    const monitoringUrl = `${baseUrl}/monitoring?scanId=${encodeURIComponent(scan.id)}&orgId=${encodeURIComponent(org.id)}`;
 
     return NextResponse.json({
       ok: true,
@@ -162,7 +163,7 @@ export async function POST(req: Request) {
       scanId: scan.id,
       reportUrl: reportPath,
       nextUrl: reportPath,
-      statusUrl: `/api/scan/${scan.id}`,
+      statusUrl,
       monitoringUrl,
       score: null,
       emailSent: false,
