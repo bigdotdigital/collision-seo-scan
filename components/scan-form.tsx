@@ -46,6 +46,30 @@ async function waitForScanCompletion(statusUrl?: string | null) {
   }
 }
 
+async function waitForReportReady(reportUrl: string) {
+  const startedAt = Date.now();
+  const timeoutMs = 20_000;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    await wait(1200);
+
+    try {
+      const res = await fetch(reportUrl, {
+        cache: 'no-store',
+        headers: { accept: 'text/html' }
+      });
+
+      if (!res.ok) continue;
+      const html = await res.text();
+      if (!/Scan in progress/i.test(html)) {
+        return;
+      }
+    } catch {
+      // Keep waiting; if the report probe flakes, the final navigation still has the status-page fallback.
+    }
+  }
+}
+
 export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalSlug }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -111,6 +135,7 @@ export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalS
 
       await wait(850);
       await waitForScanCompletion(decision.statusUrl);
+      await waitForReportReady(decision.nextUrl);
 
       navigateTo(decision.nextUrl, router);
     } catch (err) {
