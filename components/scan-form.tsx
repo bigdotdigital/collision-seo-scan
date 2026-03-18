@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DEFAULT_VERTICAL, type VerticalSlug } from '@/lib/verticals';
 import { resolveScanSubmitDecision } from '@/lib/scan-submit-flow';
@@ -40,7 +40,20 @@ async function waitForScanToFinish(statusUrl: string) {
   }
 }
 
-export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalSlug }) {
+type PendingScanState = {
+  scanId: string;
+  websiteUrl: string;
+  city: string;
+  shopName: string;
+};
+
+export function ScanForm({
+  vertical = DEFAULT_VERTICAL,
+  pendingScan,
+}: {
+  vertical?: VerticalSlug;
+  pendingScan?: PendingScanState | null;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [scanComplete, setScanComplete] = useState(false);
@@ -51,6 +64,43 @@ export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalS
     shopName: ''
   });
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pendingScan?.scanId) return;
+
+    let cancelled = false;
+
+    setError(null);
+    setLoading(true);
+    setScanComplete(false);
+    setFinalScore(null);
+    setScanContext({
+      websiteUrl: pendingScan.websiteUrl,
+      city: pendingScan.city,
+      shopName: pendingScan.shopName,
+    });
+
+    const resume = async () => {
+      try {
+        await waitForScanToFinish(`/api/scan/${pendingScan.scanId}`);
+        if (cancelled) return;
+        setScanComplete(true);
+        await wait(600);
+        if (cancelled) return;
+        navigateTo(`/report/${pendingScan.scanId}`, router);
+      } catch {
+        if (cancelled) return;
+        setError('Scan status check failed. Please try again.');
+        setLoading(false);
+      }
+    };
+
+    resume();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pendingScan?.city, pendingScan?.scanId, pendingScan?.shopName, pendingScan?.websiteUrl, router]);
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

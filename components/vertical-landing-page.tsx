@@ -2,7 +2,18 @@ import Link from 'next/link';
 import { ScanForm } from '@/components/scan-form';
 import { VERTICALS, type VerticalSlug } from '@/lib/verticals';
 
-export function VerticalLandingPage({ vertical }: { vertical: VerticalSlug }) {
+export function VerticalLandingPage({
+  vertical,
+  pendingScan,
+}: {
+  vertical: VerticalSlug;
+  pendingScan?: {
+    scanId: string;
+    websiteUrl: string;
+    city: string;
+    shopName: string;
+  } | null;
+}) {
   const cfg = VERTICALS[vertical];
 
   return (
@@ -124,7 +135,7 @@ export function VerticalLandingPage({ vertical }: { vertical: VerticalSlug }) {
             Enter your shop details below to generate a full report and action plan.
           </p>
           <div className="mt-6">
-            <ScanForm vertical={vertical} />
+            <ScanForm vertical={vertical} pendingScan={pendingScan} />
           </div>
         </div>
       </section>

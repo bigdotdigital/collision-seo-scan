@@ -1,9 +1,8 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { unstable_noStore as noStore } from 'next/cache';
 import { ScoreRing } from '@/components/score-ring';
 import { InfoTooltip } from '@/components/info-tooltip';
-import { ReportPendingScreen } from '@/components/report-pending-screen';
 import { ReportEmailCapture } from '@/components/report-email-capture';
 import { ReportCtaActions, ReportShareActions } from '@/components/report-cta-actions';
 import { formatCls, formatMilliseconds, formatScore } from '@/lib/metric-format';
@@ -92,14 +91,13 @@ export default async function ReportPage({ params }: { params: { scanId: string 
     } = state;
     const executionStatus = scanRecord.executionStatus || 'completed';
     if (executionStatus === 'queued' || executionStatus === 'running') {
-      return (
-        <ReportPendingScreen
-          scanId={scanRecord.id}
-          shopName={scanRecord.shopName}
-          city={scanRecord.city}
-          websiteUrl={scanRecord.url}
-        />
-      );
+      const params = new URLSearchParams({
+        pendingScanId: scanRecord.id,
+        websiteUrl: scanRecord.url || '',
+        city: scanRecord.city || '',
+        shopName: scanRecord.shopName || '',
+      });
+      redirect(`/collision?${params.toString()}#scan-form`);
     }
 
     if (executionStatus === 'failed') {
