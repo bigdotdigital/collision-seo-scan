@@ -7,6 +7,7 @@ import { sourceConfidenceScore } from '../lib/shop-source-observations.ts';
 import { NonRetryableError, isNonRetryableError } from '../lib/errors.ts';
 import { getPasswordPolicyError } from '../lib/password-policy.ts';
 import { consumeRequestThrottle } from '../lib/request-throttle.ts';
+import { resolveScanSubmitDecision } from '../lib/scan-submit-flow.ts';
 import {
   buildCollisionArchitectureSummary,
   buildMapsAuthoritySummary,
@@ -269,6 +270,46 @@ function testRequestThrottle() {
   assert.equal(third.ok, false);
 }
 
+function testScanSubmitDecision() {
+  const reused = resolveScanSubmitDecision({
+    ok: true,
+    json: {
+      reused: true,
+      nextUrl: 'https://shopseoscan.com/report/existing'
+    }
+  });
+  assert.deepEqual(reused, {
+    action: 'reuse',
+    nextUrl: 'https://shopseoscan.com/report/existing'
+  });
+
+  const fresh = resolveScanSubmitDecision({
+    ok: true,
+    json: {
+      nextUrl: 'https://shopseoscan.com/report/new',
+      statusUrl: 'https://shopseoscan.com/api/scan/new',
+      scanId: 'new'
+    }
+  });
+  assert.deepEqual(fresh, {
+    action: 'wait_for_completion',
+    nextUrl: 'https://shopseoscan.com/report/new',
+    statusUrl: 'https://shopseoscan.com/api/scan/new'
+  });
+
+  const blockedButRedirectable = resolveScanSubmitDecision({
+    ok: false,
+    json: {
+      nextUrl: 'https://shopseoscan.com/report/existing',
+      error: 'Old message'
+    }
+  });
+  assert.deepEqual(blockedButRedirectable, {
+    action: 'redirect_on_error',
+    nextUrl: 'https://shopseoscan.com/report/existing'
+  });
+}
+
 function run() {
   testUrlValidation();
   testScanHostKey();
@@ -283,6 +324,7 @@ function run() {
   testSourceConfidence();
   testPasswordPolicy();
   testRequestThrottle();
+  testScanSubmitDecision();
   console.log('test-core: all checks passed');
 }
 

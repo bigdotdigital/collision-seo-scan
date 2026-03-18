@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DEFAULT_VERTICAL, type VerticalSlug } from '@/lib/verticals';
+import { resolveScanSubmitDecision } from '@/lib/scan-submit-flow';
 import { ScanLoadingShell } from '@/components/scan-loading';
 
 function wait(ms: number) {
@@ -92,16 +93,15 @@ export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalS
       });
 
       const json = await res.json();
-      if (json?.reused && typeof json?.nextUrl === 'string' && json.nextUrl) {
-        navigateTo(json.nextUrl, router);
+      const decision = resolveScanSubmitDecision({ ok: res.ok, json });
+
+      if (decision.action === 'reuse' || decision.action === 'redirect_on_error') {
+        navigateTo(decision.nextUrl, router);
         return;
       }
-      if (!res.ok) {
-        if (typeof json?.nextUrl === 'string' && json.nextUrl) {
-          navigateTo(json.nextUrl, router);
-          return;
-        }
-        throw new Error(json?.error || 'Scan failed');
+
+      if (decision.action === 'error') {
+        throw new Error(decision.message);
       }
 
       if (typeof json?.score === 'number') {
@@ -110,9 +110,9 @@ export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalS
       setScanComplete(true);
 
       await wait(850);
-      await waitForScanCompletion(typeof json?.statusUrl === 'string' ? json.statusUrl : null);
+      await waitForScanCompletion(decision.statusUrl);
 
-      navigateTo(typeof json?.nextUrl === 'string' && json.nextUrl ? json.nextUrl : `/report/${json.scanId}`, router);
+      navigateTo(decision.nextUrl, router);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unexpected error');
       setScanComplete(false);
