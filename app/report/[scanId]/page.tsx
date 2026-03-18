@@ -3,9 +3,9 @@ import { notFound } from 'next/navigation';
 import { unstable_noStore as noStore } from 'next/cache';
 import { ScoreRing } from '@/components/score-ring';
 import { InfoTooltip } from '@/components/info-tooltip';
+import { ReportPendingScreen } from '@/components/report-pending-screen';
 import { ReportEmailCapture } from '@/components/report-email-capture';
 import { ReportCtaActions, ReportShareActions } from '@/components/report-cta-actions';
-import { ReportStatusWatcher } from '@/components/report-status-watcher';
 import { formatCls, formatMilliseconds, formatScore } from '@/lib/metric-format';
 import { logEnvWarningsOnce } from '@/lib/env-check';
 import {
@@ -93,34 +93,12 @@ export default async function ReportPage({ params }: { params: { scanId: string 
     const executionStatus = scanRecord.executionStatus || 'completed';
     if (executionStatus === 'queued' || executionStatus === 'running') {
       return (
-        <main className="container-shell pb-20 pt-12">
-          <section className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Scan in progress</p>
-            <h1 className="mt-3 text-3xl font-bold text-slate-900">{scanRecord.shopName}</h1>
-            <p className="mt-2 text-sm text-slate-600">
-              We saved the report URL and queued the scan. This page will populate automatically once the scan finishes.
-            </p>
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs uppercase tracking-wide text-slate-500">Status</p>
-                <p className="mt-2 text-lg font-semibold text-slate-900">
-                  {executionStatus === 'queued' ? 'Queued' : 'Running'}
-                </p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs uppercase tracking-wide text-slate-500">Scan ID</p>
-                <p className="mt-2 text-sm font-medium text-slate-900">{scanRecord.id}</p>
-              </div>
-            </div>
-            <p className="mt-6 text-sm text-slate-600">
-              If you entered an email, the report will send when the scan completes.
-            </p>
-            <ReportStatusWatcher scanId={scanRecord.id} />
-            <Link href="/" className="mt-6 inline-block text-sm font-semibold text-teal-700 underline">
-              Back to scanner
-            </Link>
-          </section>
-        </main>
+        <ReportPendingScreen
+          scanId={scanRecord.id}
+          shopName={scanRecord.shopName}
+          city={scanRecord.city}
+          websiteUrl={scanRecord.url}
+        />
       );
     }
 
