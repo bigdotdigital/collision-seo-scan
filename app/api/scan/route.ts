@@ -8,8 +8,11 @@ import { scanInputSchema } from '@/lib/validation';
 import { upsertLead, upsertOrganizationFromInput, createScanRecord } from '@/lib/org-data';
 import { normalizeScanWebsiteUrl } from '@/lib/scan-workflow';
 import { enqueueScanExecution, scanLifecycleLog } from '@/lib/scan-queue';
+import { runScanExecution } from '@/lib/scan-job-runner';
+import { getScanRecord } from '@/lib/scan-store';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 function clientIp(req: Request) {
   const forwarded = req.headers.get('x-forwarded-for');
@@ -134,40 +137,59 @@ export async function POST(req: Request) {
       });
     }
 
-    await enqueueScanExecution({
-      scanId: scan.id,
-      traceId,
-      payload: {
-        source: 'public_scan',
-        city: clean.city,
-        shopName: clean.shop
-      }
-    });
-
     scanLifecycleLog('queued', {
       traceId,
       scanId: scan.id,
       organizationId: org.id,
-      shopId: org.shopId || null
+      shopId: org.shopId || null,
+      mode: 'inline_public_scan'
     });
+
+    try {
+      await runScanExecution({
+        id: `inline:${scan.id}`,
+        scanId: scan.id,
+        traceId,
+        attempts: 1,
+        maxAttempts: 1
+      });
+    } catch (error) {
+      console.error('[scan:inline:error]', { traceId, scanId: scan.id, error });
+      await enqueueScanExecution({
+        scanId: scan.id,
+        traceId,
+        payload: {
+          source: 'public_scan',
+          city: clean.city,
+          shopName: clean.shop,
+          fallback: 'inline_failed'
+        }
+      });
+    }
 
     const baseUrl = appBaseUrl(req);
     const reportPath = `${baseUrl}/report/${scan.id}`;
     const statusUrl = `${baseUrl}/api/scan/${scan.id}`;
     const monitoringUrl = `${baseUrl}/monitoring?scanId=${encodeURIComponent(scan.id)}&orgId=${encodeURIComponent(org.id)}`;
+    const latestScan = await getScanRecord(scan.id).catch(() => null);
+    const completed = latestScan?.executionStatus === 'completed';
 
     return NextResponse.json({
       ok: true,
-      queued: true,
+      queued: !completed,
       traceId,
       scanId: scan.id,
       reportUrl: reportPath,
       nextUrl: reportPath,
       statusUrl,
       monitoringUrl,
-      score: null,
+      score: completed ? latestScan?.scoreTotal || null : null,
       emailSent: false,
-      emailReason: clean.email ? 'Scan queued. Report email will send after completion.' : 'No email provided',
+      emailReason: clean.email
+        ? completed
+          ? 'Scan completed. Report email will send after completion.'
+          : 'Scan queued. Report email will send after completion.'
+        : 'No email provided',
       snapshotId: null
     });
   } catch (error) {
