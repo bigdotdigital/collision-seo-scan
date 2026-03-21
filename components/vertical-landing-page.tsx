@@ -38,6 +38,29 @@ export function VerticalLandingPage({ vertical }: { vertical: VerticalSlug }) {
               Open dashboard
             </a>
           </p>
+          <div className="mx-auto mt-8 grid max-w-5xl gap-3 text-left md:grid-cols-3">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300/80">Weekly Clarity</p>
+              <p className="mt-2 text-base font-semibold text-slate-100">See what changed week to week</p>
+              <p className="mt-2 text-sm text-slate-300">
+                Track rankings, trust signals, service-page gaps, and the issues actually affecting estimate demand.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300/80">Competitor Watch</p>
+              <p className="mt-2 text-base font-semibold text-slate-100">Know when nearby shops move first</p>
+              <p className="mt-2 text-sm text-slate-300">
+                We surface service coverage gaps, local trust differences, and what stronger shops are doing that you are not.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300/80">Tailored Setup</p>
+              <p className="mt-2 text-base font-semibold text-slate-100">We can customize the dashboard for your shop</p>
+              <p className="mt-2 text-sm text-slate-300">
+                Start with the free scan, then we can tune the dashboard around hail, OEM, maps, reviews, conversion, or service-area growth.
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -117,6 +140,12 @@ export function VerticalLandingPage({ vertical }: { vertical: VerticalSlug }) {
           <p className="mt-2 text-slate-300">
             Enter your shop details below to generate a full report and action plan.
           </p>
+          <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-300">
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">Free scan</span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">No payment required</span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">Built for collision shops</span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">Custom dashboard available</span>
+          </div>
           <div className="mt-6">
             <ScanForm vertical={vertical} />
           </div>

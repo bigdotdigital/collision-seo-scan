@@ -61,6 +61,20 @@ export default async function ThanksPage({
         <p className="mt-3 text-[#d8d2cd]">
           We will review your site and local market before the call so your teardown is specific and actionable.
         </p>
+        <div className="mt-6 grid gap-3 text-left md:grid-cols-3">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#c49a7a]">Understand</p>
+            <p className="mt-2 text-sm text-white/85">See what is hurting rankings, trust, and estimate demand.</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#c49a7a]">Prioritize</p>
+            <p className="mt-2 text-sm text-white/85">Get a clear order of fixes instead of a pile of generic SEO advice.</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#c49a7a]">Customize</p>
+            <p className="mt-2 text-sm text-white/85">We can tailor the dashboard around your shop’s service mix and goals.</p>
+          </div>
+        </div>
 
         <a
           href={calendlyTracked}
@@ -75,9 +89,12 @@ export default async function ThanksPage({
           UTM and scan tracking were attached to your booking link.
         </p>
 
-        <div className="mt-6">
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
           <Link href={`/report/${scan.id}`} className="text-sm text-[#c49a7a] underline">
             Back to report
+          </Link>
+          <Link href={`/monitoring?scanId=${scan.id}`} className="text-sm text-white/80 underline">
+            Or start the dashboard trial instead
           </Link>
         </div>
       </div>

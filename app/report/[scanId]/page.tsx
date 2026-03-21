@@ -1161,10 +1161,82 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         <p className="mt-3 whitespace-pre-wrap text-sm text-slate-700">{executiveSummary}</p>
       </section>
 
+      <section className="mt-8 card print-hide p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">Next Step</p>
+            <h2 className="mt-2 text-2xl font-bold text-slate-900">Choose the path that fits your shop</h2>
+            <p className="mt-2 max-w-3xl text-sm text-slate-600">
+              Some shops just want weekly visibility and competitor tracking. Others want us to handle the site fixes,
+              service pages, design, and conversion work. This report supports both.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Best fit right now</div>
+            <div className="mt-2 font-semibold text-slate-900">
+              {scoreTotal < 75 ? 'Done-for-you repair + redesign' : 'Weekly monitoring + targeted fixes'}
+            </div>
+          </div>
+        </div>
+        <div className="mt-6 grid gap-4 lg:grid-cols-3">
+          <article className="rounded-2xl border border-slate-200 bg-white p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">DIY + Monitoring</p>
+            <h3 className="mt-2 text-lg font-semibold text-slate-900">$49 dashboard trial</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              Track weekly movement, watch competitors, and keep this report updated without booking a call first.
+            </p>
+            <ul className="mt-4 space-y-2 text-sm text-slate-700">
+              <li>Weekly visibility tracking</li>
+              <li>Competitor and service-gap monitoring</li>
+              <li>Dashboard can be customized for your shop</li>
+            </ul>
+            <Link href={monitoringLandingUrl} className="btn-variant-secondary mt-5 inline-flex px-4 py-2 text-sm">
+              Start free trial
+            </Link>
+          </article>
+          <article className="rounded-2xl border border-teal-200 bg-teal-50/70 p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">Most Popular</p>
+            <h3 className="mt-2 text-lg font-semibold text-slate-900">Custom dashboard + teardown</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              Book a call and we’ll walk through the report, prioritize the leaks, and tailor the dashboard around how your shop actually wins.
+            </p>
+            <ul className="mt-4 space-y-2 text-sm text-slate-700">
+              <li>Live teardown of this report</li>
+              <li>Customer-specific dashboard setup</li>
+              <li>Recommended priorities for the next 30 days</li>
+            </ul>
+            <a
+              href={teardownIntakeUrl}
+              className="btn-variant-primary mt-5 inline-flex px-4 py-2 text-sm"
+            >
+              Book teardown call
+            </a>
+          </article>
+          <article className="rounded-2xl border border-slate-200 bg-white p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">Done For You</p>
+            <h3 className="mt-2 text-lg font-semibold text-slate-900">Need the site fixed too?</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              If the report is showing deep service-page, conversion, or trust gaps, we can handle the website and SEO work directly.
+            </p>
+            <ul className="mt-4 space-y-2 text-sm text-slate-700">
+              <li>Website redesign or service-page buildout</li>
+              <li>Collision-specific SEO implementation</li>
+              <li>Estimate-path and conversion improvements</li>
+            </ul>
+            <a
+              href={teardownIntakeUrl}
+              className="btn-variant-secondary mt-5 inline-flex px-4 py-2 text-sm"
+            >
+              Talk about design + SEO
+            </a>
+          </article>
+        </div>
+      </section>
+
       <section className="mt-8 card p-6 print-hide">
         <h2 className="text-xl font-bold">Want help fixing this?</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Big Dot can handle the fixes with a one-time teardown or ongoing weekly monitoring.
+          Big Dot can handle the fixes with a one-time teardown, a tailored dashboard setup, or ongoing weekly monitoring.
         </p>
         <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-700">
           {vm.ctaBullets.map((line) => (
@@ -1184,10 +1256,10 @@ export default async function ReportPage({ params }: { params: { scanId: string 
 
         <div className="mt-4">
           <p className="mb-2 text-xs text-slate-500">
-            Includes 3 free reports per month. Start a 30-day trial, then continue at $49/month.
+            Includes 3 free reports per month. Start a 30-day trial, then continue at $49/month. If you want help, we can also customize the dashboard and roadmap for your shop.
           </p>
           <Link href={monitoringLandingUrl} className="btn-variant-secondary px-4 py-2 text-sm">
-            Prefer monitoring? Start free trial (no call required)
+            Prefer monitoring? Start free trial
           </Link>
         </div>
 
