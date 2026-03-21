@@ -3,12 +3,15 @@ import { prisma } from '@/lib/prisma';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
 import { PageHeader } from '@/components/page-header';
 import { DashboardKpiCard } from '@/components/dashboard-kpi-card';
+import { DASHBOARD_FOCUS_TAGS, DASHBOARD_MODULE_OPTIONS, parseDashboardCustomizationRecord } from '@/lib/dashboard-config';
+import { getDashboardProfileById, type DashboardProfileId } from '@/lib/dashboard-profile';
 import { deriveCompetitorSuggestions, deriveKeywordSuggestions } from '@/lib/dashboard-suggestions';
 import {
   addTrackedCompetitor,
   addTrackedKeyword,
   createSupportTicket,
   importLatestScanSuggestions,
+  saveDashboardCustomization,
   saveAccountCredentials,
   saveLocationDetails
 } from './actions';
@@ -18,11 +21,11 @@ export const dynamic = 'force-dynamic';
 export default async function DashboardSettingsPage({
   searchParams
 }: {
-  searchParams?: { account?: string; reason?: string; support?: string };
+  searchParams?: { account?: string; reason?: string; support?: string; customization?: string };
 }) {
   const ctx = await requireDashboardContext();
 
-  const [org, location, keywordCount, competitorCount, prefs, members, keywords, competitors, user, latestScan] = await Promise.all([
+  const [org, location, keywordCount, competitorCount, prefs, members, keywords, competitors, user, latestScan, dashboardConfigRow] = await Promise.all([
     prisma.organization.findUnique({
       where: { id: ctx.orgId },
       select: { name: true, websiteUrl: true, city: true, state: true, phone: true }
@@ -75,6 +78,17 @@ export default async function DashboardSettingsPage({
         competitorsJson: true,
         rawChecksJson: true
       }
+    }),
+    prisma.dashboardConfiguration.findUnique({
+      where: { organizationId: ctx.orgId },
+      select: {
+        preferredProfileId: true,
+        primaryModuleIds: true,
+        focusTags: true,
+        customSummary: true,
+        operatorNote: true,
+        ownerWeeklyGoal: true
+      }
     })
   ]);
 
@@ -117,6 +131,9 @@ export default async function DashboardSettingsPage({
   const competitorSuggestionTerms = competitorSuggestions.filter(
     (suggestion) => !competitors.some((competitor) => competitor.name.toLowerCase() === suggestion.name.toLowerCase())
   );
+  const dashboardCustomization = parseDashboardCustomizationRecord(dashboardConfigRow);
+  const customizationState = searchParams?.customization || '';
+  const profileOptions: DashboardProfileId[] = ['conversion', 'maps', 'authority', 'storm', 'balanced'];
 
   return (
     <div className="dashboard-main-inner">
@@ -165,6 +182,105 @@ export default async function DashboardSettingsPage({
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-4">
+          <article className="dashboard-panel">
+            <h2 className="dashboard-section-title">Dashboard customization</h2>
+            <p className="dashboard-body-sm mt-1">
+              Tailor the $49 dashboard around what matters for this shop right now. These settings feed the overview directly.
+            </p>
+            <form action={saveDashboardCustomization} className="mt-4 space-y-4">
+              <input type="hidden" name="nextPath" value="/dashboard/settings" />
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <p className="dashboard-label">Preferred profile</p>
+                  <select
+                    name="preferredProfileId"
+                    defaultValue={dashboardCustomization.preferredProfileId || ''}
+                    className="dashboard-field mt-1"
+                  >
+                    <option value="">Auto-detect</option>
+                    {profileOptions.map((profileId) => (
+                      <option key={profileId} value={profileId}>
+                        {getDashboardProfileById(profileId).label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <p className="dashboard-label">Owner weekly goal</p>
+                  <input
+                    name="ownerWeeklyGoal"
+                    defaultValue={dashboardCustomization.ownerWeeklyGoal || ''}
+                    className="dashboard-field mt-1"
+                    placeholder="Example: Turn more hail traffic into estimate requests"
+                  />
+                </div>
+              </div>
+              <div className="grid gap-3 md:grid-cols-3">
+                {[0, 1, 2].map((index) => (
+                  <div key={index}>
+                    <p className="dashboard-label">Primary module {index + 1}</p>
+                    <select
+                      name={`primaryModule${index + 1}`}
+                      defaultValue={dashboardCustomization.primaryModuleIds[index] || ''}
+                      className="dashboard-field mt-1"
+                    >
+                      <option value="">Use profile default</option>
+                      {DASHBOARD_MODULE_OPTIONS.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <p className="dashboard-label">Focus tags</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {DASHBOARD_FOCUS_TAGS.map((tag) => (
+                    <label key={tag} className="dashboard-chip flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        name="focusTags"
+                        value={tag}
+                        defaultChecked={dashboardCustomization.focusTags.includes(tag)}
+                      />
+                      <span>
+                        {tag === 'service-area'
+                          ? 'Service area'
+                          : tag === 'oem'
+                            ? 'OEM'
+                            : tag === 'adas'
+                              ? 'ADAS'
+                              : tag.charAt(0).toUpperCase() + tag.slice(1)}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="dashboard-label">Custom summary</p>
+                <textarea
+                  name="customSummary"
+                  defaultValue={dashboardCustomization.customSummary || ''}
+                  className="dashboard-field mt-1 min-h-[110px]"
+                  placeholder="This dashboard is tuned around what matters most for this shop."
+                />
+              </div>
+              <div>
+                <p className="dashboard-label">Operator note</p>
+                <textarea
+                  name="operatorNote"
+                  defaultValue={dashboardCustomization.operatorNote || ''}
+                  className="dashboard-field mt-1 min-h-[110px]"
+                  placeholder="Internal note for how this workspace should be interpreted."
+                />
+              </div>
+              <button className="dashboard-button-primary mt-2" type="submit">Save dashboard configuration</button>
+              {customizationState === 'ok' ? <p className="text-sm text-emerald-700">Dashboard configuration updated.</p> : null}
+            </form>
+          </article>
+
           <article className="dashboard-panel">
             <h2 className="dashboard-section-title">Account login</h2>
             <p className="dashboard-body-sm mt-1">Update your display name and password for this dashboard account.</p>

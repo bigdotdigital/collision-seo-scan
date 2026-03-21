@@ -9,11 +9,17 @@ import { getPasswordPolicyError } from '../lib/password-policy.ts';
 import { consumeRequestThrottle } from '../lib/request-throttle.ts';
 import { resolveScanSubmitDecision } from '../lib/scan-submit-flow.ts';
 import {
+  buildDashboardCustomizationInput,
+  parseDashboardCustomizationRecord,
+  resolveDashboardProfileWithCustomization
+} from '../lib/dashboard-config.ts';
+import {
   buildCollisionArchitectureSummary,
   buildMapsAuthoritySummary,
   buildRevenueLeakSummary,
   premiumEntitlement
 } from '../lib/dashboard-intelligence.ts';
+import { buildDashboardProfile } from '../lib/dashboard-profile.ts';
 import type { ReportPayload } from '../lib/report-payload.ts';
 
 function makePayload(partial: Partial<ReportPayload>): ReportPayload {
@@ -310,6 +316,70 @@ function testScanSubmitDecision() {
   });
 }
 
+function testDashboardCustomizationParsing() {
+  const parsed = parseDashboardCustomizationRecord({
+    preferredProfileId: 'storm',
+    primaryModuleIds: ['demand', 'demand', 'repairPlan', 'fake'],
+    focusTags: ['hail', 'hail', 'reviews', 'bogus'],
+    customSummary: '  Tighten storm capture before hail season.  ',
+    operatorNote: '  Keep an eye on estimate flow.  ',
+    ownerWeeklyGoal: '  Turn more hail leads into booked estimates.  '
+  });
+
+  assert.equal(parsed.preferredProfileId, 'storm');
+  assert.deepEqual(parsed.primaryModuleIds, ['demand', 'repairPlan']);
+  assert.deepEqual(parsed.focusTags, ['hail', 'reviews']);
+  assert.equal(parsed.customSummary, 'Tighten storm capture before hail season.');
+  assert.equal(parsed.operatorNote, 'Keep an eye on estimate flow.');
+  assert.equal(parsed.ownerWeeklyGoal, 'Turn more hail leads into booked estimates.');
+}
+
+function testDashboardCustomizationInput() {
+  const built = buildDashboardCustomizationInput({
+    preferredProfileId: 'maps',
+    primaryModuleIds: ['maps', 'maps', 'competitorGap', 'servicePages'],
+    focusTags: ['maps', 'conversion', 'maps', 'invalid'],
+    customSummary: '  Prioritize local pack trust first.  ',
+    operatorNote: '  Review momentum is the quickest lever.  ',
+    ownerWeeklyGoal: '  Win more map-pack estimate clicks.  '
+  });
+
+  assert.equal(built.preferredProfileId, 'maps');
+  assert.deepEqual(built.primaryModuleIds, ['maps', 'competitorGap', 'servicePages']);
+  assert.deepEqual(built.focusTags, ['maps', 'conversion']);
+}
+
+function testDashboardCustomizationResolution() {
+  const detectedProfile = buildDashboardProfile({
+    hasWebsite: true,
+    hasGoogleProfile: true,
+    reviewCount: 120,
+    scoreTotal: 88,
+    scoreWebsite: 82,
+    scoreLocal: 84,
+    scoreIntent: 70,
+    hasEstimateFlow: true,
+    hasOemSignals: true,
+    highHailPressure: false
+  });
+
+  const resolved = resolveDashboardProfileWithCustomization({
+    detectedProfile,
+    customization: {
+      preferredProfileId: 'storm',
+      primaryModuleIds: ['demand', 'servicePages', 'repairPlan'],
+      focusTags: ['hail'],
+      customSummary: null,
+      operatorNote: null,
+      ownerWeeklyGoal: null
+    }
+  });
+
+  assert.equal(resolved.id, 'storm');
+  assert.deepEqual(resolved.moduleIds, ['demand', 'servicePages', 'repairPlan']);
+  assert.deepEqual(resolved.moduleTitles, ['Local Demand', 'Service Pages', 'Repair Plan']);
+}
+
 function run() {
   testUrlValidation();
   testScanHostKey();
@@ -325,6 +395,9 @@ function run() {
   testPasswordPolicy();
   testRequestThrottle();
   testScanSubmitDecision();
+  testDashboardCustomizationParsing();
+  testDashboardCustomizationInput();
+  testDashboardCustomizationResolution();
   console.log('test-core: all checks passed');
 }
 

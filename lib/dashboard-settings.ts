@@ -23,6 +23,8 @@ export function revalidateDashboardPaths() {
   revalidatePath('/dashboard/onboarding');
   revalidatePath('/dashboard/rankings');
   revalidatePath('/dashboard/competitors');
+  revalidatePath('/dashboard/reports');
+  revalidatePath('/dashboard/reviews');
   revalidatePath('/dashboard/settings');
 }
 

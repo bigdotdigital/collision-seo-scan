@@ -12,6 +12,7 @@ import { DashboardModuleCard, LockedModuleTeaser } from '@/components/dashboard-
 import { RefreshDashboardButton } from '@/components/refresh-dashboard-button';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
 import { getDashboardProfileById, isDashboardProfileId, type DashboardModuleId, type DashboardProfileId } from '@/lib/dashboard-profile';
+import { DASHBOARD_FOCUS_TAGS } from '@/lib/dashboard-config';
 import { refreshDashboardData } from './actions';
 import { buildDashboardOverviewPageState } from '@/lib/dashboard-overview-page';
 
@@ -55,7 +56,9 @@ export default async function DashboardOverviewPage({
     dataHealth,
     weeklySummary,
     valueMoments,
-    dashboardProfile
+    dashboardProfile,
+    detectedDashboardProfile,
+    dashboardCustomization
   } = await buildDashboardOverviewPageState(ctx.orgId);
   const refreshState = searchParams?.refresh || '';
   const forcedProfileId = isDashboardProfileId(searchParams?.view) ? searchParams?.view : null;
@@ -244,6 +247,18 @@ export default async function DashboardOverviewPage({
       detail: valueMoments[2]?.detail || 'Saved sources make this workspace more resilient.'
     }
   ];
+  const focusTagLabels = Object.fromEntries(
+    DASHBOARD_FOCUS_TAGS.map((tag) => [
+      tag,
+      tag === 'service-area'
+        ? 'Service area'
+        : tag === 'oem'
+          ? 'OEM'
+          : tag === 'adas'
+            ? 'ADAS'
+            : tag.charAt(0).toUpperCase() + tag.slice(1)
+    ])
+  ) as Record<(typeof DASHBOARD_FOCUS_TAGS)[number], string>;
   const renderModuleBody = (moduleId: DashboardModuleId) => {
     switch (moduleId) {
       case 'architecture':
@@ -514,6 +529,24 @@ export default async function DashboardOverviewPage({
                 </span>
               ))}
             </div>
+            {dashboardCustomization.focusTags.length > 0 ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {dashboardCustomization.focusTags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-full border border-[var(--dashboard-border-strong)] bg-[var(--dashboard-bg-soft)] px-3 py-1.5 text-sm font-medium text-[var(--text-main)]"
+                  >
+                    Focus: {focusTagLabels[tag]}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            {dashboardCustomization.customSummary ? (
+              <div className="mt-6 rounded-2xl border border-[var(--dashboard-border-strong)] bg-[var(--dashboard-bg-soft)] p-4">
+                <div className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Customized for this shop</div>
+                <p className="mt-2 text-sm leading-7 text-[var(--text-main)]">{dashboardCustomization.customSummary}</p>
+              </div>
+            ) : null}
             <div className="mt-6 grid gap-3 md:grid-cols-3">
               {weeklyCommandDeck.map((item) => (
                 <div
@@ -565,6 +598,12 @@ export default async function DashboardOverviewPage({
                 {forcedProfileId ? 'Manual view' : 'Detected automatically'}
               </span>
             </div>
+            {dashboardCustomization.ownerWeeklyGoal ? (
+              <div className="mt-4 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">
+                <div className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Weekly goal</div>
+                <div className="mt-2 text-base font-semibold text-[var(--text-main)]">{dashboardCustomization.ownerWeeklyGoal}</div>
+              </div>
+            ) : null}
             <div className="mt-4 flex flex-wrap gap-2">
               {profileViewIds.map((profileId) => {
                 const profile = getDashboardProfileById(profileId);
@@ -598,6 +637,12 @@ export default async function DashboardOverviewPage({
                 </div>
               ))}
             </div>
+            {dashboardCustomization.operatorNote ? (
+              <div className="mt-4 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">
+                <div className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Operator note</div>
+                <p className="mt-2 text-sm text-[var(--text-secondary)]">{dashboardCustomization.operatorNote}</p>
+              </div>
+            ) : null}
           </div>
         </div>
       </section>
@@ -1016,9 +1061,14 @@ export default async function DashboardOverviewPage({
           <div className="bg-[var(--bg-card)] p-6">
             <div className="text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">Profile-driven focus</div>
             <h2 className="mt-3 text-2xl font-semibold text-[var(--text-main)]">Primary modules for this shop</h2>
-            <p className="mt-3 text-sm leading-7 text-[var(--text-secondary)]">
-              This workspace is currently in the <span className="font-semibold text-[var(--text-main)]">{effectiveProfile.label}</span>, so we’re putting the most relevant modules first instead of making every card compete equally.
-            </p>
+              <p className="mt-3 text-sm leading-7 text-[var(--text-secondary)]">
+                This workspace is currently in the <span className="font-semibold text-[var(--text-main)]">{effectiveProfile.label}</span>, so we’re putting the most relevant modules first instead of making every card compete equally.
+              </p>
+              {dashboardCustomization.preferredProfileId && dashboardCustomization.preferredProfileId !== detectedDashboardProfile.id ? (
+                <p className="mt-3 text-sm text-[var(--text-secondary)]">
+                  This stack is manually pinned instead of using the auto-detected profile.
+                </p>
+              ) : null}
             <div className="mt-5 space-y-3">
               {primaryModuleIds.map((moduleId, index) => (
                 <div key={moduleId} className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">

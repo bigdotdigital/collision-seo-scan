@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { requireDashboardContext } from '@/lib/dashboard-auth';
 import { hashPortalPassword, verifyPortalPassword } from '@/lib/client-auth';
 import { isLikelyNonShopCompetitor } from '@/lib/competitor-filter';
+import { buildDashboardCustomizationInput } from '@/lib/dashboard-config';
 import { deriveCompetitorSuggestions, deriveKeywordSuggestions } from '@/lib/dashboard-suggestions';
 import {
   getOrCreatePrimaryLocation,
@@ -26,28 +27,29 @@ export async function saveLocationDetails(formData: FormData) {
 
   const location = await getOrCreatePrimaryLocation(ctx.orgId);
 
-  await prisma.location.update({
-    where: { id: location.id },
-    data: {
-      name: name || location.name,
-      address: address || null,
-      city: city || null,
-      state: state || null,
-      websiteUrl: websiteUrl || null,
-      gbpUrl: gbpUrl || null
-    }
-  });
-
-  await prisma.organization.update({
-    where: { id: ctx.orgId },
-    data: {
-      name: name || undefined,
-      address: address || null,
-      city: city || null,
-      state: state || null,
-      websiteUrl: websiteUrl || null
-    }
-  });
+  await prisma.$transaction([
+    prisma.location.update({
+      where: { id: location.id },
+      data: {
+        name: name || location.name,
+        address: address || null,
+        city: city || null,
+        state: state || null,
+        websiteUrl: websiteUrl || null,
+        gbpUrl: gbpUrl || null
+      }
+    }),
+    prisma.organization.update({
+      where: { id: ctx.orgId },
+      data: {
+        name: name || undefined,
+        address: address || null,
+        city: city || null,
+        state: state || null,
+        websiteUrl: websiteUrl || null
+      }
+    })
+  ]);
 
   revalidateDashboardPaths();
   if (nextPath.startsWith('/dashboard/')) {
@@ -259,4 +261,46 @@ export async function saveAccountCredentials(formData: FormData) {
 
   revalidateDashboardPaths();
   redirect('/dashboard/settings?account=ok');
+}
+
+export async function saveDashboardCustomization(formData: FormData) {
+  const ctx = await requireDashboardContext();
+  const nextPath = String(formData.get('nextPath') || '/dashboard/settings');
+
+  const customization = buildDashboardCustomizationInput({
+    preferredProfileId: String(formData.get('preferredProfileId') || '').trim() || null,
+    primaryModuleIds: [
+      String(formData.get('primaryModule1') || '').trim(),
+      String(formData.get('primaryModule2') || '').trim(),
+      String(formData.get('primaryModule3') || '').trim()
+    ],
+    focusTags: formData.getAll('focusTags').map((value) => String(value)),
+    customSummary: String(formData.get('customSummary') || ''),
+    operatorNote: String(formData.get('operatorNote') || ''),
+    ownerWeeklyGoal: String(formData.get('ownerWeeklyGoal') || '')
+  });
+
+  await prisma.dashboardConfiguration.upsert({
+    where: { organizationId: ctx.orgId },
+    update: {
+      preferredProfileId: customization.preferredProfileId,
+      primaryModuleIds: customization.primaryModuleIds,
+      focusTags: customization.focusTags,
+      customSummary: customization.customSummary,
+      operatorNote: customization.operatorNote,
+      ownerWeeklyGoal: customization.ownerWeeklyGoal
+    },
+    create: {
+      organizationId: ctx.orgId,
+      preferredProfileId: customization.preferredProfileId,
+      primaryModuleIds: customization.primaryModuleIds,
+      focusTags: customization.focusTags,
+      customSummary: customization.customSummary,
+      operatorNote: customization.operatorNote,
+      ownerWeeklyGoal: customization.ownerWeeklyGoal
+    }
+  });
+
+  revalidateDashboardPaths();
+  redirect(nextPath.startsWith('/dashboard/') ? `${nextPath}?customization=ok` : '/dashboard/settings?customization=ok');
 }

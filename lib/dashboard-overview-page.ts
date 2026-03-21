@@ -3,6 +3,10 @@ import { parseJson } from '@/lib/json';
 import { getCityDemandContext } from '@/lib/market-intel';
 import { buildDashboardMarketInsights } from '@/lib/dashboard-market-insights';
 import { buildDashboardProfile } from '@/lib/dashboard-profile';
+import {
+  parseDashboardCustomizationRecord,
+  resolveDashboardProfileWithCustomization
+} from '@/lib/dashboard-config';
 import { getShopFallbackIntel } from '@/lib/shop-fallback-intel';
 import { parseReportPayload } from '@/lib/report-payload';
 import type { Issue } from '@/lib/types';
@@ -28,7 +32,7 @@ import {
 } from '@/lib/dashboard-intelligence';
 
 export async function buildDashboardOverviewPageState(orgId: string) {
-  const [latestScan, previousScan, activeKeywords, keywordRows, subscription, competitorCount, organization] = await Promise.all([
+  const [latestScan, previousScan, activeKeywords, keywordRows, subscription, competitorCount, organization, dashboardConfigRow] = await Promise.all([
     prisma.scan.findFirst({
       where: { organizationId: orgId, executionStatus: 'completed' },
       orderBy: { createdAt: 'desc' },
@@ -85,6 +89,17 @@ export async function buildDashboardOverviewPageState(orgId: string) {
         name: true,
         websiteUrl: true,
         city: true
+      }
+    }),
+    prisma.dashboardConfiguration.findUnique({
+      where: { organizationId: orgId },
+      select: {
+        preferredProfileId: true,
+        primaryModuleIds: true,
+        focusTags: true,
+        customSummary: true,
+        operatorNote: true,
+        ownerWeeklyGoal: true
       }
     })
   ]);
@@ -263,7 +278,7 @@ export async function buildDashboardOverviewPageState(orgId: string) {
           : 'Connect more saved sources to make the dashboard more resilient week to week.'
     }
   ];
-  const dashboardProfile = buildDashboardProfile({
+  const detectedDashboardProfile = buildDashboardProfile({
     hasWebsite,
     hasGoogleProfile,
     reviewCount: reportPayload?.googlePlace?.userRatingCount || fallbackIntel?.googlePlace?.userRatingCount || 0,
@@ -274,6 +289,11 @@ export async function buildDashboardOverviewPageState(orgId: string) {
     hasEstimateFlow: Boolean(reportPayload?.checks?.onlineEstimateFlow || reportPayload?.checks?.estimateCtaDetected),
     hasOemSignals: Boolean(reportPayload?.checks?.oemSignals?.length),
     highHailPressure: (demandContext?.hailPressure || 0) >= 65
+  });
+  const dashboardCustomization = parseDashboardCustomizationRecord(dashboardConfigRow);
+  const dashboardProfile = resolveDashboardProfileWithCustomization({
+    detectedProfile: detectedDashboardProfile,
+    customization: dashboardCustomization
   });
 
   return {
@@ -315,6 +335,8 @@ export async function buildDashboardOverviewPageState(orgId: string) {
     dataHealth,
     weeklySummary,
     valueMoments,
-    dashboardProfile
+    dashboardProfile,
+    detectedDashboardProfile,
+    dashboardCustomization
   };
 }
