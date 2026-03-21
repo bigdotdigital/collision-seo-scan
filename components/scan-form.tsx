@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { DEFAULT_VERTICAL, type VerticalSlug } from '@/lib/verticals';
@@ -219,7 +220,11 @@ export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalS
         <label className="md:col-span-2 flex items-start gap-2 rounded-md border border-slate-600 bg-slate-950/55 p-3 text-xs text-slate-300">
           <input name="consented" type="checkbox" required className="mt-0.5" />
           <span>
-            I agree to the Terms and understand this tool stores scan data for benchmarking and product improvement.
+            I agree to the{' '}
+            <Link href="/terms" target="_blank" className="font-semibold text-amber-300 underline">
+              Terms
+            </Link>{' '}
+            and understand this tool stores scan data for benchmarking and product improvement.
           </span>
         </label>
       </div>

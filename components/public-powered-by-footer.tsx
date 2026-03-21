@@ -19,9 +19,14 @@ export function PublicPoweredByFooter({
             Big Dot
           </a>
         </p>
-        <Link href="/about" className="text-slate-300 underline">
-          About Shop SEO Scan
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link href="/about" className="text-slate-300 underline">
+            About Shop SEO Scan
+          </Link>
+          <Link href="/terms" className="text-slate-300 underline">
+            Terms
+          </Link>
+        </div>
       </div>
     </footer>
   );
