@@ -11,7 +11,7 @@ export function PublicPoweredByFooter({
         <p>
           Powered by{' '}
           <a
-            href="https://bigdotdigital.com"
+            href="https://www.bigdotdigital.com/"
             target="_blank"
             rel="noreferrer"
             className="font-semibold text-amber-300 underline"

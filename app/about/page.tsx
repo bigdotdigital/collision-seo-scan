@@ -20,7 +20,7 @@ export default function AboutPage() {
           <p className="mt-6 max-w-3xl text-base leading-8 text-slate-300">
             Shop SEO Scan was created by{' '}
             <a
-              href="https://bigdotdigital.com"
+              href="https://www.bigdotdigital.com/"
               target="_blank"
               rel="noreferrer"
               className="font-semibold text-amber-300 underline"
@@ -70,7 +70,7 @@ export default function AboutPage() {
               Run Free Scan
             </Link>
             <a
-              href="https://bigdotdigital.com"
+              href="https://www.bigdotdigital.com/"
               target="_blank"
               rel="noreferrer"
               className="inline-flex h-11 items-center rounded-md border border-slate-500/70 bg-white/5 px-5 text-sm font-medium text-slate-100 backdrop-blur"
