@@ -269,9 +269,9 @@ export function buildReportViewModel(reportData: ReportData): ReportViewModel {
     competitors,
     calendlyTrackedUrl,
     ctaBullets: [
-      'We will review your report',
-      'Show exactly what to change',
-      'Give a 30-day execution plan'
+      'We review the report before the call',
+      'You get a clear fix order, not generic SEO fluff',
+      'We can handle the dashboard, redesign, or SEO implementation for you'
     ]
   };
 }

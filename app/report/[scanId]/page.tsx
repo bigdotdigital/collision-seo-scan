@@ -89,6 +89,21 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       scoreCondition,
       competitorRows
     } = state;
+    const withIntent = (url: string, intent: 'fix_seo' | 'redesign' | 'monitoring') => {
+      try {
+        const absolute = /^https?:\/\//i.test(url);
+        const target = new URL(url, absolute ? undefined : 'http://local');
+        target.searchParams.set('intent', intent);
+        if (absolute) return target.toString();
+        return `${target.pathname}${target.search}${target.hash}`;
+      } catch {
+        const separator = url.includes('?') ? '&' : '?';
+        return `${url}${separator}intent=${encodeURIComponent(intent)}`;
+      }
+    };
+    const seoTeardownUrl = withIntent(teardownIntakeUrl, 'fix_seo');
+    const redesignTeardownUrl = withIntent(teardownIntakeUrl, 'redesign');
+    const monitoringTeardownUrl = withIntent(teardownIntakeUrl, 'monitoring');
     const executionStatus = scanRecord.executionStatus || 'completed';
     if (executionStatus === 'queued' || executionStatus === 'running') {
       const params = new URLSearchParams({
@@ -149,9 +164,11 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       {!scanRecord.email ? <ReportEmailCapture scanId={scanRecord.id} /> : null}
       <ReportCtaActions
         scanId={scanRecord.id}
-        calendlyUrl={teardownIntakeUrl}
+        calendlyUrl={seoTeardownUrl}
         salesPhone={salesPhone}
         reportUrl={reportUrl}
+        primaryLabel="Book custom teardown"
+        secondaryLabel="Text us about the fixes"
         mobileSticky
         trackBooked={false}
       />
@@ -1164,6 +1181,47 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       <section className="mt-8 card print-hide p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">Done-for-you option</p>
+            <h2 className="mt-2 text-2xl font-bold text-slate-900">If we handled this for you, here’s what we’d own</h2>
+            <p className="mt-2 max-w-3xl text-sm text-slate-600">
+              The goal is not just to point out issues. It’s to turn this report into clearer rankings, stronger trust, and more estimate opportunities.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Typical scope</div>
+            <div className="mt-2 font-semibold text-slate-900">
+              {scoreTotal < 70 ? 'Fix + redesign + local SEO' : scoreTotal < 82 ? 'Targeted SEO repair plan' : 'Monitoring + selective improvements'}
+            </div>
+          </div>
+        </div>
+        <div className="mt-6 grid gap-4 lg:grid-cols-3">
+          <article className="rounded-2xl border border-slate-200 bg-white p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">Site + Conversion</p>
+            <h3 className="mt-2 text-lg font-semibold text-slate-900">Repair the pages that should already be selling</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              We tighten CTA visibility, trust proof, estimate paths, and the service-page structure that turns searchers into calls.
+            </p>
+          </article>
+          <article className="rounded-2xl border border-slate-200 bg-white p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">Local + Competitor</p>
+            <h3 className="mt-2 text-lg font-semibold text-slate-900">Close the gaps nearby shops are using against you</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              We use the local market view to prioritize reviews, maps authority, service coverage, and the trust signals strongest competitors already show.
+            </p>
+          </article>
+          <article className="rounded-2xl border border-slate-200 bg-white p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">Ongoing Clarity</p>
+            <h3 className="mt-2 text-lg font-semibold text-slate-900">Keep the dashboard as your weekly operating view</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              If you want to stay hands-on, we can leave you with a tailored dashboard. If you want help, we can operate it with you.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section className="mt-8 card print-hide p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">Next Step</p>
             <h2 className="mt-2 text-2xl font-bold text-slate-900">Choose the path that fits your shop</h2>
             <p className="mt-2 max-w-3xl text-sm text-slate-600">
@@ -1193,6 +1251,9 @@ export default async function ReportPage({ params }: { params: { scanId: string 
             <Link href={monitoringLandingUrl} className="btn-variant-secondary mt-5 inline-flex px-4 py-2 text-sm">
               Start free trial
             </Link>
+            <Link href={monitoringTeardownUrl} className="mt-3 inline-flex text-sm font-medium text-teal-700 underline">
+              Want help setting it up? Book a dashboard setup call
+            </Link>
           </article>
           <article className="rounded-2xl border border-teal-200 bg-teal-50/70 p-5 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">Most Popular</p>
@@ -1206,7 +1267,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
               <li>Recommended priorities for the next 30 days</li>
             </ul>
             <a
-              href={teardownIntakeUrl}
+              href={seoTeardownUrl}
               className="btn-variant-primary mt-5 inline-flex px-4 py-2 text-sm"
             >
               Book teardown call
@@ -1224,7 +1285,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
               <li>Estimate-path and conversion improvements</li>
             </ul>
             <a
-              href={teardownIntakeUrl}
+              href={redesignTeardownUrl}
               className="btn-variant-secondary mt-5 inline-flex px-4 py-2 text-sm"
             >
               Talk about design + SEO
@@ -1246,9 +1307,11 @@ export default async function ReportPage({ params }: { params: { scanId: string 
 
         <ReportCtaActions
           scanId={scanRecord.id}
-          calendlyUrl={teardownIntakeUrl}
+          calendlyUrl={seoTeardownUrl}
           salesPhone={salesPhone}
           reportUrl={reportUrl}
+          primaryLabel="Book teardown and fix plan"
+          secondaryLabel="Text us about redesign or SEO"
           trackBooked={false}
         />
 
