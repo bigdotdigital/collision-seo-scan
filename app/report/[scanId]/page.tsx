@@ -5,6 +5,7 @@ import { ScoreRing } from '@/components/score-ring';
 import { InfoTooltip } from '@/components/info-tooltip';
 import { ReportEmailCapture } from '@/components/report-email-capture';
 import { ReportCtaActions, ReportShareActions } from '@/components/report-cta-actions';
+import { PublicPoweredByFooter } from '@/components/public-powered-by-footer';
 import { formatCls, formatMilliseconds, formatScore } from '@/lib/metric-format';
 import { logEnvWarningsOnce } from '@/lib/env-check';
 import {
@@ -1338,6 +1339,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         <Link href="/" className="text-sm text-teal-700 underline">
           Run another scan
         </Link>
+        <PublicPoweredByFooter className="mt-8" />
       </div>
 
       <footer className="print-only mt-6 border-t border-slate-300 pt-3 text-[10px] text-slate-600">

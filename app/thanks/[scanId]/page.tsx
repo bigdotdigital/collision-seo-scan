@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { PublicPoweredByFooter } from '@/components/public-powered-by-footer';
 import { prisma } from '@/lib/prisma';
 import { sendFollowupEmail } from '@/lib/email';
 
@@ -97,6 +98,10 @@ export default async function ThanksPage({
             Or start the dashboard trial instead
           </Link>
         </div>
+      </div>
+
+      <div className="mx-auto mt-8 max-w-2xl">
+        <PublicPoweredByFooter />
       </div>
     </main>
   );

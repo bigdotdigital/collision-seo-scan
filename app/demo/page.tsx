@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import demo from '@/fixtures/demo-report.json';
+import { PublicPoweredByFooter } from '@/components/public-powered-by-footer';
 import { ScoreRing } from '@/components/score-ring';
 
 export default function DemoReportPage() {
@@ -157,6 +158,8 @@ export default function DemoReportPage() {
       <section className="mt-12 text-xs text-white/45">
         Demo content only. For real values, run a fresh scan.
       </section>
+
+      <PublicPoweredByFooter className="mt-8" />
     </main>
   );
 }

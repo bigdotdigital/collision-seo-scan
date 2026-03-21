@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ScanForm } from '@/components/scan-form';
+import { PublicPoweredByFooter } from '@/components/public-powered-by-footer';
 import { VERTICALS, type VerticalSlug } from '@/lib/verticals';
 
 export function VerticalLandingPage({ vertical }: { vertical: VerticalSlug }) {
@@ -171,6 +172,7 @@ export function VerticalLandingPage({ vertical }: { vertical: VerticalSlug }) {
         <p className="text-xs text-slate-400">
           Aggregated market stats may be used in reports. We do not sell your contact info.
         </p>
+        <PublicPoweredByFooter className="mt-6" />
       </section>
     </main>
   );
