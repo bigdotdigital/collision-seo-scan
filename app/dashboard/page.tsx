@@ -259,6 +259,23 @@ export default async function DashboardOverviewPage({
             : tag.charAt(0).toUpperCase() + tag.slice(1)
     ])
   ) as Record<(typeof DASHBOARD_FOCUS_TAGS)[number], string>;
+  const profileSpotlight = [
+    {
+      label: 'This dashboard mode',
+      value: effectiveProfile.label.replace(' Profile', ''),
+      detail: effectiveProfile.ownerPromise
+    },
+    {
+      label: 'Why this mode fits',
+      value: effectiveProfile.focusLabel,
+      detail: effectiveProfile.whenToUse
+    },
+    {
+      label: 'Best next move',
+      value: profileActionCards[0]?.title || effectiveProfile.nextPriority,
+      detail: profileActionCards[0]?.detail || effectiveProfile.nextPriority
+    }
+  ];
   const renderModuleBody = (moduleId: DashboardModuleId) => {
     switch (moduleId) {
       case 'architecture':
@@ -644,6 +661,18 @@ export default async function DashboardOverviewPage({
               </div>
             ) : null}
           </div>
+        </div>
+      </section>
+
+      <section className="card overflow-hidden">
+        <div className="grid gap-px bg-[var(--border-color)] lg:grid-cols-3">
+          {profileSpotlight.map((item) => (
+            <div key={item.label} className="bg-[var(--bg-card)] p-6">
+              <div className="text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">{item.label}</div>
+              <div className="mt-3 text-xl font-semibold text-[var(--text-main)]">{item.value}</div>
+              <p className="mt-3 text-sm leading-7 text-[var(--text-secondary)]">{item.detail}</p>
+            </div>
+          ))}
         </div>
       </section>
 
