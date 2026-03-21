@@ -190,6 +190,60 @@ export default async function DashboardOverviewPage({
     demand: demandContext?.demandPressure,
     revenueLeak: revenueLeak.severity
   };
+  const moduleActionLinks: Record<DashboardModuleId, { href: string; label: string }> = {
+    architecture: { href: '/dashboard/reports', label: 'Open latest report' },
+    maps: { href: '/dashboard/reviews', label: 'Review maps trust' },
+    demand: { href: '/dashboard/reports', label: 'See demand-backed report' },
+    competitorGap: { href: '/dashboard/competitors', label: 'Review competitors' },
+    servicePages: { href: '/dashboard/reports', label: 'See page gaps' },
+    revenueLeak: { href: '/dashboard/reports', label: 'Review missed revenue' },
+    repairPlan: { href: '/dashboard/reports', label: 'Open repair plan' }
+  };
+  const weeklyCommandDeck = [
+    {
+      label: 'Do first',
+      title: profileActionCards[0]?.title || 'Review your primary recommendation',
+      detail: profileActionCards[0]?.detail || effectiveProfile.nextPriority,
+      tone: 'strong'
+    },
+    {
+      label: 'Watch closely',
+      title:
+        demandContext?.urgencyLabel === 'High Pressure'
+          ? `${demandContext.city} demand is active`
+          : marketInsights.percentileLabel,
+      detail:
+        demandContext?.summary ||
+        `You are currently ${marketInsights.percentileLabel.toLowerCase()} against our stored collision cohort.`,
+      tone: demandContext?.urgencyLabel === 'High Pressure' ? 'warning' : 'default'
+    },
+    {
+      label: 'Keep steady',
+      title: latestScan ? dataHealth.lastScanAgeLabel : 'Start your weekly loop',
+      detail:
+        latestScan
+          ? 'Fresh scans make the dashboard feel alive and keep your comparison deltas trustworthy.'
+          : 'The first completed scan turns this from setup into a real weekly workspace.',
+      tone: 'default'
+    }
+  ] as const;
+  const ownerSnapshot = [
+    {
+      label: 'Primary focus',
+      value: effectiveProfile.focusLabel,
+      detail: effectiveProfile.nextPriority
+    },
+    {
+      label: 'Best business lever',
+      value: valueMoments[0]?.value || 'Monitoring',
+      detail: valueMoments[0]?.detail || 'Use the dashboard to find the fastest business win.'
+    },
+    {
+      label: 'Confidence',
+      value: valueMoments[2]?.value || 'Building',
+      detail: valueMoments[2]?.detail || 'Saved sources make this workspace more resilient.'
+    }
+  ];
   const renderModuleBody = (moduleId: DashboardModuleId) => {
     switch (moduleId) {
       case 'architecture':
@@ -460,10 +514,28 @@ export default async function DashboardOverviewPage({
                 </span>
               ))}
             </div>
+            <div className="mt-6 grid gap-3 md:grid-cols-3">
+              {weeklyCommandDeck.map((item) => (
+                <div
+                  key={item.label}
+                  className={`rounded-2xl border p-4 ${
+                    item.tone === 'strong'
+                      ? 'border-[var(--dashboard-border-strong)] bg-[var(--dashboard-bg-soft)]'
+                      : item.tone === 'warning'
+                        ? 'border-amber-200 bg-amber-50'
+                        : 'border-[var(--border-color)] bg-[var(--bg-body)]'
+                  }`}
+                >
+                  <div className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{item.label}</div>
+                  <div className="mt-2 text-base font-semibold text-[var(--text-main)]">{item.title}</div>
+                  <p className="mt-2 text-sm text-[var(--text-secondary)]">{item.detail}</p>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="grid gap-px bg-[var(--border-color)] xl:grid-rows-3">
-            {valueMoments.map((item) => (
+            {ownerSnapshot.map((item) => (
               <div key={item.label} className="bg-[var(--bg-card)] p-5">
                 <div className="text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">{item.label}</div>
                 <div className="mt-2 text-xl font-semibold text-[var(--text-main)]">{item.value}</div>
@@ -1049,6 +1121,20 @@ export default async function DashboardOverviewPage({
                           {moduleDeltaMeta[moduleId]?.label}
                         </span>
                       ) : null}
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3">
+                      <div>
+                        <div className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">Best next move</div>
+                        <div className="mt-1 text-sm font-semibold text-[var(--text-main)]">
+                          {moduleActionLinks[moduleId].label}
+                        </div>
+                      </div>
+                      <Link
+                        href={moduleActionLinks[moduleId].href}
+                        className="rounded-full border border-[var(--dashboard-border-strong)] bg-[var(--dashboard-bg-soft)] px-3 py-1.5 text-sm font-medium text-[var(--text-main)] transition hover:opacity-90"
+                      >
+                        Open
+                      </Link>
                     </div>
                     {renderModuleBody(moduleId)}
                   </div>
