@@ -326,11 +326,11 @@ export function ScanLoadingShell({
     if (!open) return null;
 
     return (
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#0f0502] text-white">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto bg-[#0f0502] px-3 py-4 text-white sm:px-4 sm:py-6">
         <div className="variant-loader-ambient" />
         <div className="variant-loader-blur" />
 
-        <main className="relative z-10 flex h-[640px] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-white/10 bg-[rgba(30,20,15,0.65)] shadow-2xl backdrop-blur-xl md:flex-row">
+        <main className="relative z-10 flex min-h-0 w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-white/10 bg-[rgba(30,20,15,0.65)] shadow-2xl backdrop-blur-xl md:flex-row md:rounded-2xl" style={{ minHeight: 'min(640px, calc(100dvh - 2rem))', maxHeight: 'calc(100dvh - 2rem)' }}>
           <WebsitePreviewDiagnostic websiteUrl={websiteUrl} activeStep={activeStep} completedCount={completedCount} />
           <ScanProgressPanel
             progress={progress}
@@ -341,7 +341,7 @@ export function ScanLoadingShell({
           />
         </main>
 
-        <div className="pointer-events-none absolute left-6 top-6 font-mono text-[10px] uppercase tracking-[0.22em] text-white/25">
+        <div className="pointer-events-none absolute left-4 top-4 font-mono text-[10px] uppercase tracking-[0.22em] text-white/25 sm:left-6 sm:top-6">
           {shopName || 'Collision Shop'} • {city || 'Local Market'}
         </div>
       </div>
