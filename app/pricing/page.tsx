@@ -1,4 +1,14 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
+
+export const metadata: Metadata = {
+  title: 'Pricing | Shop SEO Scan',
+  description:
+    'Compare Shop SEO Scan plans, from free scans to the $49 monitoring dashboard and higher-touch options for collision shop growth.',
+  alternates: {
+    canonical: 'https://shopseoscan.com/pricing'
+  }
+};
 
 const PLANS = [
   {

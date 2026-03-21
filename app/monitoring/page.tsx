@@ -1,5 +1,15 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { MonitoringTrialForm } from '@/components/monitoring-trial-form';
+
+export const metadata: Metadata = {
+  title: 'Monitoring Dashboard | Shop SEO Scan',
+  description:
+    'Start the Shop SEO Scan monitoring dashboard and track weekly rankings, competitor movement, visibility gaps, and ongoing SEO progress.',
+  alternates: {
+    canonical: 'https://shopseoscan.com/monitoring'
+  }
+};
 
 type Query = {
   scanId?: string;

@@ -1,7 +1,17 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import demo from '@/fixtures/demo-report.json';
 import { PublicPoweredByFooter } from '@/components/public-powered-by-footer';
 import { ScoreRing } from '@/components/score-ring';
+
+export const metadata: Metadata = {
+  title: 'Demo SEO Report | Shop SEO Scan',
+  description:
+    'See an example Shop SEO Scan report with visibility scoring, competitor context, issue prioritization, and repair recommendations.',
+  alternates: {
+    canonical: 'https://shopseoscan.com/demo'
+  }
+};
 
 export default function DemoReportPage() {
   const competitorRows = [
