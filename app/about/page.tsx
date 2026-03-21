@@ -2,8 +2,8 @@ import Link from 'next/link';
 import { PublicPoweredByFooter } from '@/components/public-powered-by-footer';
 
 export const metadata = {
-  title: 'About SEO Scan',
-  description: 'Why SEO Scan exists and who built it.'
+  title: 'About Shop SEO Scan',
+  description: 'Why Shop SEO Scan exists and who built it.'
 };
 
 export default function AboutPage() {
@@ -13,12 +13,12 @@ export default function AboutPage() {
 
       <section className="container-shell relative z-10">
         <div className="mx-auto max-w-4xl rounded-[28px] border border-white/10 bg-white/5 p-8 backdrop-blur md:p-12">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-300/90">About SEO Scan</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-300/90">About Shop SEO Scan</p>
           <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight text-slate-100 md:text-6xl">
             Built for regular Main Street businesses, not generic SEO dashboards.
           </h1>
           <p className="mt-6 max-w-3xl text-base leading-8 text-slate-300">
-            SEO Scan was created by{' '}
+            Shop SEO Scan was created by{' '}
             <a
               href="https://bigdotdigital.com"
               target="_blank"

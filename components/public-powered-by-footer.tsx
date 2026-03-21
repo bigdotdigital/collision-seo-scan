@@ -20,7 +20,7 @@ export function PublicPoweredByFooter({
           </a>
         </p>
         <Link href="/about" className="text-slate-300 underline">
-          About SEO Scan
+          About Shop SEO Scan
         </Link>
       </div>
     </footer>

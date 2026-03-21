@@ -175,7 +175,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       />
 
       <section className="print-only mb-4 border-b border-slate-300 pb-3">
-        <p className="text-[11px] uppercase tracking-wide text-slate-600">Collision SEO Scan</p>
+        <p className="text-[11px] uppercase tracking-wide text-slate-600">Shop SEO Scan</p>
         <h1 className="mt-1 text-xl font-bold text-slate-900">{scanRecord.shopName}</h1>
         <p className="text-xs text-slate-700">
           {scanRecord.city} • {scanRecord.url} • Generated {printedAt}
@@ -1343,7 +1343,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       </div>
 
       <footer className="print-only mt-6 border-t border-slate-300 pt-3 text-[10px] text-slate-600">
-        Collision SEO Scan report. Modeled estimates for planning only.
+        Shop SEO Scan report. Modeled estimates for planning only.
       </footer>
       </main>
     );
