@@ -31,6 +31,24 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.85
     },
     {
+      url: `${BASE_URL}/collision-seo`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.84
+    },
+    {
+      url: `${BASE_URL}/auto-body-seo`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.82
+    },
+    {
+      url: `${BASE_URL}/free-auto-body-seo-tool`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.84
+    },
+    {
       url: `${BASE_URL}/demo`,
       lastModified: now,
       changeFrequency: 'monthly',

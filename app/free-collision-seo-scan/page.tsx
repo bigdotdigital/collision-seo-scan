@@ -4,7 +4,7 @@ import { ScanForm } from '@/components/scan-form';
 import { PublicPoweredByFooter } from '@/components/public-powered-by-footer';
 
 export const metadata: Metadata = {
-  title: 'Free Collision SEO Scan | Free Auto Body SEO Tool',
+  title: 'Free Collision SEO Scan | Free Auto Body SEO Tool | Collision SEO',
   description:
     'Run a free collision SEO scan for your auto body shop. Find local ranking leaks, estimate-path issues, trust gaps, and competitor pressure with a free auto body SEO tool built for collision repair.',
   alternates: {
@@ -72,6 +72,12 @@ export default function FreeCollisionSeoScanPage() {
                 <div className="mt-6 space-y-2 text-sm">
                   <Link href="/collision" className="block font-semibold text-amber-300 underline">
                     Main collision scanner
+                  </Link>
+                  <Link href="/collision-seo" className="block font-semibold text-amber-300 underline">
+                    Collision SEO page
+                  </Link>
+                  <Link href="/auto-body-seo" className="block font-semibold text-amber-300 underline">
+                    Auto body SEO guide
                   </Link>
                   <Link href="/demo?vertical=collision" className="block font-semibold text-amber-300 underline">
                     See collision example report
