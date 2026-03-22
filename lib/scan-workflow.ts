@@ -229,7 +229,14 @@ export async function prepareScan(args: ScanWorkflowArgs): Promise<PreparedScan>
       addressHint: args.address || null,
       websiteUrl
     });
-    const result = await runScan(websiteUrl, args.city, args.shopName, args.capabilities || {}, pagespeedLive);
+    const result = await runScan(
+      websiteUrl,
+      args.city,
+      args.shopName,
+      args.capabilities || {},
+      pagespeedLive,
+      vertical
+    );
     const capture = await capturePageSnapshot(websiteUrl);
 
     let pagespeed = pagespeedLive;

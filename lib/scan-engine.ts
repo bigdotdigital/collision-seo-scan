@@ -1,4 +1,5 @@
-import { detectCollisionSignals, mapCapabilityMissing } from '@/lib/signals/collision-signals';
+import { mapCapabilityMissing } from '@/lib/signals/collision-signals';
+import { detectVerticalSignals } from '@/lib/signals/vertical-signals';
 import type { PageSpeedResult } from '@/lib/pagespeed';
 import { computeCategoryScores } from '@/lib/scoring/category-scores';
 import { buildTopFixes } from '@/lib/scoring/top-fixes';
@@ -6,6 +7,7 @@ import { buildCompetitorComparison } from '@/lib/competitors/compare';
 import { runNationalCollisionBenchmark } from '@/lib/benchmark/national-collision';
 import type { PageFetchMeta, ScanResult } from '@/lib/types';
 import { extractInsuranceRelationshipSignals } from '@/lib/insurance-signals';
+import { getVerticalConfig } from '@/lib/verticals';
 import {
   extractSitemapUrls,
   fetchText,
@@ -103,9 +105,11 @@ export async function runScan(
   city: string,
   shopName: string,
   capabilities?: ScanCapabilities,
-  pagespeed?: PageSpeedResult
+  pagespeed?: PageSpeedResult,
+  vertical?: string | null
 ): Promise<ScanResult> {
   const startedAt = Date.now();
+  const verticalSlug = getVerticalConfig(vertical).slug;
   const loaded = await loadPages(websiteUrl);
   const checks = parsePages(loaded.htmlByUrl, city, shopName, websiteUrl, capabilities);
 
@@ -119,13 +123,16 @@ export async function runScan(
   }
   checks.sitemapFound = loaded.sitemapOk;
 
-  const scores = buildScores(checks);
-  const signals = detectCollisionSignals(loaded.htmlByUrl);
+  const scores = buildScores(checks, verticalSlug);
+  const signals = detectVerticalSignals(loaded.htmlByUrl, verticalSlug);
   const insuranceRelationshipSignals = extractInsuranceRelationshipSignals(loaded.htmlByUrl);
-  const capabilityMissing = mapCapabilityMissing(
-    signals.detected.map((signal) => signal.signal_name),
-    capabilities
-  );
+  const capabilityMissing =
+    verticalSlug === 'collision'
+      ? mapCapabilityMissing(
+          signals.detected.map((signal) => signal.signal_name),
+          capabilities
+        )
+      : [];
   const missingSignals = [...new Set([...signals.missing, ...capabilityMissing])];
   const missingPages = ['services', 'certifications', 'contact', 'estimate'].filter(
     (page) => !Object.keys(loaded.htmlByUrl).some((url) => url.toLowerCase().includes(`/${page}`))
@@ -136,37 +143,43 @@ export async function runScan(
     pagespeed: performanceInput(pagespeed),
     detectedSignals: signals.detected,
     missingSignals,
-    pagesAnalyzed: Object.keys(loaded.htmlByUrl).length
+    pagesAnalyzed: Object.keys(loaded.htmlByUrl).length,
+    vertical: verticalSlug
   });
 
   const topFixes = buildTopFixes({
     issues: scores.issues,
     missingSignals,
     missingPages,
-    hasPerformanceData: pagespeed?.status === 'ok'
+    hasPerformanceData: pagespeed?.status === 'ok',
+    vertical: verticalSlug
   });
 
-  const moneyKeywords = buildMoneyKeywords(city, checks);
+  const moneyKeywords = buildMoneyKeywords(city, checks, verticalSlug);
   const [competitorResult, nationalBenchmark] = await Promise.all([
     getCompetitors(city, shopName, websiteUrl),
-    runNationalCollisionBenchmark(checks)
+    verticalSlug === 'collision' ? runNationalCollisionBenchmark(checks) : Promise.resolve(null)
   ]);
   const mapPack = await getMapPack(city, shopName, competitorResult.competitors);
-  const competitorAdvantages = await buildCompetitorComparison({
-    city,
-    competitors: competitorResult.competitors,
-    userSignalNames: signals.detected.map((signal) => signal.signal_name)
-  });
+  const competitorAdvantages =
+    verticalSlug === 'collision'
+      ? await buildCompetitorComparison({
+          city,
+          competitors: competitorResult.competitors,
+          userSignalNames: signals.detected.map((signal) => signal.signal_name)
+        })
+      : [];
 
   const hasLiveKeywordMetrics = moneyKeywords.some((row) => row.source === 'api');
   const aiSummaryResult = await generateAiSummary(shopName, city, scores.total, scores.issues, {
     hasLivePageSpeed: pagespeed?.status === 'ok',
     serpSource: competitorResult.source,
     hasLiveKeywordMetrics
-  });
+  }, verticalSlug);
   const thirtyDayPlan = buildThirtyDayPlan(
     city,
-    scores.issues.map((issue) => issue.title)
+    scores.issues.map((issue) => issue.title),
+    verticalSlug
   );
 
   console.info(
@@ -182,7 +195,7 @@ export async function runScan(
     capabilityMissing,
     topFixes,
     competitorAdvantages,
-    nationalBenchmark,
+    nationalBenchmark: nationalBenchmark || undefined,
     missingPages,
     pageFetchMeta: loaded.pageFetchMeta,
     scanDurationMs: Date.now() - startedAt,

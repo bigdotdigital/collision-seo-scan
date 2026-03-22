@@ -12,6 +12,7 @@ import type {
   PrioritizedFix,
   ThirtyDayPlanItem
 } from '@/lib/types';
+import { getVerticalConfig } from '@/lib/verticals';
 
 const BLOCKED_COMPETITOR_HOSTS = [
   'yelp.com',
@@ -205,8 +206,10 @@ export function normalizeKeywords(input: unknown): MoneyKeyword[] {
 export function sanitizeKeywordsForSignals(
   input: MoneyKeyword[],
   city: string,
-  raw: Record<string, unknown>
+  raw: Record<string, unknown>,
+  vertical?: string | null
 ): MoneyKeyword[] {
+  const cfg = getVerticalConfig(vertical);
   const checks = (raw.checks as Record<string, unknown> | undefined) || {};
   const oemSignals = Array.isArray(checks.oemSignals)
     ? checks.oemSignals.filter((v): v is string => typeof v === 'string').map((v) => v.toLowerCase())
@@ -224,6 +227,34 @@ export function sanitizeKeywordsForSignals(
   });
 
   if (filtered.length > 0) return filtered;
+
+  if (cfg.slug === 'hvac') {
+    return [
+      { keyword: `hvac repair ${city.toLowerCase()}`, source: 'modeled' },
+      { keyword: `air conditioning repair ${city.toLowerCase()}`, source: 'modeled' },
+      { keyword: `furnace repair ${city.toLowerCase()}`, source: 'modeled' },
+      { keyword: `hvac maintenance ${city.toLowerCase()}`, source: 'modeled' },
+      { keyword: `emergency hvac service ${city.toLowerCase()}`, source: 'modeled' }
+    ];
+  }
+  if (cfg.slug === 'plumbing') {
+    return [
+      { keyword: `plumber ${city.toLowerCase()}`, source: 'modeled' },
+      { keyword: `emergency plumber ${city.toLowerCase()}`, source: 'modeled' },
+      { keyword: `drain cleaning ${city.toLowerCase()}`, source: 'modeled' },
+      { keyword: `water heater repair ${city.toLowerCase()}`, source: 'modeled' },
+      { keyword: `leak detection ${city.toLowerCase()}`, source: 'modeled' }
+    ];
+  }
+  if (cfg.slug === 'roofing') {
+    return [
+      { keyword: `roof repair ${city.toLowerCase()}`, source: 'modeled' },
+      { keyword: `roof replacement ${city.toLowerCase()}`, source: 'modeled' },
+      { keyword: `roof inspection ${city.toLowerCase()}`, source: 'modeled' },
+      { keyword: `storm damage roof repair ${city.toLowerCase()}`, source: 'modeled' },
+      { keyword: `roofing contractor ${city.toLowerCase()}`, source: 'modeled' }
+    ];
+  }
 
   return [
     { keyword: `collision repair ${city.toLowerCase()}`, source: 'modeled' },
@@ -287,8 +318,10 @@ export function normalizePlan(input: unknown): ThirtyDayPlanItem[] {
 
 export function normalizeCategoryScores(
   input: unknown,
-  fallback: { website: number; local: number; intent: number; total: number }
+  fallback: { website: number; local: number; intent: number; total: number },
+  vertical?: string | null
 ): CategoryScoreSet {
+  const cfg = getVerticalConfig(vertical);
   const row = (input || {}) as Partial<CategoryScoreSet>;
   const derivedCoverage = Math.round((fallback.website + fallback.intent) / 2);
   return {
@@ -300,13 +333,13 @@ export function normalizeCategoryScores(
     overall: typeof row.overall === 'number' ? row.overall : fallback.total,
     explanations: {
       technicalSeo: row.explanations?.technicalSeo || 'Foundational crawlability, metadata quality, and indexability signals.',
-      localSeo: row.explanations?.localSeo || 'Google Maps/NAP/review and local intent readiness signals.',
+      localSeo: row.explanations?.localSeo || cfg.localDescription,
       collisionAuthority:
-        row.explanations?.collisionAuthority || 'Collision-specific certifications and capability trust signals.',
+        row.explanations?.collisionAuthority || cfg.authorityDescription,
       speedPerformance:
         row.explanations?.speedPerformance || 'Page speed and UX readiness from measured or modeled checks.',
       contentCoverage:
-        row.explanations?.contentCoverage || 'Coverage of high-intent service content and conversion pages.'
+        row.explanations?.contentCoverage || cfg.contentCoverageDescription
     }
   };
 }
@@ -393,11 +426,13 @@ export function buildExecutiveSummaryFallback(input: {
   overall: number;
   categoryScores: CategoryScoreSet;
   topFixes: PrioritizedFix[];
+  vertical?: string | null;
 }): string {
+  const cfg = getVerticalConfig(input.vertical);
   const fix1 = input.topFixes[0]?.title || 'Improve technical and conversion basics';
   const fix2 = input.topFixes[1]?.title || 'Strengthen local trust and authority';
-  const fix3 = input.topFixes[2]?.title || 'Expand high-intent collision coverage';
-  return `${input.shopName} in ${input.city} scored ${input.overall}/100. Technical SEO is ${input.categoryScores.technicalSeo}, Local SEO is ${input.categoryScores.localSeo}, and Collision Authority is ${input.categoryScores.collisionAuthority}. Biggest opportunities are: ${fix1}; ${fix2}; ${fix3}. Fastest 30-day plan: implement the top fixes in order, validate with a re-scan, and tighten conversion CTAs on the highest-intent pages.`;
+  const fix3 = input.topFixes[2]?.title || `Expand high-intent ${cfg.label.toLowerCase()} coverage`;
+  return `${input.shopName} in ${input.city} scored ${input.overall}/100. Technical SEO is ${input.categoryScores.technicalSeo}, Local SEO is ${input.categoryScores.localSeo}, and ${cfg.authorityLabel} is ${input.categoryScores.collisionAuthority}. Biggest opportunities are: ${fix1}; ${fix2}; ${fix3}. Fastest 30-day plan: implement the top fixes in order, validate with a re-scan, and tighten ${cfg.primaryCtaLabel.toLowerCase()} visibility on the highest-intent pages.`;
 }
 
 export function ownerText(input: string): string {

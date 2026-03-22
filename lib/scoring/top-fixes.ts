@@ -1,11 +1,14 @@
 import type { Issue, PrioritizedFix } from '@/lib/types';
+import { getVerticalConfig } from '@/lib/verticals';
 
 export function buildTopFixes(input: {
   issues: Issue[];
   missingSignals: string[];
   missingPages: string[];
   hasPerformanceData: boolean;
+  vertical?: string | null;
 }): PrioritizedFix[] {
+  const cfg = getVerticalConfig(input.vertical);
   const fixes: PrioritizedFix[] = [];
 
   const severe = input.issues.filter((i) => i.severity === 'High').slice(0, 2);
@@ -24,13 +27,13 @@ export function buildTopFixes(input: {
 
   if (input.missingSignals.length > 0) {
     fixes.push({
-      title: 'Close certification and capability visibility gaps',
-      why: 'Collision buyers and insurers trust verifiable certifications and modern repair capabilities.',
+      title: `Close ${cfg.authorityLabel.toLowerCase()} visibility gaps`,
+      why: cfg.authorityDescription,
       impact: 'High',
       steps: [
         `Publish dedicated sections/pages for: ${input.missingSignals.slice(0, 5).join(', ')}.`,
-        'Add these signals to homepage and certification page above the fold.',
-        'Include internal links from service pages and estimate CTA blocks.'
+        'Add these signals to homepage and key trust pages above the fold.',
+        `Include internal links from service pages and ${cfg.primaryCtaLabel.toLowerCase()} blocks.`
       ]
     });
   }
@@ -38,7 +41,7 @@ export function buildTopFixes(input: {
   if (fixes.length < 3 && input.missingPages.length > 0) {
     fixes.push({
       title: 'Publish missing high-intent pages',
-      why: 'Missing intent pages reduce visibility for collision and conversion queries.',
+      why: cfg.contentCoverageDescription,
       impact: 'Med',
       steps: [
         `Create pages: ${input.missingPages.join(', ')}.`,
@@ -58,7 +61,7 @@ export function buildTopFixes(input: {
       steps: [
         'Compress hero media and defer non-critical scripts.',
         'Reduce third-party widgets on landing pages.',
-        'Keep estimate CTA visible above the fold on mobile.'
+        `Keep ${cfg.primaryCtaLabel.toLowerCase()} visibility above the fold on mobile.`
       ]
     });
   }
@@ -66,7 +69,7 @@ export function buildTopFixes(input: {
   while (fixes.length < 3) {
     fixes.push({
       title: 'Opportunity: tighten local trust signals',
-      why: 'Consistent trust modules improve map pack and conversion confidence.',
+      why: `Consistent ${cfg.authorityLabel.toLowerCase()} modules improve map-pack and conversion confidence.`,
       impact: 'Low',
       steps: ['Add review proof near CTAs.', 'Refresh before/after project examples.', 'Re-scan in 2 weeks.']
     });

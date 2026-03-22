@@ -1,6 +1,7 @@
-import { ISSUE_LIBRARY } from '@/lib/issue-library';
 import { clamp } from '@/lib/utils';
 import type { MoneyKeyword, ScanChecks, ThirtyDayPlanItem } from '@/lib/types';
+import { getIssueLibrary } from '@/lib/issue-library';
+import { getVerticalConfig } from '@/lib/verticals';
 
 type DeductionRule = {
   key: string;
@@ -60,32 +61,66 @@ function withKeywordMetrics(keywords: string[]): MoneyKeyword[] {
   });
 }
 
-export function buildMoneyKeywords(city: string, checks: Pick<ScanChecks, 'oemSignals' | 'fleetSignals' | 'insuranceSignals' | 'estimateCtaDetected'>) {
+export function buildMoneyKeywords(
+  city: string,
+  checks: Pick<ScanChecks, 'oemSignals' | 'fleetSignals' | 'insuranceSignals' | 'estimateCtaDetected'>,
+  vertical?: string | null
+) {
   const cityKey = city.toLowerCase().trim();
-  const picks = [
-    `collision repair ${cityKey}`,
-    `auto body shop ${cityKey}`,
-    `bumper repair ${cityKey}`,
-    `hail damage repair ${cityKey}`,
-    `free collision estimate ${cityKey}`
-  ];
+  const cfg = getVerticalConfig(vertical);
+  const picks =
+    cfg.slug === 'hvac'
+      ? [
+          `hvac repair ${cityKey}`,
+          `air conditioning repair ${cityKey}`,
+          `furnace repair ${cityKey}`,
+          `hvac maintenance ${cityKey}`,
+          `emergency hvac service ${cityKey}`
+        ]
+      : cfg.slug === 'plumbing'
+        ? [
+            `plumber ${cityKey}`,
+            `emergency plumber ${cityKey}`,
+            `drain cleaning ${cityKey}`,
+            `water heater repair ${cityKey}`,
+            `leak detection ${cityKey}`
+          ]
+        : cfg.slug === 'roofing'
+          ? [
+              `roof repair ${cityKey}`,
+              `roof replacement ${cityKey}`,
+              `roofing contractor ${cityKey}`,
+              `storm damage roof repair ${cityKey}`,
+              `roof inspection ${cityKey}`
+            ]
+          : [
+              `collision repair ${cityKey}`,
+              `auto body shop ${cityKey}`,
+              `bumper repair ${cityKey}`,
+              `hail damage repair ${cityKey}`,
+              `free collision estimate ${cityKey}`
+            ];
 
-  if (checks.insuranceSignals.some((signal) => signal.includes('insurance') || signal.includes('claim'))) {
+  if (cfg.slug === 'collision' && checks.insuranceSignals.some((signal) => signal.includes('insurance') || signal.includes('claim'))) {
     picks.unshift(`insurance collision repair ${cityKey}`);
   }
-  if (checks.fleetSignals.some((signal) => signal.includes('sprinter') || signal.includes('transit') || signal.includes('promaster'))) {
+  if (cfg.slug === 'collision' && checks.fleetSignals.some((signal) => signal.includes('sprinter') || signal.includes('transit') || signal.includes('promaster'))) {
     picks.unshift(`commercial auto body ${cityKey}`);
   }
-  if (checks.estimateCtaDetected) picks.unshift(`auto body estimate ${cityKey}`);
-  if (checks.oemSignals.some((signal) => signal.includes('subaru'))) picks.unshift(`subaru certified collision repair ${cityKey}`);
-  if (checks.oemSignals.some((signal) => signal.includes('ford'))) picks.unshift(`ford certified body shop ${cityKey}`);
-  if (checks.oemSignals.some((signal) => signal.includes('gm'))) picks.unshift(`gm certified collision repair ${cityKey}`);
-  if (checks.oemSignals.some((signal) => signal.includes('nissan'))) picks.unshift(`nissan certified collision repair ${cityKey}`);
+  if (cfg.slug === 'collision' && checks.estimateCtaDetected) picks.unshift(`auto body estimate ${cityKey}`);
+  if (cfg.slug === 'hvac' && checks.estimateCtaDetected) picks.unshift(`hvac replacement quote ${cityKey}`);
+  if (cfg.slug === 'roofing' && checks.estimateCtaDetected) picks.unshift(`free roof inspection ${cityKey}`);
+  if (cfg.slug === 'plumbing' && checks.estimateCtaDetected) picks.unshift(`same day plumber ${cityKey}`);
+  if (cfg.slug === 'collision' && checks.oemSignals.some((signal) => signal.includes('subaru'))) picks.unshift(`subaru certified collision repair ${cityKey}`);
+  if (cfg.slug === 'collision' && checks.oemSignals.some((signal) => signal.includes('ford'))) picks.unshift(`ford certified body shop ${cityKey}`);
+  if (cfg.slug === 'collision' && checks.oemSignals.some((signal) => signal.includes('gm'))) picks.unshift(`gm certified collision repair ${cityKey}`);
+  if (cfg.slug === 'collision' && checks.oemSignals.some((signal) => signal.includes('nissan'))) picks.unshift(`nissan certified collision repair ${cityKey}`);
 
   return withKeywordMetrics([...new Set(picks)].slice(0, 5));
 }
 
-export function buildScores(checks: ScanChecks) {
+export function buildScores(checks: ScanChecks, vertical?: string | null) {
+  const issueLibrary = getIssueLibrary(vertical);
   let websiteDeduction = 0;
   let localDeduction = 0;
   let intentDeduction = 0;
@@ -104,7 +139,7 @@ export function buildScores(checks: ScanChecks) {
   const intent = clamp(100 - intentDeduction, 0, 100);
   const total = Math.round(0.45 * website + 0.3 * local + 0.25 * intent);
   const issues = failedKeys
-    .map((key) => ISSUE_LIBRARY[key])
+    .map((key) => issueLibrary[key])
     .filter(Boolean)
     .sort((a, b) => {
       const rank = { High: 0, Med: 1, Low: 2 };
@@ -115,7 +150,33 @@ export function buildScores(checks: ScanChecks) {
   return { total, website, local, intent, issues, failedKeys };
 }
 
-export function buildThirtyDayPlan(city: string, issueTitles: string[]): ThirtyDayPlanItem[] {
+export function buildThirtyDayPlan(city: string, issueTitles: string[], vertical?: string | null): ThirtyDayPlanItem[] {
+  const cfg = getVerticalConfig(vertical);
+  if (cfg.slug === 'hvac') {
+    return [
+      { week: 'Week 1', focus: 'Fix service-call friction', outcome: `Ship homepage title/H1, business info, and ${cfg.primaryCtaLabel.toLowerCase()} updates targeting ${city}.` },
+      { week: 'Week 2', focus: 'Publish money pages', outcome: `Launch repair, replacement, maintenance, and emergency-service pages tied to ${city} intent.` },
+      { week: 'Week 3', focus: 'Strengthen trust and replacement confidence', outcome: 'Make financing, maintenance plans, licensing, and equipment specialties much more visible.' },
+      { week: 'Week 4', focus: 'Measure and iterate', outcome: `Track movement on top keywords and close remaining leaks: ${issueTitles.slice(0, 2).join(', ') || 'technical cleanup'}.` }
+    ];
+  }
+  if (cfg.slug === 'plumbing') {
+    return [
+      { week: 'Week 1', focus: 'Fix emergency-call friction', outcome: `Ship homepage title/H1, business info, and ${cfg.primaryCtaLabel.toLowerCase()} visibility updates targeting ${city}.` },
+      { week: 'Week 2', focus: 'Publish specialty pages', outcome: `Launch drain, leak, water heater, sewer, and emergency-service pages tied to ${city} intent.` },
+      { week: 'Week 3', focus: 'Strengthen homeowner trust', outcome: 'Make licensing, reviews, response-time language, and specialty proof much more visible.' },
+      { week: 'Week 4', focus: 'Measure and iterate', outcome: `Track movement on top keywords and close remaining leaks: ${issueTitles.slice(0, 2).join(', ') || 'technical cleanup'}.` }
+    ];
+  }
+  if (cfg.slug === 'roofing') {
+    return [
+      { week: 'Week 1', focus: 'Fix inspection and call friction', outcome: `Ship homepage title/H1, business info, and ${cfg.primaryCtaLabel.toLowerCase()} visibility updates targeting ${city}.` },
+      { week: 'Week 2', focus: 'Publish storm and replacement pages', outcome: `Launch repair, replacement, storm-damage, hail, and inspection pages tied to ${city} intent.` },
+      { week: 'Week 3', focus: 'Strengthen trust and claim guidance', outcome: 'Make warranties, financing, project proof, and insurance-help messaging much more visible.' },
+      { week: 'Week 4', focus: 'Measure and iterate', outcome: `Track movement on top keywords and close remaining leaks: ${issueTitles.slice(0, 2).join(', ') || 'technical cleanup'}.` }
+    ];
+  }
+
   return [
     {
       week: 'Week 1',
@@ -168,7 +229,8 @@ export async function generateAiSummary(
     hasLivePageSpeed: boolean;
     serpSource: 'live' | 'cached' | 'fallback';
     hasLiveKeywordMetrics: boolean;
-  }
+  },
+  vertical?: string | null
 ): Promise<{
   text: string;
   provider: 'mistral' | 'openai' | 'fallback';
@@ -180,7 +242,8 @@ export async function generateAiSummary(
     `Keyword volume/CPC data: ${options.hasLiveKeywordMetrics ? 'available' : 'modeled estimates only'}`
   ].join('\n');
 
-  const prompt = `You are a blunt local SEO strategist. Write 6-10 sentences for a collision shop scan.
+  const cfg = getVerticalConfig(vertical);
+  const prompt = `You are a blunt local SEO strategist. Write 6-10 sentences for a ${cfg.label.toLowerCase()} scan.
 Shop: ${shopName || 'Unknown'}
 City: ${city}
 Score: ${total}

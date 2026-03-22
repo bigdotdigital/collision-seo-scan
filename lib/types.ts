@@ -198,7 +198,7 @@ export type ScanResult = {
   capabilityMissing: string[];
   topFixes: PrioritizedFix[];
   competitorAdvantages: CompetitorAdvantage[];
-  nationalBenchmark: NationalBenchmarkResult;
+  nationalBenchmark?: NationalBenchmarkResult;
   missingPages: string[];
   pageFetchMeta: PageFetchMeta[];
   scanDurationMs: number;

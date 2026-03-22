@@ -88,7 +88,7 @@ export function VerticalLandingPage({ vertical }: { vertical: VerticalSlug }) {
               </li>
               <li className="variant-step variant-step-active">
                 <span className="variant-step-icon" />
-                <span>Detecting trust signals and certifications</span>
+                <span>{cfg.scannerTrustStep}</span>
               </li>
               <li className="variant-step">
                 <span className="variant-step-icon" />
@@ -104,7 +104,7 @@ export function VerticalLandingPage({ vertical }: { vertical: VerticalSlug }) {
               </li>
               <li className="variant-step">
                 <span className="variant-step-icon" />
-                <span>Building repair plan</span>
+                <span>{cfg.scannerPlanStep}</span>
               </li>
             </ul>
           </div>
@@ -121,7 +121,7 @@ export function VerticalLandingPage({ vertical }: { vertical: VerticalSlug }) {
           <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-300">
             <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">Free scan</span>
             <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">No payment required</span>
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">Built for collision shops</span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">{cfg.heroBuiltForLabel}</span>
             <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">Custom dashboard available</span>
           </div>
           <div className="mt-6">
@@ -135,22 +135,22 @@ export function VerticalLandingPage({ vertical }: { vertical: VerticalSlug }) {
           <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300/80">Weekly Clarity</p>
             <p className="mt-2 text-base font-semibold text-slate-100">See what changed week to week</p>
-            <p className="mt-2 text-sm text-slate-300">
-              Track rankings, trust signals, service-page gaps, and the issues actually affecting estimate demand.
+              <p className="mt-2 text-sm text-slate-300">
+              {cfg.weeklyClarityCopy}
             </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300/80">Competitor Watch</p>
             <p className="mt-2 text-base font-semibold text-slate-100">Know when nearby shops move first</p>
-            <p className="mt-2 text-sm text-slate-300">
-              We surface service coverage gaps, local trust differences, and what stronger shops are doing that you are not.
+              <p className="mt-2 text-sm text-slate-300">
+              {cfg.competitorWatchCopy}
             </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300/80">Tailored Setup</p>
             <p className="mt-2 text-base font-semibold text-slate-100">We can customize the dashboard for your shop</p>
-            <p className="mt-2 text-sm text-slate-300">
-              Start with the free scan, then we can tune the dashboard around hail, OEM, maps, reviews, conversion, or service-area growth.
+              <p className="mt-2 text-sm text-slate-300">
+              {cfg.tailoredSetupCopy}
             </p>
           </div>
         </div>

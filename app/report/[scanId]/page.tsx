@@ -88,7 +88,8 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       reportUrl,
       printedAt,
       scoreCondition,
-      competitorRows
+      competitorRows,
+      verticalConfig
     } = state;
     const withIntent = (url: string, intent: 'fix_seo' | 'redesign' | 'monitoring') => {
       try {
@@ -113,7 +114,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         city: scanRecord.city || '',
         shopName: scanRecord.shopName || '',
       });
-      redirect(`/collision?${params.toString()}#scan-form`);
+      redirect(`/${verticalConfig.slug}?${params.toString()}#scan-form`);
     }
 
     if (executionStatus === 'failed') {
@@ -138,24 +139,19 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       );
     }
     const scoreHelp = {
-      visibilityHealth:
-        'Your overall visibility health combines website basics, local presence, collision-specific trust signals, speed, and conversion readiness into one headline score.',
+      visibilityHealth: verticalConfig.visibilityHealthDescription,
       website:
         'Website measures how strong the site foundation is: crawlability, titles, speed, mobile experience, and whether core pages are understandable to search engines.',
       local:
         'Local measures how well the shop is positioned for nearby searches, including map relevance, city/service alignment, and business-profile signals.',
-      intent:
-        'Intent measures whether the pages match what collision shoppers are actually searching for, such as repair services, OEM terms, estimate intent, and local modifiers.',
+      intent: verticalConfig.intentDescription,
       technicalSeo:
         'Technical SEO checks whether search engines can crawl, understand, and trust the main pages on the site.',
-      localSeo:
-        'Local SEO checks whether the site and business profile send strong signals for nearby collision-related searches.',
-      collisionAuthority:
-        'Collision Authority measures trust signals specific to body shops, such as certifications, repair specialties, reviews, and credibility markers.',
+      localSeo: verticalConfig.localDescription,
+      collisionAuthority: verticalConfig.authorityDescription,
       speedPerformance:
-        'Speed & Performance measures how quickly the site loads and how stable it feels on phones, where many estimate searches happen.',
-      contentCoverage:
-        'Content Coverage measures whether the site has enough service and specialty pages to match real collision-repair searches.'
+        `Speed & Performance measures how quickly the site loads and how stable it feels on phones, where many ${verticalConfig.conversionGoalLabel} start.`,
+      contentCoverage: verticalConfig.contentCoverageDescription
     } as const;
 
     return (
@@ -562,7 +558,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
           <p className="mt-1 text-xs text-slate-600">{categoryScores.explanations.localSeo}</p>
         </article>
         <article className="card p-4">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Collision Authority</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500">{verticalConfig.authorityLabel}</p>
           <p className="mt-1 text-3xl font-bold">{categoryScores.collisionAuthority}</p>
           <p className="mt-1 text-xs text-slate-600">
             {categoryScores.explanations.collisionAuthority}
@@ -772,7 +768,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
 
       <section className="mt-6 card print-break-avoid p-6">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-xl font-bold">Map Rankings for Collision Searches</h2>
+          <h2 className="text-xl font-bold">{verticalConfig.mapRankingsTitle}</h2>
           <span className={`rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${mapPackSource.className}`}>
             {mapPackSource.label}
           </span>
@@ -821,12 +817,12 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       </section>
 
       <section className="mt-6 card print-break-avoid p-6">
-        <h2 className="text-xl font-bold">Trust Signals Shoppers Look For</h2>
+        <h2 className="text-xl font-bold">{verticalConfig.trustSignalsTitle}</h2>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <article className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
             <h3 className="font-semibold text-emerald-900">Detected</h3>
             {detectedSignals.length === 0 ? (
-              <p className="mt-2 text-sm text-emerald-900">No certification/capability signals detected.</p>
+              <p className="mt-2 text-sm text-emerald-900">{verticalConfig.trustSignalsEmptyText}</p>
             ) : (
               <ul className="mt-2 space-y-2 text-sm text-emerald-900">
                 {detectedSignals.slice(0, 12).map((signal) => (
@@ -892,10 +888,9 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         <section className="mt-6 card print-break-avoid p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-xl font-bold">National Winners Playbook</h2>
+              <h2 className="text-xl font-bold">{verticalConfig.benchmarkTitle}</h2>
               <p className="mt-1 text-sm text-slate-600">
-                Comparison against top national collision shop patterns to show what drives more
-                estimate requests.
+                {verticalConfig.benchmarkDescription}
               </p>
             </div>
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-700">
@@ -953,17 +948,46 @@ export default async function ReportPage({ params }: { params: { scanId: string 
             ))}
           </div>
         </section>
-      ) : null}
+      ) : (
+        <section className="mt-6 card print-break-avoid p-6">
+          <h2 className="text-xl font-bold">{verticalConfig.benchmarkTitle}</h2>
+          <p className="mt-2 text-sm text-slate-600">{verticalConfig.benchmarkUnavailableDescription}</p>
+        </section>
+      )}
+
+      <section className="mt-6 card print-break-avoid p-6">
+        <h2 className="text-xl font-bold">{verticalConfig.label} Market Intelligence</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Industry-specific demand and conversion patterns we are already seeing shape this vertical.
+        </p>
+        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+          {verticalConfig.industryInsights.map((insight) => (
+            <article key={insight.title} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700">{insight.title}</p>
+              <p className="mt-2 text-sm text-slate-700">{insight.detail}</p>
+              <p className="mt-3 text-sm font-medium text-slate-900">{insight.implication}</p>
+              <a
+                href={insight.sourceUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex text-xs font-semibold text-teal-700 underline"
+              >
+                Source: {insight.sourceLabel}
+              </a>
+            </article>
+          ))}
+        </div>
+      </section>
 
       <section className="mt-6 card print-break-avoid p-6">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-xl font-bold">How Competitors Are Winning More Calls</h2>
+          <h2 className="text-xl font-bold">{verticalConfig.competitorTitle}</h2>
           <span className={`rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${competitorSource.className}`}>
             {competitorSource.label}
           </span>
         </div>
         <p className="mt-1 text-sm text-slate-600">
-          Lightweight comparison of top competitors vs your current signal coverage.
+          {verticalConfig.competitorDescription}
         </p>
         {!hasUsableCompetitorData ? (
           <p className="mt-2 text-xs text-slate-500">
@@ -983,7 +1007,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
                       ))}
                     </ul>
                     <p className="mt-2 text-xs text-slate-600">
-                      OEM mentions: {row.oemSignalCount} | Capabilities: {row.capabilityCount} | Estimate CTA:{' '}
+                      Specialty mentions: {row.oemSignalCount} | Capabilities: {row.capabilityCount} | {verticalConfig.primaryCtaLabel}:{' '}
                       {row.estimateCta ? 'Yes' : 'No'}
                     </p>
                   </>
@@ -1185,7 +1209,7 @@ export default async function ReportPage({ params }: { params: { scanId: string 
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">Done-for-you option</p>
             <h2 className="mt-2 text-2xl font-bold text-slate-900">If we handled this for you, here’s what we’d own</h2>
             <p className="mt-2 max-w-3xl text-sm text-slate-600">
-              The goal is not just to point out issues. It’s to turn this report into clearer rankings, stronger trust, and more estimate opportunities.
+              The goal is not just to point out issues. It’s to turn this report into clearer rankings, stronger trust, and more {verticalConfig.conversionGoalLabel}.
             </p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
@@ -1282,8 +1306,8 @@ export default async function ReportPage({ params }: { params: { scanId: string 
             </p>
             <ul className="mt-4 space-y-2 text-sm text-slate-700">
               <li>Website redesign or service-page buildout</li>
-              <li>Collision-specific SEO implementation</li>
-              <li>Estimate-path and conversion improvements</li>
+              <li>{verticalConfig.label}-specific SEO implementation</li>
+              <li>{verticalConfig.primaryCtaLabel}-path and conversion improvements</li>
             </ul>
             <a
               href={redesignTeardownUrl}

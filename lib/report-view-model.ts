@@ -1,5 +1,6 @@
 import type { Competitor, Issue, MoneyKeyword, ThirtyDayPlanItem } from '@/lib/types';
 import { estimateOpportunity } from '@/lib/business-impact';
+import { getVerticalConfig } from '@/lib/verticals';
 
 export interface ReportData {
   scanId: string;
@@ -17,6 +18,7 @@ export interface ReportData {
   aiSummary?: string | null;
   calendlyBase: string;
   salesPhone: string;
+  vertical?: string | null;
   rawChecks?: {
     reviews?: {
       rating?: number;
@@ -95,19 +97,53 @@ export type ReportViewModel = {
   ctaBullets: string[];
 };
 
-const MAP_QUERY_TEMPLATES = [
-  'collision repair {city}',
-  'auto body shop near me',
-  'bumper repair {city}',
-  'hail damage repair {city}'
-];
+function mapQueryTemplates(vertical?: string | null) {
+  const cfg = getVerticalConfig(vertical);
+  if (cfg.slug === 'hvac') {
+    return ['hvac repair {city}', 'air conditioning repair near me', 'furnace repair {city}', 'emergency hvac service {city}'];
+  }
+  if (cfg.slug === 'plumbing') {
+    return ['plumber {city}', 'emergency plumber near me', 'drain cleaning {city}', 'water heater repair {city}'];
+  }
+  if (cfg.slug === 'roofing') {
+    return ['roof repair {city}', 'roofing contractor near me', 'roof inspection {city}', 'storm damage roof repair {city}'];
+  }
+  return ['collision repair {city}', 'auto body shop near me', 'bumper repair {city}', 'hail damage repair {city}'];
+}
 
-const WHY_WINNING = [
-  'Higher review velocity and stronger local trust signals.',
-  'Better category match and location-page depth.',
-  'Stronger estimate CTA visibility on mobile and desktop.',
-  'More complete service coverage for OEM + insurance intent.'
-];
+function whyWinningOptions(vertical?: string | null) {
+  const cfg = getVerticalConfig(vertical);
+  if (cfg.slug === 'hvac') {
+    return [
+      'Emergency-service clarity and stronger local trust signals.',
+      'Better service-page depth for repair, maintenance, and replacement intent.',
+      'Stronger book-service CTA visibility on mobile and desktop.',
+      'More complete financing, maintenance-plan, and equipment-specialty coverage.'
+    ];
+  }
+  if (cfg.slug === 'plumbing') {
+    return [
+      'Stronger emergency-call language and local trust signals.',
+      'Better specialty coverage for drains, leaks, water heaters, and sewer work.',
+      'Stronger phone-first CTA visibility on mobile and desktop.',
+      'More complete licensing, review proof, and response-time positioning.'
+    ];
+  }
+  if (cfg.slug === 'roofing') {
+    return [
+      'Stronger inspection and storm-response trust signals.',
+      'Better page depth for repair, replacement, and storm-damage intent.',
+      'Stronger inspection CTA visibility on mobile and desktop.',
+      'More complete insurance-help, warranty, and financing coverage.'
+    ];
+  }
+  return [
+    'Higher review velocity and stronger local trust signals.',
+    'Better category match and location-page depth.',
+    'Stronger estimate CTA visibility on mobile and desktop.',
+    'More complete service coverage for OEM + insurance intent.'
+  ];
+}
 
 function impactLabel(gap: number): 'High' | 'Med' | 'Low' {
   if (gap >= 180) return 'High';
@@ -129,7 +165,7 @@ function withCalendlyParams(base: string, input: { scanId: string; shop: string;
 
 function intentFromKeyword(keyword: string): 'High' | 'Med' {
   const k = keyword.toLowerCase();
-  if (k.includes('estimate') || k.includes('certified') || k.includes('collision repair')) return 'High';
+  if (/(estimate|certified|collision repair|emergency|inspection|repair|replacement|plumber|hvac)/i.test(k)) return 'High';
   return 'Med';
 }
 
@@ -157,13 +193,14 @@ function keywordViewModel(items: MoneyKeyword[]): { rows: KeywordView[]; estimat
   return { rows, estimatedAny };
 }
 
-function competitorViewModel(city: string, items: Competitor[], reviews: ReviewGap | null): CompetitorView[] {
+function competitorViewModel(city: string, items: Competitor[], reviews: ReviewGap | null, vertical?: string | null): CompetitorView[] {
   const names = items.map((c) => c.name).slice(0, 3);
   if (names.length === 0) return [];
+  const whyWinning = whyWinningOptions(vertical);
 
   return names.map((name, idx) => ({
     name,
-    whyWinning: WHY_WINNING[idx % WHY_WINNING.length],
+    whyWinning: whyWinning[idx % whyWinning.length],
     rating: idx === 0 ? (reviews?.competitorRating ?? undefined) : undefined,
     reviews: idx === 0 ? (reviews?.competitorReviews ?? undefined) : undefined
   }));
@@ -200,14 +237,14 @@ function reviewGapView(data: ReportData): ReviewGap | null {
   };
 }
 
-function mapPackView(city: string, shopName: string, competitors: CompetitorView[]): MapPackQuery[] {
+function mapPackView(city: string, shopName: string, competitors: CompetitorView[], vertical?: string | null): MapPackQuery[] {
   if (competitors.length === 0) return [];
   const c = city.toLowerCase();
   const rank1 = competitors[0]?.name || 'n/a';
   const rank2 = competitors[1]?.name || 'n/a';
   const rank3 = competitors[2]?.name || 'n/a';
 
-  return MAP_QUERY_TEMPLATES.slice(0, 4).map((template, idx) => ({
+  return mapQueryTemplates(vertical).slice(0, 4).map((template, idx) => ({
     query: template.replace('{city}', c),
     rank1,
     rank2,
@@ -217,9 +254,10 @@ function mapPackView(city: string, shopName: string, competitors: CompetitorView
 }
 
 export function buildReportViewModel(reportData: ReportData): ReportViewModel {
+  const cfg = getVerticalConfig(reportData.vertical);
   const reviewGap = reviewGapView(reportData);
-  const competitors = competitorViewModel(reportData.city, reportData.competitors, reviewGap);
-  const mapQueries = mapPackView(reportData.city, reportData.shopName, competitors);
+  const competitors = competitorViewModel(reportData.city, reportData.competitors, reviewGap, reportData.vertical);
+  const mapQueries = mapPackView(reportData.city, reportData.shopName, competitors, reportData.vertical);
   const keyword = keywordViewModel(reportData.moneyKeywords);
   const demandMultiplier = reportData.demandContext ? 0.85 + reportData.demandContext.demandPressure / 200 : 1;
 
@@ -262,7 +300,7 @@ export function buildReportViewModel(reportData: ReportData): ReportViewModel {
         'Review velocity and star rating advantage',
         'Tighter service + location category match',
         'Stronger city service pages and internal linking',
-        'More prominent estimate CTA and conversion flow'
+        `More prominent ${cfg.primaryCtaLabel.toLowerCase()} CTA and conversion flow`
       ]
     },
     keywords: keyword.rows,
@@ -271,7 +309,7 @@ export function buildReportViewModel(reportData: ReportData): ReportViewModel {
     ctaBullets: [
       'We review the report before the call',
       'You get a clear fix order, not generic SEO fluff',
-      'We can handle the dashboard, redesign, or SEO implementation for you'
+      `We can handle the dashboard, redesign, or SEO implementation that improves ${cfg.conversionGoalLabel}`
     ]
   };
 }

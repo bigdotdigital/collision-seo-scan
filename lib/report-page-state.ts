@@ -6,6 +6,7 @@ import type { Issue } from '@/lib/types';
 import { buildReportViewModel, type ReportData } from '@/lib/report-view-model';
 import { parseReportPayload } from '@/lib/report-payload';
 import { getScanRecord } from '@/lib/scan-store';
+import { getVerticalConfig } from '@/lib/verticals';
 import {
   buildExecutiveSummaryFallback,
   buildFallbackPreviewUrl,
@@ -123,7 +124,8 @@ export async function loadReportPageState(scanId: string) {
         : scanRecord.moneyKeywords
     ),
     scanRecord.city,
-    raw
+    raw,
+    dbScan?.vertical
   );
   const competitors = normalizeCompetitors(
     snapshot
@@ -150,12 +152,17 @@ export async function loadReportPageState(scanId: string) {
   const scoreWebsite = scanRecord.scoreWebsite ?? 0;
   const scoreLocal = scanRecord.scoreLocal ?? 0;
   const scoreIntent = scanRecord.scoreIntent ?? 0;
-  const categoryScores = normalizeCategoryScores(payload?.categoryScores || raw.categoryScores, {
-    website: scoreWebsite,
-    local: scoreLocal,
-    intent: scoreIntent,
-    total: scoreTotal
-  });
+  const verticalConfig = getVerticalConfig(dbScan?.vertical);
+  const categoryScores = normalizeCategoryScores(
+    payload?.categoryScores || raw.categoryScores,
+    {
+      website: scoreWebsite,
+      local: scoreLocal,
+      intent: scoreIntent,
+      total: scoreTotal
+    },
+    dbScan?.vertical
+  );
   const detectedSignals = normalizeSignals(payload?.detectedSignals || raw.detectedSignals);
   const missingSignals = normalizeMissingSignals(payload?.missingSignals || raw.missingSignals);
   const topFixes = normalizeTopFixes(payload?.topFixes || raw.topFixes, issues);
@@ -190,10 +197,10 @@ export async function loadReportPageState(scanId: string) {
   const healthChecks = [
     { label: 'Title tags', score: checksScore(raw, 'title') ? 90 : 45 },
     { label: 'Speed', score: categoryScores.speedPerformance },
-    { label: 'Certifications', score: categoryScores.collisionAuthority },
+    { label: verticalConfig.authorityLabel, score: categoryScores.collisionAuthority },
     { label: 'Mobile UX', score: websiteCardScore },
     { label: 'Local signals', score: categoryScores.localSeo },
-    { label: 'Estimate CTA', score: checksScore(raw, 'estimate') ? 88 : 48 }
+    { label: verticalConfig.primaryCtaLabel, score: checksScore(raw, 'estimate') ? 88 : 48 }
   ];
   const callConversionScore = Math.max(
     0,
@@ -222,15 +229,16 @@ export async function loadReportPageState(scanId: string) {
   const categoryCards = [
     { label: 'Website Basics', hint: 'Can Google understand your main pages?', score: categoryScores.technicalSeo },
     { label: 'Map Visibility', hint: 'How visible you are in local map searches', score: categoryScores.localSeo },
-    { label: 'Trust & Certifications', hint: 'Signals that make shoppers choose your shop', score: categoryScores.collisionAuthority },
+    { label: verticalConfig.authorityLabel, hint: 'Signals that make searchers trust your business faster', score: categoryScores.collisionAuthority },
     { label: 'Speed on Mobile', hint: 'Page speed for customers on phones', score: categoryScores.speedPerformance },
-    { label: 'Service Page Coverage', hint: 'How well your pages match collision search intent', score: categoryScores.contentCoverage },
-    { label: 'Call Conversion', hint: 'How ready the site is to turn searchers into estimate requests', score: callConversionScore }
+    { label: 'Service Page Coverage', hint: `How well your pages match ${verticalConfig.label.toLowerCase()} search intent`, score: categoryScores.contentCoverage },
+    { label: 'Call Conversion', hint: `How ready the site is to turn searchers into ${verticalConfig.conversionGoalLabel}`, score: callConversionScore }
   ];
 
   const calendly = process.env.CALENDLY_LINK || 'https://calendly.com/bigdotdigital/30min';
   const salesPhone = process.env.SALES_PHONE || '+13035551234';
-  const demandContext = await getCityDemandContext({ city: scanRecord.city });
+  const demandContext =
+    verticalConfig.slug === 'collision' ? await getCityDemandContext({ city: scanRecord.city }) : null;
   const fallbackIntel = await getShopFallbackIntel({
     shopId: dbScan?.shopId || null,
     organizationId: dbScan?.organizationId || null
@@ -240,6 +248,7 @@ export async function loadReportPageState(scanId: string) {
     shopName: scanRecord.shopName,
     city: scanRecord.city,
     websiteUrl: scanRecord.url,
+    vertical: dbScan?.vertical,
     scoreTotal,
     scoreWebsite,
     scoreLocal,
@@ -357,7 +366,8 @@ export async function loadReportPageState(scanId: string) {
         city: scanRecord.city,
         overall: scoreTotal,
         categoryScores,
-        topFixes
+        topFixes,
+        vertical: dbScan?.vertical
       });
   const reportUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/report/${scanRecord.id}`;
   const printedAt = formatTimestamp(new Date());
@@ -440,6 +450,7 @@ export async function loadReportPageState(scanId: string) {
     printedAt,
     scoreCondition,
     competitorRows,
+    verticalConfig,
     ...sourceState
   };
 }

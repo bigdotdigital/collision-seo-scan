@@ -1,6 +1,7 @@
 import { clamp } from '@/lib/utils';
 import type { CategoryScoreSet, CollisionSignal, ScanChecks } from '@/lib/types';
 import type { PageSpeedResult } from '@/lib/pagespeed';
+import { getVerticalConfig } from '@/lib/verticals';
 
 export function computeCategoryScores(input: {
   checks: ScanChecks;
@@ -8,8 +9,10 @@ export function computeCategoryScores(input: {
   detectedSignals: CollisionSignal[];
   missingSignals: string[];
   pagesAnalyzed: number;
+  vertical?: string | null;
 }): CategoryScoreSet {
   const { checks, pagespeed, detectedSignals, missingSignals, pagesAnalyzed } = input;
+  const cfg = getVerticalConfig(input.vertical);
 
   const technicalSeo = clamp(
     100 -
@@ -65,10 +68,10 @@ export function computeCategoryScores(input: {
     overall,
     explanations: {
       technicalSeo: 'Foundational crawlability, metadata quality, and indexability signals.',
-      localSeo: 'Google Maps/NAP/review and local intent readiness signals.',
-      collisionAuthority: 'Collision-specific certifications and capability trust signals.',
+      localSeo: cfg.localDescription,
+      collisionAuthority: cfg.authorityDescription,
       speedPerformance: 'Page speed and UX readiness from measured or modeled checks.',
-      contentCoverage: 'Coverage of high-intent service content and conversion pages.'
+      contentCoverage: cfg.contentCoverageDescription
     } as CategoryScoreSet['explanations']
   };
 }
