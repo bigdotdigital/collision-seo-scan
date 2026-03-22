@@ -19,6 +19,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.9
     },
     {
+      url: `${BASE_URL}/free-seo-scan`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.85
+    },
+    {
+      url: `${BASE_URL}/free-collision-seo-scan`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.85
+    },
+    {
       url: `${BASE_URL}/demo`,
       lastModified: now,
       changeFrequency: 'monthly',
