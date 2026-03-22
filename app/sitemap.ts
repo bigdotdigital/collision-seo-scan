@@ -60,6 +60,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.82
     },
     {
+      url: `${BASE_URL}/denver-collision-shop-seo-rankings-2026`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.83
+    },
+    {
       url: `${BASE_URL}/free-auto-body-seo-tool`,
       lastModified: now,
       changeFrequency: 'weekly',
