@@ -36,6 +36,13 @@ const CAPABILITY_OPTIONS: Record<
   ]
 };
 
+const SHOP_NAME_PLACEHOLDERS: Record<VerticalSlug, string> = {
+  collision: 'Precision Collision',
+  hvac: 'Summit Climate Control',
+  plumbing: 'Front Range Plumbing Co.',
+  roofing: 'Highline Roofing & Exteriors'
+};
+
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -64,6 +71,7 @@ async function isReportReady(scanId: string) {
 export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalSlug }) {
   const router = useRouter();
   const capabilityOptions = CAPABILITY_OPTIONS[vertical] || CAPABILITY_OPTIONS[DEFAULT_VERTICAL];
+  const shopNamePlaceholder = SHOP_NAME_PLACEHOLDERS[vertical] || SHOP_NAME_PLACEHOLDERS[DEFAULT_VERTICAL];
   const [loading, setLoading] = useState(false);
   const [scanComplete, setScanComplete] = useState(false);
   const [finalScore, setFinalScore] = useState<number | null>(null);
@@ -202,7 +210,7 @@ export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalS
           <input
             className="diagnostic-input"
             name="shop_name"
-            placeholder="Precision Collision"
+            placeholder={shopNamePlaceholder}
             required
           />
         </label>
