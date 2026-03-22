@@ -963,11 +963,18 @@ body {
 }
 
 .demo-vertical-tab-active {
-  border-color: color-mix(in srgb, var(--vertical-accent) 72%, white);
+  border-color: color-mix(in srgb, var(--vertical-accent) 82%, white);
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--vertical-accent) 22%, rgba(255, 255, 255, 0.1)) 0%, rgba(255, 255, 255, 0.08) 100%);
-  color: #fff;
-  box-shadow: 0 12px 28px color-mix(in srgb, var(--vertical-accent) 16%, transparent);
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--vertical-accent) 78%, #1a1613) 0%,
+      color-mix(in srgb, var(--vertical-accent) 52%, #0f0c0a) 100%
+    );
+  color: #120f0d;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 12px 28px color-mix(in srgb, var(--vertical-accent) 20%, transparent);
+  text-shadow: none;
 }
 
 .demo-vertical-tab-idle {
