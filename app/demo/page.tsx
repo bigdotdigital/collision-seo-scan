@@ -70,11 +70,55 @@ export default function DemoReportPage({ searchParams }: Props) {
       reviews: '3.9 ★'
     }
   ];
+  const demoFixes =
+    vertical === 'hvac'
+      ? [
+          'Make emergency service and same-day availability unmistakable above the fold.',
+          'Add financing and replacement quote paths to core service pages.',
+          'Publish heat pump and indoor air quality pages with city intent.'
+        ]
+      : vertical === 'plumbing'
+        ? [
+            'Push emergency plumbing and same-day response higher in the page hierarchy.',
+            'Add distinct sewer, drain, and water heater service pages.',
+            'Strengthen trust proof around licensing, reviews, and leak-response expertise.'
+          ]
+        : vertical === 'roofing'
+          ? [
+              'Make free inspections and storm-response CTAs impossible to miss.',
+              'Add roofing replacement, storm damage, and insurance-help pages with local intent.',
+              'Strengthen warranty, financing, and project-proof visibility.'
+            ]
+          : demo.topFixes;
+  const detectedSignals =
+    vertical === 'hvac'
+      ? ['24_7_emergency_service', 'maintenance_plan', 'financing_available', 'heat_pump_service']
+      : vertical === 'plumbing'
+        ? ['same_day_service', 'drain_cleaning', 'water_heater_service', 'licensed_and_insured']
+        : vertical === 'roofing'
+          ? ['free_roof_inspection', 'storm_damage_repair', 'insurance_claim_help', 'roof_replacement']
+          : demo.detectedSignals;
+  const missingSignals =
+    vertical === 'hvac'
+      ? ['indoor_air_quality', 'ductless_mini_split', 'service_area_pages']
+      : vertical === 'plumbing'
+        ? ['sewer_camera_inspection', 'financing_options', 'commercial_plumbing']
+        : vertical === 'roofing'
+          ? ['hail_damage_page', 'manufacturer_certification', 'project_gallery']
+          : demo.missingSignals;
+  const authorityScore =
+    vertical === 'hvac'
+      ? 73
+      : vertical === 'plumbing'
+        ? 71
+        : vertical === 'roofing'
+          ? 76
+          : demo.categoryScores.collisionAuthority;
 
   const gradeCards = [
     { label: 'SEO Foundations', value: demo.categoryScores.technicalSeo },
     { label: 'Local Visibility', value: demo.categoryScores.localSeo },
-    { label: cfg.authorityLabel, value: demo.categoryScores.collisionAuthority },
+    { label: cfg.authorityLabel, value: authorityScore },
     { label: 'Performance', value: demo.categoryScores.speedPerformance },
     { label: 'Mobile Exp.', value: 68 }
   ];
@@ -181,7 +225,7 @@ export default function DemoReportPage({ searchParams }: Props) {
         <article className="variant-report-card">
           <p className="variant-card-label">Top issues impacting calls</p>
           <ul className="variant-issue-list">
-            {demo.topFixes.map((fix) => (
+            {demoFixes.map((fix) => (
               <li key={fix} className="variant-issue-item">
                 <span className="variant-priority-dot variant-priority-high" />
                 <div>
@@ -216,7 +260,7 @@ export default function DemoReportPage({ searchParams }: Props) {
           <div className="variant-quick-fixes">
             <p className="variant-card-label">Quick fixes</p>
             <div className="variant-chip-row">
-              {demo.topFixes.slice(0, 2).map((fix) => (
+              {demoFixes.slice(0, 2).map((fix) => (
                 <span key={fix} className="variant-fix-chip">
                   + {fix}
                 </span>
@@ -230,7 +274,7 @@ export default function DemoReportPage({ searchParams }: Props) {
         <article className="card p-6">
           <h2 className="text-sm font-medium uppercase tracking-widest text-white/70">Detected Signals</h2>
           <ul className="mt-4 space-y-3">
-            {demo.detectedSignals.map((signal) => (
+            {detectedSignals.map((signal) => (
               <li key={signal} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90">
                 {signal.replace(/_/g, ' ')}
               </li>
@@ -241,7 +285,7 @@ export default function DemoReportPage({ searchParams }: Props) {
         <article className="card p-6">
           <h2 className="text-sm font-medium uppercase tracking-widest text-white/70">Missing Signals</h2>
           <ul className="mt-4 space-y-3">
-            {demo.missingSignals.map((signal) => (
+            {missingSignals.map((signal) => (
               <li key={signal} className="rounded-lg border border-dashed border-white/20 bg-white/[0.02] px-3 py-2 text-sm text-[#d8d2cd]">
                 {signal.replace(/_/g, ' ')}
               </li>
