@@ -7,7 +7,7 @@ export function VerticalLandingPage({ vertical }: { vertical: VerticalSlug }) {
   const cfg = VERTICALS[vertical];
 
   return (
-    <main className="diagnostic-page relative overflow-hidden">
+    <main className="diagnostic-page relative overflow-hidden" data-vertical={cfg.slug}>
       <div className="diagnostic-bg-rings" />
 
       <section className="py-16 md:py-20">

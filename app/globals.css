@@ -289,12 +289,44 @@ body {
 }
 
 .diagnostic-page {
+  --vertical-accent: #ff9e2c;
+  --vertical-accent-soft: rgba(255, 158, 44, 0.12);
+  --vertical-accent-strong: rgba(255, 176, 82, 0.4);
+  --vertical-bg-top: #1a1c20;
+  --vertical-bg-base: #0a0a0b;
   min-height: 100vh;
   background:
-    radial-gradient(circle at 50% 0%, #1a1c20 0%, transparent 52%),
-    linear-gradient(to bottom, transparent, #0a0a0b 100%),
-    #0a0a0b;
+    radial-gradient(circle at 50% 0%, var(--vertical-bg-top) 0%, transparent 52%),
+    linear-gradient(to bottom, transparent, var(--vertical-bg-base) 100%),
+    var(--vertical-bg-base);
   color: #f0f0f0;
+}
+
+.diagnostic-page[data-vertical='hvac'],
+.report-variant[data-vertical='hvac'] {
+  --vertical-accent: #57d8ff;
+  --vertical-accent-soft: rgba(87, 216, 255, 0.12);
+  --vertical-accent-strong: rgba(87, 216, 255, 0.38);
+  --vertical-bg-top: #13242c;
+  --vertical-bg-base: #081116;
+}
+
+.diagnostic-page[data-vertical='plumbing'],
+.report-variant[data-vertical='plumbing'] {
+  --vertical-accent: #4ade80;
+  --vertical-accent-soft: rgba(74, 222, 128, 0.12);
+  --vertical-accent-strong: rgba(74, 222, 128, 0.32);
+  --vertical-bg-top: #13231a;
+  --vertical-bg-base: #08110c;
+}
+
+.diagnostic-page[data-vertical='roofing'],
+.report-variant[data-vertical='roofing'] {
+  --vertical-accent: #f87171;
+  --vertical-accent-soft: rgba(248, 113, 113, 0.12);
+  --vertical-accent-strong: rgba(248, 113, 113, 0.34);
+  --vertical-bg-top: #28161a;
+  --vertical-bg-base: #10080a;
 }
 
 .diagnostic-bg-rings {
@@ -303,9 +335,9 @@ body {
   pointer-events: none;
   opacity: 0.32;
   background:
-    radial-gradient(circle at center, rgba(255, 158, 44, 0.1) 0 200px, transparent 220px),
-    radial-gradient(circle at center, rgba(255, 158, 44, 0.05) 0 360px, transparent 390px),
-    radial-gradient(circle at center, rgba(255, 158, 44, 0.03) 0 540px, transparent 590px);
+    radial-gradient(circle at center, var(--vertical-accent-soft) 0 200px, transparent 220px),
+    radial-gradient(circle at center, color-mix(in srgb, var(--vertical-accent) 35%, transparent) 0 360px, transparent 390px),
+    radial-gradient(circle at center, color-mix(in srgb, var(--vertical-accent) 18%, transparent) 0 540px, transparent 590px);
 }
 
 .diagnostic-form {
@@ -336,19 +368,19 @@ body {
 
 .diagnostic-input:focus {
   outline: none;
-  border-color: rgba(255, 158, 44, 0.9);
-  box-shadow: 0 0 0 2px rgba(255, 158, 44, 0.22);
+  border-color: var(--vertical-accent);
+  box-shadow: 0 0 0 2px var(--vertical-accent-soft);
 }
 
 .diagnostic-button {
-  background: #ff9e2c;
-  border: 1px solid #ff9e2c;
+  background: var(--vertical-accent);
+  border: 1px solid var(--vertical-accent);
   color: #040404;
-  box-shadow: 0 0 20px rgba(255, 158, 44, 0.2);
+  box-shadow: 0 0 20px var(--vertical-accent-soft);
 }
 
 .diagnostic-button:hover {
-  background: #ffb052;
+  filter: brightness(1.08);
 }
 
 .diagnostic-pill {
@@ -420,7 +452,7 @@ body {
   width: 20px;
   height: 20px;
   border-style: solid;
-  border-color: rgba(255, 158, 44, 0.55);
+  border-color: var(--vertical-accent-strong);
   z-index: 4;
   pointer-events: none;
 }
@@ -1083,9 +1115,9 @@ body {
   z-index: -2;
   pointer-events: none;
   background:
-    radial-gradient(circle at 15% 20%, rgba(138, 107, 84, 0.15) 0%, transparent 40%),
-    radial-gradient(circle at 85% 60%, rgba(90, 75, 70, 0.1) 0%, transparent 50%),
-    linear-gradient(to bottom, #161413 0%, #0d0c0b 100%);
+    radial-gradient(circle at 15% 20%, color-mix(in srgb, var(--vertical-accent) 18%, transparent) 0%, transparent 40%),
+    radial-gradient(circle at 85% 60%, color-mix(in srgb, var(--vertical-accent) 12%, transparent) 0%, transparent 50%),
+    linear-gradient(to bottom, color-mix(in srgb, var(--vertical-bg-top) 85%, #161413) 0%, color-mix(in srgb, var(--vertical-bg-base) 88%, #0d0c0b) 100%);
 }
 
 .report-noise-overlay {
@@ -1126,7 +1158,7 @@ body {
   font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #c49a7a;
+  color: var(--vertical-accent);
   font-weight: 700;
 }
 
@@ -1255,7 +1287,7 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #c49a7a;
+  color: var(--vertical-accent);
   font-size: 0.9rem;
 }
 
@@ -1275,7 +1307,7 @@ body {
   align-items: center;
   justify-content: center;
   background:
-    radial-gradient(circle at 50% 50%, rgba(196, 154, 122, 0.08) 0%, transparent 60%),
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--vertical-accent) 16%, transparent) 0%, transparent 60%),
     rgba(40, 35, 32, 0.4);
 }
 
@@ -1319,7 +1351,7 @@ body {
 }
 
 .report-variant .text-teal-700 {
-  color: #c49a7a !important;
+  color: var(--vertical-accent) !important;
 }
 
 .report-variant .bg-slate-50,

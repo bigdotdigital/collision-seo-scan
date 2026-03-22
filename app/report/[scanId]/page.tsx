@@ -89,7 +89,9 @@ export default async function ReportPage({ params }: { params: { scanId: string 
       printedAt,
       scoreCondition,
       competitorRows,
-      verticalConfig
+      verticalConfig,
+      marketIntelCards,
+      verticalThemeTone
     } = state;
     const withIntent = (url: string, intent: 'fix_seo' | 'redesign' | 'monitoring') => {
       try {
@@ -155,7 +157,10 @@ export default async function ReportPage({ params }: { params: { scanId: string 
     } as const;
 
     return (
-      <main className="container-shell report-print report-diagnostic report-variant pb-24 pt-10 md:pb-10">
+      <main
+        className="container-shell report-print report-diagnostic report-variant pb-24 pt-10 md:pb-10"
+        data-vertical={verticalConfig.slug}
+      >
       <div className="report-ambient-glow" />
       <div className="report-noise-overlay" />
       {!scanRecord.email ? <ReportEmailCapture scanId={scanRecord.id} /> : null}
@@ -202,6 +207,9 @@ export default async function ReportPage({ params }: { params: { scanId: string 
         <h2 className="report-arch-title">{verticalConfig.reportHeroTitle}</h2>
         <p className="report-arch-copy">
           {verticalConfig.reportHeroCopy}
+        </p>
+        <p className="mt-4 max-w-3xl text-xs font-medium uppercase tracking-[0.18em] text-white/45">
+          {verticalThemeTone.eyebrow} • {verticalThemeTone.summary}
         </p>
       </section>
 
@@ -971,11 +979,11 @@ export default async function ReportPage({ params }: { params: { scanId: string 
           Industry-specific demand and conversion patterns we are already seeing shape this vertical.
         </p>
         <div className="mt-4 grid gap-4 lg:grid-cols-3">
-          {verticalConfig.industryInsights.map((insight) => (
+          {marketIntelCards.map((insight) => (
             <article key={insight.title} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-700">{insight.title}</p>
-              <p className="mt-2 text-sm text-slate-700">{insight.detail}</p>
-              <p className="mt-3 text-sm font-medium text-slate-900">{insight.implication}</p>
+              <p className="mt-2 text-sm text-slate-700">{insight.insight}</p>
+              <p className="mt-3 text-sm font-medium text-slate-900">{insight.action}</p>
               <a
                 href={insight.sourceUrl}
                 target="_blank"

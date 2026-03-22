@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { parseJson } from '@/lib/json';
 import { getCityDemandContext } from '@/lib/market-intel';
 import { getShopFallbackIntel } from '@/lib/shop-fallback-intel';
+import { getServiceMarketIntel, getVerticalThemeTone } from '@/lib/service-market-intel';
 import type { Issue } from '@/lib/types';
 import { buildReportViewModel, type ReportData } from '@/lib/report-view-model';
 import { parseReportPayload } from '@/lib/report-payload';
@@ -153,6 +154,8 @@ export async function loadReportPageState(scanId: string) {
   const scoreLocal = scanRecord.scoreLocal ?? 0;
   const scoreIntent = scanRecord.scoreIntent ?? 0;
   const verticalConfig = getVerticalConfig(dbScan?.vertical);
+  const marketIntelCards = getServiceMarketIntel(dbScan?.vertical);
+  const verticalThemeTone = getVerticalThemeTone(dbScan?.vertical);
   const categoryScores = normalizeCategoryScores(
     payload?.categoryScores || raw.categoryScores,
     {
@@ -451,6 +454,8 @@ export async function loadReportPageState(scanId: string) {
     scoreCondition,
     competitorRows,
     verticalConfig,
+    marketIntelCards,
+    verticalThemeTone,
     ...sourceState
   };
 }
