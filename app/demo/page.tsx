@@ -78,6 +78,14 @@ export default function DemoReportPage({ searchParams }: Props) {
     { label: 'Performance', value: demo.categoryScores.speedPerformance },
     { label: 'Mobile Exp.', value: 68 }
   ];
+  const weeklyRead =
+    vertical === 'hvac'
+      ? 'Lead flow is solid, but emergency clarity and financing visibility are still under-monetized.'
+      : vertical === 'plumbing'
+        ? 'You are visible enough to compete, but not yet converting urgent intent as efficiently as the best local operators.'
+        : vertical === 'roofing'
+          ? 'Storm-ready messaging is present, but trust framing and inspection-first conversion still leave room to win.'
+          : 'Local authority is strong, but conversion hierarchy and trust proof still leave estimate demand on the table.';
 
   return (
     <main className="container-shell report-variant pb-16 pt-10" data-vertical={vertical}>
@@ -114,10 +122,8 @@ export default function DemoReportPage({ searchParams }: Props) {
           <Link
             key={slug}
             href={`/demo?vertical=${slug}`}
-            className={`rounded-2xl border px-4 py-3 text-sm font-semibold backdrop-blur ${
-              slug === vertical
-                ? 'border-white/30 bg-white/10 text-white'
-                : 'border-white/10 bg-white/[0.03] text-white/70'
+            className={`demo-vertical-tab ${
+              slug === vertical ? 'demo-vertical-tab-active' : 'demo-vertical-tab-idle'
             }`}
           >
             {VERTICALS[slug].label}
@@ -152,15 +158,24 @@ export default function DemoReportPage({ searchParams }: Props) {
       </section>
 
       <section className="variant-results-grid mb-6">
-        <article className="variant-score-card">
-          <div
-            className="variant-score-ring"
-            style={{ '--score-deg': `${Math.round((demo.overallScore / 100) * 360)}deg` } as Record<string, string>}
-          >
-            <span className="variant-score-value">{demo.overallScore}</span>
+        <article className="variant-report-card">
+          <p className="variant-card-label">Operator read</p>
+          <h3 className="mt-3 text-2xl font-semibold text-white">What this report is really saying</h3>
+          <p className="mt-3 text-sm leading-7 text-white/80">{weeklyRead}</p>
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">Overall</p>
+              <p className="mt-2 text-3xl font-semibold text-white">{demo.overallScore}</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">Top issue count</p>
+              <p className="mt-2 text-3xl font-semibold text-white">{demo.topFixes.length}</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">Competitor delta</p>
+              <p className="mt-2 text-3xl font-semibold text-white">+{demo.overallScore - competitorRows[1].score}</p>
+            </div>
           </div>
-          <p className="variant-score-label">Visibility Score</p>
-          <p className="variant-score-condition">Good Condition</p>
         </article>
 
         <article className="variant-report-card">
