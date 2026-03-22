@@ -255,17 +255,15 @@ export default function DemoReportPage({ searchParams }: Props) {
         </p>
       </section>
 
-      <section className="mt-8">
-        <Link href="/" className="text-sm font-semibold text-[#c49a7a] underline">
+      <section className="mt-8 card p-6">
+        <Link href="/" className="text-sm font-semibold text-[#f1bc92] underline">
           Run a live scan
         </Link>
+        <p className="mt-4 text-xs text-white/70">
+          Demo content only. For real values, run a fresh scan.
+        </p>
+        <PublicPoweredByFooter className="mt-6" />
       </section>
-
-      <section className="mt-12 text-xs text-white/45">
-        Demo content only. For real values, run a fresh scan.
-      </section>
-
-      <PublicPoweredByFooter className="mt-8" />
     </main>
   );
 }
