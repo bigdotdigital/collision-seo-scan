@@ -1,11 +1,22 @@
 import type { MetadataRoute } from 'next';
 
 const BASE_URL = 'https://shopseoscan.com';
+const CITY_MARKET_PATHS = [
+  '/markets/co/denver',
+  '/markets/co/denver/collision-seo',
+  '/markets/co/colorado-springs',
+  '/markets/co/colorado-springs/collision-seo',
+  '/markets/co/fort-collins',
+  '/markets/co/fort-collins/collision-seo',
+  '/markets/co/boulder',
+  '/markets/co/boulder/collision-seo',
+  '/markets/co/lakewood',
+  '/markets/co/lakewood/collision-seo'
+];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
-
-  return [
+  const staticRoutes: MetadataRoute.Sitemap = [
     {
       url: `${BASE_URL}/`,
       lastModified: now,
@@ -139,4 +150,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8
     }
   ];
+
+  const marketRoutes: MetadataRoute.Sitemap = CITY_MARKET_PATHS.map((path) => ({
+    url: `${BASE_URL}${path}`,
+    lastModified: now,
+    changeFrequency: 'weekly',
+    priority: path.endsWith('/collision-seo') ? 0.72 : 0.68
+  }));
+
+  return [...staticRoutes, ...marketRoutes];
 }
