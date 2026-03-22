@@ -37,6 +37,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.84
     },
     {
+      url: `${BASE_URL}/collision-repair-seo`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.84
+    },
+    {
       url: `${BASE_URL}/auto-body-seo`,
       lastModified: now,
       changeFrequency: 'weekly',

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ScanForm } from '@/components/scan-form';
 import { PublicPoweredByFooter } from '@/components/public-powered-by-footer';
+import { PublicSeoSchema } from '@/components/public-seo-schema';
 
 export const metadata: Metadata = {
   title: 'Free SEO Scan | Instant Website SEO Scan for Local Service Businesses',
@@ -36,9 +37,33 @@ const sections = [
   }
 ];
 
+const faq = [
+  {
+    question: 'What does a free SEO scan show?',
+    answer:
+      'A free SEO scan shows what is broken on your site, where local visibility is leaking, how competitors may be stronger, and which fixes are most likely to improve calls and leads.'
+  },
+  {
+    question: 'Who is this free SEO scan for?',
+    answer:
+      'It is built for local service businesses like collision shops, HVAC companies, roofers, and plumbers that need practical visibility insights instead of generic SEO dashboards.'
+  },
+  {
+    question: 'Is this just a generic website grader?',
+    answer:
+      'No. Shop SEO Scan is designed to connect issues to real local business outcomes like calls, booked jobs, estimate flow, trust, and competitor pressure.'
+  }
+];
+
 export default function FreeSeoScanPage() {
   return (
     <main className="diagnostic-page relative overflow-hidden py-16 md:py-20">
+      <PublicSeoSchema
+        title="Free SEO Scan | Instant Website SEO Scan for Local Service Businesses"
+        description="Run a free SEO scan for your local service business. Get a fast report on website leaks, local SEO gaps, competitor pressure, and the fixes most likely to improve calls and leads."
+        path="/free-seo-scan"
+        faq={faq}
+      />
       <div className="diagnostic-bg-rings" />
 
       <section className="container-shell relative z-10">
@@ -99,6 +124,15 @@ export default function FreeSeoScanPage() {
                 <article key={section.title} className="rounded-2xl border border-white/10 bg-black/20 p-5">
                   <h2 className="text-lg font-semibold text-slate-100">{section.title}</h2>
                   <p className="mt-3 text-sm leading-7 text-slate-300">{section.body}</p>
+                </article>
+              ))}
+            </div>
+
+            <div className="mt-10 grid gap-4">
+              {faq.map((item) => (
+                <article key={item.question} className="rounded-2xl border border-white/10 bg-black/20 p-5">
+                  <h2 className="text-lg font-semibold text-slate-100">{item.question}</h2>
+                  <p className="mt-3 text-sm leading-7 text-slate-300">{item.answer}</p>
                 </article>
               ))}
             </div>

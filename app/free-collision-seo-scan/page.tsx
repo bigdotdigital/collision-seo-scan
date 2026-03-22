@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ScanForm } from '@/components/scan-form';
 import { PublicPoweredByFooter } from '@/components/public-powered-by-footer';
+import { PublicSeoSchema } from '@/components/public-seo-schema';
 
 export const metadata: Metadata = {
   title: 'Free Collision SEO Scan | Free Auto Body SEO Tool | Collision SEO',
@@ -30,6 +31,12 @@ const faq = [
 export default function FreeCollisionSeoScanPage() {
   return (
     <main className="diagnostic-page relative overflow-hidden py-16 md:py-20" data-vertical="collision">
+      <PublicSeoSchema
+        title="Free Collision SEO Scan | Free Auto Body SEO Tool | Collision SEO"
+        description="Run a free collision SEO scan for your auto body shop. Find local ranking leaks, estimate-path issues, trust gaps, and competitor pressure with a free auto body SEO tool built for collision repair."
+        path="/free-collision-seo-scan"
+        faq={faq.map((item) => ({ question: item.q, answer: item.a }))}
+      />
       <div className="diagnostic-bg-rings" />
 
       <section className="container-shell relative z-10">

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ScanForm } from '@/components/scan-form';
 import { PublicPoweredByFooter } from '@/components/public-powered-by-footer';
+import { PublicSeoSchema } from '@/components/public-seo-schema';
 
 export const metadata: Metadata = {
   title: 'Collision SEO | SEO for Collision Repair and Auto Body Shops',
@@ -30,9 +31,33 @@ const sections = [
   }
 ];
 
+const faq = [
+  {
+    question: 'What is collision SEO?',
+    answer:
+      'Collision SEO is the work of improving how a body shop ranks and converts in local search, maps, and service-intent searches so more nearby drivers request estimates.'
+  },
+  {
+    question: 'What makes collision SEO different from generic SEO?',
+    answer:
+      'Collision SEO needs to account for estimate flow, maps trust, reviews, specialty repair coverage, insurance help, and local competitor pressure instead of just generic content volume.'
+  },
+  {
+    question: 'Can I run a free collision SEO scan first?',
+    answer:
+      'Yes. Start with the free collision SEO scan to see what is suppressing visibility, trust, and estimate conversion before deciding whether to DIY, monitor, or hire help.'
+  }
+];
+
 export default function CollisionSeoPage() {
   return (
     <main className="diagnostic-page relative overflow-hidden py-16 md:py-20" data-vertical="collision">
+      <PublicSeoSchema
+        title="Collision SEO | SEO for Collision Repair and Auto Body Shops"
+        description="Shop SEO Scan helps collision repair shops understand what is holding back rankings, maps visibility, trust, and estimate flow. Run a free collision SEO scan built for auto body shops."
+        path="/collision-seo"
+        faq={faq}
+      />
       <div className="diagnostic-bg-rings" />
 
       <section className="container-shell relative z-10">
@@ -86,6 +111,15 @@ export default function CollisionSeoPage() {
                 <article key={section.title} className="rounded-2xl border border-white/10 bg-black/20 p-5">
                   <h2 className="text-lg font-semibold text-slate-100">{section.title}</h2>
                   <p className="mt-3 text-sm leading-7 text-slate-300">{section.body}</p>
+                </article>
+              ))}
+            </div>
+
+            <div className="mt-10 grid gap-4">
+              {faq.map((item) => (
+                <article key={item.question} className="rounded-2xl border border-white/10 bg-black/20 p-5">
+                  <h2 className="text-lg font-semibold text-slate-100">{item.question}</h2>
+                  <p className="mt-3 text-sm leading-7 text-slate-300">{item.answer}</p>
                 </article>
               ))}
             </div>
