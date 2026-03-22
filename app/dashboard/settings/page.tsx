@@ -28,7 +28,7 @@ export default async function DashboardSettingsPage({
   const [org, location, keywordCount, competitorCount, prefs, members, keywords, competitors, user, latestScan, dashboardConfigRow] = await Promise.all([
     prisma.organization.findUnique({
       where: { id: ctx.orgId },
-      select: { name: true, websiteUrl: true, city: true, state: true, phone: true }
+      select: { name: true, websiteUrl: true, city: true, state: true, phone: true, verticalDefault: true }
     }),
     prisma.location.findFirst({
       where: { orgId: ctx.orgId, isPrimary: true },
@@ -200,7 +200,7 @@ export default async function DashboardSettingsPage({
                     <option value="">Auto-detect</option>
                     {profileOptions.map((profileId) => (
                       <option key={profileId} value={profileId}>
-                        {getDashboardProfileById(profileId).label}
+                        {getDashboardProfileById(profileId, org?.verticalDefault).label}
                       </option>
                     ))}
                   </select>

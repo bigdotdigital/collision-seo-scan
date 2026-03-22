@@ -1,5 +1,6 @@
 import type { ReportPayload } from '@/lib/report-payload';
 import type { PrioritizedFix } from '@/lib/types';
+import { getVerticalConfig } from '@/lib/verticals';
 
 export type DashboardEntitlement = 'free' | 'premium';
 
@@ -66,20 +67,128 @@ function architectureBaseScore(payload: ReportPayload | null) {
   );
 }
 
-export function buildCollisionArchitectureSummary(payload: ReportPayload | null, city: string) {
+function buildArchitectureOpportunities(payload: ReportPayload | null, city: string, vertical?: string | null) {
+  const cfg = getVerticalConfig(vertical);
   const checks = payload?.checks;
-  const findings: string[] = [];
-  const trustWeaknesses: string[] = [];
-  const conversionIssues: string[] = [];
   const pageOpportunities: ArchitectureOpportunity[] = [];
 
-  if (!checks?.locationFinderPresent) findings.push('Location structure is thin for local-intent discovery.');
-  if (!checks?.estimateCtaDetected) conversionIssues.push('Estimate CTA is weak or missing on primary pages.');
-  if (!checks?.onlineEstimateFlow) conversionIssues.push('No online estimate flow was detected.');
-  if (!checks?.reviewProofPresent) trustWeaknesses.push('Review proof is not prominent on the site.');
-  if (!checks?.reviewWidgetOrSchema) trustWeaknesses.push('Structured review markup or review widget is missing.');
-  if (!checks?.insuranceGuidancePresent) findings.push('Insurance and claims guidance is light.');
-  if (!checks?.warrantyMentioned) trustWeaknesses.push('Warranty language is not visible.');
+  if (cfg.slug === 'hvac') {
+    if (missingPage(payload, 'services')) {
+      pageOpportunities.push({
+        title: `HVAC repair ${city} page`,
+        reason: 'Service intent coverage is missing for the core heating and cooling term.',
+        priority: 'high'
+      });
+    }
+    if (!hasSignal(payload, /emergency|24\/7|same-day/i)) {
+      pageOpportunities.push({
+        title: `Emergency HVAC service ${city} page`,
+        reason: 'Urgent service intent is often one of the fastest HVAC conversion levers.',
+        priority: 'high'
+      });
+    }
+    if (!hasSignal(payload, /maintenance|tune-up|membership/i)) {
+      pageOpportunities.push({
+        title: `HVAC maintenance plan ${city} page`,
+        reason: 'Maintenance visibility supports both recurring revenue and search intent.',
+        priority: 'medium'
+      });
+    }
+    if (!hasSignal(payload, /heat pump|air quality|iaq/i)) {
+      pageOpportunities.push({
+        title: 'Heat pump or IAQ specialty page',
+        reason: 'Specialty equipment pages strengthen differentiation in HVAC markets.',
+        priority: 'medium'
+      });
+    }
+    if (!hasSignal(payload, /financing|payment/i)) {
+      pageOpportunities.push({
+        title: 'HVAC financing page',
+        reason: 'Financing visibility reduces friction on higher-ticket replacement jobs.',
+        priority: 'medium'
+      });
+    }
+    return pageOpportunities;
+  }
+
+  if (cfg.slug === 'plumbing') {
+    if (missingPage(payload, 'services')) {
+      pageOpportunities.push({
+        title: `Plumber ${city} page`,
+        reason: 'Service intent coverage is missing for the core local plumbing term.',
+        priority: 'high'
+      });
+    }
+    if (!hasSignal(payload, /emergency|24\/7|same-day/i)) {
+      pageOpportunities.push({
+        title: `Emergency plumber ${city} page`,
+        reason: 'Emergency-intent coverage is a major conversion lever in plumbing markets.',
+        priority: 'high'
+      });
+    }
+    if (!hasSignal(payload, /drain/i)) {
+      pageOpportunities.push({
+        title: `Drain cleaning ${city} page`,
+        reason: 'Drain-intent searches are high urgency and often strong commercial opportunities.',
+        priority: 'medium'
+      });
+    }
+    if (!hasSignal(payload, /water heater/i)) {
+      pageOpportunities.push({
+        title: `Water heater repair ${city} page`,
+        reason: 'Water heater intent is a common high-value plumbing search theme.',
+        priority: 'medium'
+      });
+    }
+    if (!hasSignal(payload, /sewer|leak/i)) {
+      pageOpportunities.push({
+        title: 'Leak or sewer specialty page',
+        reason: 'Specialty-service coverage helps match urgent homeowner searches.',
+        priority: 'medium'
+      });
+    }
+    return pageOpportunities;
+  }
+
+  if (cfg.slug === 'roofing') {
+    if (missingPage(payload, 'services')) {
+      pageOpportunities.push({
+        title: `Roof repair ${city} page`,
+        reason: 'Service intent coverage is missing for the core local roofing term.',
+        priority: 'high'
+      });
+    }
+    if (!hasSignal(payload, /storm|hail/i)) {
+      pageOpportunities.push({
+        title: `Storm damage roofing ${city} page`,
+        reason: 'Storm-response coverage is a major roofing demand capture asset.',
+        priority: 'high'
+      });
+    }
+    if (!hasSignal(payload, /inspection/i)) {
+      pageOpportunities.push({
+        title: `Roof inspection ${city} page`,
+        reason: 'Inspection-first pages often convert earlier than replacement-only copy.',
+        priority: 'medium'
+      });
+    }
+    if (!hasSignal(payload, /insurance|claim/i)) {
+      pageOpportunities.push({
+        title: 'Insurance claims help page',
+        reason: 'Insurance guidance reduces friction in storm-driven roofing jobs.',
+        priority: 'medium'
+      });
+    }
+    if (!checks?.warrantyMentioned) {
+      pageOpportunities.push({
+        title: 'Warranty and financing page',
+        reason: 'Warranty and financing visibility strengthens trust on bigger roofing jobs.',
+        priority: 'medium'
+      });
+    }
+    return pageOpportunities;
+  }
+
   if (!checks?.adasMentioned) {
     pageOpportunities.push({
       title: 'ADAS calibration page',
@@ -130,11 +239,31 @@ export function buildCollisionArchitectureSummary(payload: ReportPayload | null,
       priority: 'low'
     });
   }
+  return pageOpportunities;
+}
+
+export function buildCollisionArchitectureSummary(payload: ReportPayload | null, city: string, vertical?: string | null) {
+  const checks = payload?.checks;
+  const cfg = getVerticalConfig(vertical);
+  const findings: string[] = [];
+  const trustWeaknesses: string[] = [];
+  const conversionIssues: string[] = [];
+  const pageOpportunities = buildArchitectureOpportunities(payload, city, vertical);
+
+  if (!checks?.locationFinderPresent) findings.push('Location structure is thin for local-intent discovery.');
+  if (!checks?.estimateCtaDetected) conversionIssues.push(`${cfg.primaryCtaLabel} CTA is weak or missing on primary pages.`);
+  if (!checks?.onlineEstimateFlow) conversionIssues.push(`No visible ${cfg.primaryCtaLabel.toLowerCase()} flow was detected.`);
+  if (!checks?.reviewProofPresent) trustWeaknesses.push('Review proof is not prominent on the site.');
+  if (!checks?.reviewWidgetOrSchema) trustWeaknesses.push('Structured review markup or review widget is missing.');
+  if (!checks?.insuranceGuidancePresent && (cfg.slug === 'collision' || cfg.slug === 'roofing')) {
+    findings.push('Insurance and claims guidance is light.');
+  }
+  if (!checks?.warrantyMentioned) trustWeaknesses.push('Warranty language is not visible.');
 
   const teaser =
     pageOpportunities.length > 0
       ? `${pageOpportunities.length} high-intent architecture opportunities detected.`
-      : 'Collision architecture is present, but deeper page opportunity analysis is premium.';
+      : `${cfg.label} architecture is present, but deeper page opportunity analysis is premium.`;
 
   return {
     score: architectureBaseScore(payload),
@@ -201,7 +330,8 @@ export function buildMapsAuthoritySummary(payload: ReportPayload | null) {
   } satisfies MapsAuthoritySummary;
 }
 
-export function buildCompetitorGapSummary(payload: ReportPayload | null, overallScore: number) {
+export function buildCompetitorGapSummary(payload: ReportPayload | null, overallScore: number, vertical?: string | null) {
+  const cfg = getVerticalConfig(vertical);
   const advantages = payload?.competitorAdvantages || [];
   const strongest = advantages[0] || null;
   const strongestSignals = strongest?.advantages.slice(0, 4) || [];
@@ -212,7 +342,7 @@ export function buildCompetitorGapSummary(payload: ReportPayload | null, overall
 
   const summary =
     strongest
-      ? `${strongest.name} appears stronger in local collision trust and conversion coverage than your current site.`
+      ? `${strongest.name} appears stronger in local ${cfg.label.toLowerCase()} trust and conversion coverage than your current site.`
       : overallScore < 75
         ? 'Local competitors appear stronger in several areas.'
         : 'No strong competitor gap summary is available from the current crawl.';
@@ -230,7 +360,9 @@ export function buildRevenueLeakSummary(args: {
   maps: MapsAuthoritySummary;
   competitor: CompetitorGapSummary;
   topFixes: PrioritizedFix[];
+  vertical?: string | null;
 }) {
+  const cfg = getVerticalConfig(args.vertical);
   const drivers = [
     ...args.architecture.conversionIssues,
     ...args.architecture.trustWeaknesses,
@@ -250,7 +382,7 @@ export function buildRevenueLeakSummary(args: {
     drivers,
     summary:
       severity === 'High'
-        ? 'The site is likely leaking estimate demand due to coverage and conversion gaps.'
+        ? `The site is likely leaking ${cfg.conversionGoalLabel} due to coverage and conversion gaps.`
         : severity === 'Moderate'
           ? 'There are meaningful visibility and conversion leaks, but they look fixable.'
           : 'Current leak risk looks contained relative to the latest scan.'
@@ -261,14 +393,16 @@ export function buildRepairPlan(args: {
   architecture: CollisionArchitectureSummary;
   maps: MapsAuthoritySummary;
   topFixes: PrioritizedFix[];
+  vertical?: string | null;
 }) {
+  const cfg = getVerticalConfig(args.vertical);
   const firstPage = args.architecture.pageOpportunities[0];
   const secondPage = args.architecture.pageOpportunities[1];
   return [
     {
       week: 'Week 1',
       focus: 'Fix conversion blockers',
-      action: args.topFixes[0]?.title || 'Tighten estimate CTA placement and trust proof.'
+      action: args.topFixes[0]?.title || `Tighten ${cfg.primaryCtaLabel.toLowerCase()} placement and trust proof.`
     },
     {
       week: 'Week 2',

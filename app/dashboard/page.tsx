@@ -50,6 +50,9 @@ export default async function DashboardOverviewPage({
     demandContext,
     overviewBadges,
     marketInsights,
+    vertical,
+    verticalConfig,
+    serviceMarketIntel,
     organization,
     setupReadiness,
     nextSteps,
@@ -62,7 +65,10 @@ export default async function DashboardOverviewPage({
   } = await buildDashboardOverviewPageState(ctx.orgId);
   const refreshState = searchParams?.refresh || '';
   const forcedProfileId = isDashboardProfileId(searchParams?.view) ? searchParams?.view : null;
-  const effectiveProfile = forcedProfileId ? getDashboardProfileById(forcedProfileId) : dashboardProfile;
+  const effectiveProfile = forcedProfileId ? getDashboardProfileById(forcedProfileId, vertical) : dashboardProfile;
+  const isCollision = verticalConfig.slug === 'collision';
+  const marketContextTitle = isCollision ? 'Local Demand Context' : `${verticalConfig.label} Market Context`;
+  const primaryCtaLower = verticalConfig.primaryCtaLabel.toLowerCase();
   const premiumBadge = (
     <span className={`dashboard-status ${entitlement === 'premium' ? 'dashboard-status-live' : 'dashboard-status-modeled'}`}>
       {entitlement === 'premium' ? 'Premium' : 'Teaser'}
@@ -83,7 +89,7 @@ export default async function DashboardOverviewPage({
             : 'dashboard-status-live'
       }`}
     >
-      {demandContext?.urgencyLabel || 'Unavailable'}
+      {demandContext?.urgencyLabel || (serviceMarketIntel.length > 0 ? 'Industry intel' : 'Unavailable')}
     </span>
   );
   const revenueBadge = (
@@ -112,7 +118,7 @@ export default async function DashboardOverviewPage({
   const secondaryModuleIds = allModuleIds.filter((id) => !primaryModuleIds.includes(id));
   const moduleMeta: Record<DashboardModuleId, { title: string; summary: string }> = {
     architecture: {
-      title: 'Collision SEO Architecture',
+      title: `${verticalConfig.label} SEO Architecture`,
       summary: 'Page structure, service coverage, trust layers, and conversion readiness.'
     },
     maps: {
@@ -120,16 +126,18 @@ export default async function DashboardOverviewPage({
       summary: 'Google profile strength, review trust, and local pack leverage.'
     },
     demand: {
-      title: 'Local Demand Context',
-      summary: 'Crash, traffic, and hail pressure around this market.'
+      title: marketContextTitle,
+      summary: isCollision
+        ? 'Crash, traffic, and hail pressure around this market.'
+        : `${verticalConfig.label} market pressure, industry patterns, and service-intent context.`
     },
     competitorGap: {
       title: 'Competitor Gap Snapshot',
       summary: 'Where nearby shops appear to out-cover or out-convert you.'
     },
     servicePages: {
-      title: 'Recommended Service Page Opportunities',
-      summary: 'High-intent collision pages missing from the current architecture.'
+      title: `${verticalConfig.label} Service Page Opportunities`,
+      summary: `High-intent ${verticalConfig.label.toLowerCase()} pages missing from the current architecture.`
     },
     revenueLeak: {
       title: 'Revenue Leak Indicator',
@@ -145,11 +153,11 @@ export default async function DashboardOverviewPage({
       title:
         nextSteps[0]?.title ||
         (effectiveProfile.id === 'conversion'
-          ? 'Tighten estimate capture'
+          ? `Tighten ${primaryCtaLower} capture`
           : effectiveProfile.id === 'maps'
             ? 'Increase review and GBP authority'
             : effectiveProfile.id === 'storm'
-              ? 'Publish storm-intent pages'
+              ? (isCollision ? 'Publish storm-intent pages' : `Publish urgent ${verticalConfig.label.toLowerCase()} pages`)
               : effectiveProfile.id === 'authority'
                 ? 'Add trust and specialty proof'
                 : 'Keep weekly momentum'),
@@ -160,7 +168,7 @@ export default async function DashboardOverviewPage({
     {
       title:
         effectiveProfile.id === 'storm'
-          ? 'Watch hail-driven demand'
+          ? (isCollision ? 'Watch hail-driven demand' : `Watch ${verticalConfig.label.toLowerCase()} demand shifts`)
           : effectiveProfile.id === 'maps'
             ? 'Close the local trust gap'
             : effectiveProfile.id === 'conversion'
@@ -168,7 +176,8 @@ export default async function DashboardOverviewPage({
               : 'Use the strongest local signal',
       detail:
         demandContext?.summary ||
-        'Use the demand layer to decide where urgency is real instead of treating every SEO task equally.'
+        serviceMarketIntel[0]?.action ||
+        'Use the market-intel layer to decide where urgency is real instead of treating every SEO task equally.'
     },
     {
       title: 'Stay on the weekly loop',
@@ -217,7 +226,7 @@ export default async function DashboardOverviewPage({
           : marketInsights.percentileLabel,
       detail:
         demandContext?.summary ||
-        `You are currently ${marketInsights.percentileLabel.toLowerCase()} against our stored collision cohort.`,
+        `You are currently ${marketInsights.percentileLabel.toLowerCase()} against our stored ${verticalConfig.label.toLowerCase()} cohort.`,
       tone: demandContext?.urgencyLabel === 'High Pressure' ? 'warning' : 'default'
     },
     {
@@ -253,7 +262,7 @@ export default async function DashboardOverviewPage({
       tag === 'service-area'
         ? 'Service area'
         : tag === 'oem'
-          ? 'OEM'
+          ? 'OEM / certifications'
           : tag === 'adas'
             ? 'ADAS'
             : tag.charAt(0).toUpperCase() + tag.slice(1)
@@ -348,8 +357,27 @@ export default async function DashboardOverviewPage({
                   </div>
                 </div>
               </div>
+            ) : serviceMarketIntel.length > 0 ? (
+              <div className="space-y-3">
+                {serviceMarketIntel.slice(0, 3).map((item) => (
+                  <div key={item.title} className="dashboard-subpanel rounded-[18px] p-3">
+                    <p className="text-sm font-semibold text-[var(--dashboard-text)]">{item.title}</p>
+                    <p className="dashboard-body-sm mt-1">{item.insight}</p>
+                    <p className="mt-2 text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                      {item.sourceLabel}
+                    </p>
+                  </div>
+                ))}
+              </div>
             ) : (
-              <LockedModuleTeaser title="Local demand data is still filling in" body="Run a market-intel refresh to unlock city-level crash, traffic, and hail context." />
+              <LockedModuleTeaser
+                title={`${verticalConfig.label} market context is still filling in`}
+                body={
+                  isCollision
+                    ? 'Run a market-intel refresh to unlock city-level crash, traffic, and hail context.'
+                    : `We are still filling in deeper ${verticalConfig.label.toLowerCase()} market context for this workspace.`
+                }
+              />
             )}
           </>
         );
@@ -384,7 +412,10 @@ export default async function DashboardOverviewPage({
                 ))}
               </div>
             ) : (
-              <LockedModuleTeaser title="High-intent page opportunities detected" body="Upgrade to unlock the exact service, OEM, and specialty page recommendations." />
+              <LockedModuleTeaser
+                title="High-intent page opportunities detected"
+                body={`Upgrade to unlock the exact ${verticalConfig.label.toLowerCase()} service, trust, and specialty page recommendations.`}
+              />
             )}
           </>
         );
@@ -473,7 +504,7 @@ export default async function DashboardOverviewPage({
     <div className="space-y-6">
       <PageHeader
         title="SEO Revenue Dashboard"
-        subtitle="Your weekly monitoring workspace for visibility, map authority, local demand pressure, and the clearest next steps to win more estimates."
+        subtitle={`Your weekly monitoring workspace for visibility, map authority, ${isCollision ? 'local demand pressure,' : 'market context,'} and the clearest next steps to win more ${verticalConfig.conversionGoalLabel}.`}
         eyebrow="Overview"
         badges={overviewBadges}
         actions={
@@ -623,7 +654,7 @@ export default async function DashboardOverviewPage({
             ) : null}
             <div className="mt-4 flex flex-wrap gap-2">
               {profileViewIds.map((profileId) => {
-                const profile = getDashboardProfileById(profileId);
+                const profile = getDashboardProfileById(profileId, vertical);
                 const isActive = effectiveProfile.id === profileId;
                 const params = new URLSearchParams();
                 if (profileId !== dashboardProfile.id) {
@@ -748,7 +779,9 @@ export default async function DashboardOverviewPage({
                   },
                   {
                     title: 'Review your local demand context',
-                    detail: 'Crash, traffic, and hail pressure now help prioritize fixes in active markets.'
+                    detail: isCollision
+                      ? 'Crash, traffic, and hail pressure now help prioritize fixes in active markets.'
+                      : `${verticalConfig.label} market intelligence now helps prioritize fixes in active service markets.`
                   },
                   {
                     title: 'Use reports in sales conversations',
@@ -828,7 +861,7 @@ export default async function DashboardOverviewPage({
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--text-muted)]">What our dataset says</p>
               <h2 className="mt-2 text-xl font-semibold text-[var(--text-main)]">You’re not competing against a generic SEO rubric</h2>
               <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
-                This compares your latest scan to {marketInsights.cohortLabel} in our own collision dataset.
+                This compares your latest scan to {marketInsights.cohortLabel} in our own stored {verticalConfig.label.toLowerCase()} dataset.
               </p>
             </div>
             <span className="dashboard-status dashboard-status-cached">{marketInsights.percentileLabel}</span>
@@ -881,15 +914,15 @@ export default async function DashboardOverviewPage({
         <section className="card">
           <div className="mb-4">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--text-muted)]">Blind spots in the market</p>
-            <h2 className="mt-2 text-xl font-semibold text-[var(--text-main)]">What still breaks on real collision sites</h2>
+            <h2 className="mt-2 text-xl font-semibold text-[var(--text-main)]">What still breaks on real {verticalConfig.label.toLowerCase()} sites</h2>
           </div>
           <div className="space-y-3">
             <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-[var(--text-main)]">No estimate flow</span>
-                <span className="dashboard-status dashboard-status-warning">{marketInsights.issueRates.noEstimate}%</span>
+                <span className="text-sm font-semibold text-[var(--text-main)]">{marketInsights.issueLabels.primaryConversion}</span>
+                <span className="dashboard-status dashboard-status-warning">{marketInsights.issueRates.noPrimaryConversion}%</span>
               </div>
-              <p className="mt-1 text-sm text-[var(--text-secondary)]">A third of scanned shops still fail here. This is one of the clearest separators in our own data.</p>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">{marketInsights.leverageNotes[0]}</p>
             </div>
             <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">
               <div className="flex items-center justify-between">
@@ -900,10 +933,10 @@ export default async function DashboardOverviewPage({
             </div>
             <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-[var(--text-main)]">No OEM/cert signals</span>
-                <span className="dashboard-status dashboard-status-cached">{marketInsights.issueRates.noOem}%</span>
+                <span className="text-sm font-semibold text-[var(--text-main)]">{marketInsights.issueLabels.authority}</span>
+                <span className="dashboard-status dashboard-status-cached">{marketInsights.issueRates.noAuthority}%</span>
               </div>
-              <p className="mt-1 text-sm text-[var(--text-secondary)]">Certification proof still meaningfully separates stronger shops from weaker ones in the scans we’ve stored.</p>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">{marketInsights.leverageNotes[1]}</p>
             </div>
             {marketInsights.cityRank ? (
               <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-body)] p-4">
@@ -911,7 +944,7 @@ export default async function DashboardOverviewPage({
                   <span className="text-sm font-semibold text-[var(--text-main)]">Market density rank</span>
                   <span className="dashboard-status dashboard-status-live">#{marketInsights.cityRank}</span>
                 </div>
-                <p className="mt-1 text-sm text-[var(--text-secondary)]">Your city is one of the densest collision datasets we’ve scanned so far, so these comparisons are grounded in real local competition.</p>
+                <p className="mt-1 text-sm text-[var(--text-secondary)]">Your city is one of the densest {verticalConfig.label.toLowerCase()} datasets we’ve scanned so far, so these comparisons are grounded in real local competition.</p>
               </div>
             ) : null}
           </div>
@@ -945,6 +978,18 @@ export default async function DashboardOverviewPage({
             className="lg:col-span-1"
           />
         </div>
+      ) : serviceMarketIntel.length > 0 ? (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {serviceMarketIntel.slice(0, 3).map((item) => (
+            <MetricCard
+              key={item.title}
+              value={item.title}
+              label={item.sourceLabel}
+              subtitle={item.action}
+              className="lg:col-span-1"
+            />
+          ))}
+        </div>
       ) : null}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -953,7 +998,7 @@ export default async function DashboardOverviewPage({
           label="Modeled Search Traffic"
           subtitle={
             hasRevenueInputs
-              ? `${revenueImpact.assumptions.ctrModel} from saved money-keyword volume`
+              ? `${revenueImpact.assumptions.ctrModel} from saved high-intent keyword volume`
               : 'Add keyword-demand inputs and this turns on automatically'
           }
           className="lg:col-span-1"

@@ -3,6 +3,7 @@ import { parseJson } from '@/lib/json';
 import { getCityDemandContext } from '@/lib/market-intel';
 import { buildDashboardMarketInsights } from '@/lib/dashboard-market-insights';
 import { buildDashboardProfile } from '@/lib/dashboard-profile';
+import { getServiceMarketIntel } from '@/lib/service-market-intel';
 import {
   parseDashboardCustomizationRecord,
   resolveDashboardProfileWithCustomization
@@ -30,6 +31,7 @@ import {
   buildRevenueLeakSummary,
   premiumEntitlement
 } from '@/lib/dashboard-intelligence';
+import { getVerticalConfig } from '@/lib/verticals';
 
 export async function buildDashboardOverviewPageState(orgId: string) {
   const [latestScan, previousScan, activeKeywords, keywordRows, subscription, competitorCount, organization, dashboardConfigRow] = await Promise.all([
@@ -39,6 +41,7 @@ export async function buildDashboardOverviewPageState(orgId: string) {
       select: {
         id: true,
         createdAt: true,
+        vertical: true,
         scoreTotal: true,
         scoreWebsite: true,
         scoreLocal: true,
@@ -88,7 +91,8 @@ export async function buildDashboardOverviewPageState(orgId: string) {
       select: {
         name: true,
         websiteUrl: true,
-        city: true
+        city: true,
+        verticalDefault: true
       }
     }),
     prisma.dashboardConfiguration.findUnique({
@@ -134,6 +138,9 @@ export async function buildDashboardOverviewPageState(orgId: string) {
   const keywordSummary = summarizeRankedKeywords(keywordRows);
   const yourShop = buildYourShop(latestScan, reportPayload);
   const competitors = buildOverviewCompetitors(reportPayload);
+  const vertical = organization?.verticalDefault || latestScan?.vertical || 'collision';
+  const verticalConfig = getVerticalConfig(vertical);
+  const serviceMarketIntel = getServiceMarketIntel(vertical);
   const competitorSuggestions = latestScan
     ? deriveCompetitorSuggestions({
         shopName: latestScan.shopName || '',
@@ -148,22 +155,25 @@ export async function buildDashboardOverviewPageState(orgId: string) {
     typeof reportPayload?.googlePlace?.lat === 'number' &&
     typeof reportPayload?.googlePlace?.lng === 'number';
 
-  const architecture = buildCollisionArchitectureSummary(reportPayload, latestScan?.city || 'your market');
+  const architecture = buildCollisionArchitectureSummary(reportPayload, latestScan?.city || 'your market', vertical);
   const mapsAuthority = buildMapsAuthoritySummary(reportPayload);
-  const competitorGap = buildCompetitorGapSummary(reportPayload, latestScan?.scoreTotal ?? 0);
+  const competitorGap = buildCompetitorGapSummary(reportPayload, latestScan?.scoreTotal ?? 0, vertical);
   const repairPlan = buildRepairPlan({
     architecture,
     maps: mapsAuthority,
-    topFixes: reportPayload?.topFixes || []
+    topFixes: reportPayload?.topFixes || [],
+    vertical
   });
   const revenueLeak = buildRevenueLeakSummary({
     architecture,
     maps: mapsAuthority,
     competitor: competitorGap,
-    topFixes: reportPayload?.topFixes || []
+    topFixes: reportPayload?.topFixes || [],
+    vertical
   });
-  const demandContext = await getCityDemandContext({ city: latestScan?.city });
+  const demandContext = vertical === 'collision' ? await getCityDemandContext({ city: latestScan?.city }) : null;
   const marketInsights = await buildDashboardMarketInsights({
+    vertical,
     city: organization?.city || latestScan?.city,
     scoreTotal: latestScan?.scoreTotal,
     scoreWebsite: latestScan?.scoreWebsite,
@@ -250,24 +260,24 @@ export async function buildDashboardOverviewPageState(orgId: string) {
     {
       label: 'Biggest win available',
       value:
-        marketInsights.issueRates.noEstimate >= 25
-          ? 'Estimate flow'
-          : marketInsights.issueRates.noOem >= 10
-            ? 'Trust/OEM proof'
+        marketInsights.issueRates.noPrimaryConversion >= 25
+          ? verticalConfig.primaryCtaLabel
+          : marketInsights.issueRates.noAuthority >= 10
+            ? verticalConfig.authorityLabel
             : 'Review visibility',
       detail:
-        marketInsights.issueRates.noEstimate >= 25
-          ? `In our scan dataset, shops with an estimate flow materially outperform those without one.`
-          : marketInsights.issueRates.noOem >= 10
-            ? 'Certification and trust signals still separate stronger collision shops from weaker ones.'
+        marketInsights.issueRates.noPrimaryConversion >= 25
+          ? marketInsights.leverageNotes[0]
+          : marketInsights.issueRates.noAuthority >= 10
+            ? marketInsights.leverageNotes[1]
             : 'Review proof is still one of the fastest visible wins in this market.'
     },
     {
       label: 'Business context',
-      value: demandContext ? demandContext.urgencyLabel : 'Monitoring',
+      value: demandContext ? demandContext.urgencyLabel : verticalConfig.label,
       detail: demandContext
         ? demandContext.summary
-        : 'Demand context fills in once city-level crash, traffic, and hail observations are attached.'
+        : serviceMarketIntel[0]?.action || `${verticalConfig.label} market context is now coming from our stored industry intelligence layer.`
     },
     {
       label: 'Data confidence',
@@ -279,6 +289,7 @@ export async function buildDashboardOverviewPageState(orgId: string) {
     }
   ];
   const detectedDashboardProfile = buildDashboardProfile({
+    vertical,
     hasWebsite,
     hasGoogleProfile,
     reviewCount: reportPayload?.googlePlace?.userRatingCount || fallbackIntel?.googlePlace?.userRatingCount || 0,
@@ -293,7 +304,8 @@ export async function buildDashboardOverviewPageState(orgId: string) {
   const dashboardCustomization = parseDashboardCustomizationRecord(dashboardConfigRow);
   const dashboardProfile = resolveDashboardProfileWithCustomization({
     detectedProfile: detectedDashboardProfile,
-    customization: dashboardCustomization
+    customization: dashboardCustomization,
+    vertical
   });
 
   return {
@@ -328,6 +340,9 @@ export async function buildDashboardOverviewPageState(orgId: string) {
       sources: reportPayload?.sources
     }),
     marketInsights,
+    vertical,
+    verticalConfig,
+    serviceMarketIntel,
     organization,
     competitorCount,
     setupReadiness,

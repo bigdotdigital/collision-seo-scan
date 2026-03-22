@@ -134,9 +134,10 @@ export function buildDashboardCustomizationInput(args: {
 export function resolveDashboardProfileWithCustomization(args: {
   detectedProfile: DashboardProfile;
   customization: DashboardCustomization;
+  vertical?: string | null;
 }): DashboardProfile {
   const base = args.customization.preferredProfileId
-    ? getDashboardProfileById(args.customization.preferredProfileId)
+    ? getDashboardProfileById(args.customization.preferredProfileId, args.vertical)
     : args.detectedProfile;
 
   if (args.customization.primaryModuleIds.length === 0) {

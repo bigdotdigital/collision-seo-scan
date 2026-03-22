@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { getVerticalConfig } from '@/lib/verticals';
 
 type CohortScanRow = {
   city: string | null;
@@ -11,9 +12,9 @@ type CohortScanRow = {
 
 type CohortFeatureRow = {
   score: number;
-  hasEstimate: boolean;
+  hasPrimaryConversion: boolean;
   hasReviews: boolean;
-  hasOem: boolean;
+  hasAuthority: boolean;
 };
 
 export type DashboardMarketInsights = {
@@ -27,9 +28,13 @@ export type DashboardMarketInsights = {
   percentileLabel: string;
   leverageNotes: string[];
   issueRates: {
-    noEstimate: number;
+    noPrimaryConversion: number;
     noReviews: number;
-    noOem: number;
+    noAuthority: number;
+  };
+  issueLabels: {
+    primaryConversion: string;
+    authority: string;
   };
 };
 
@@ -51,20 +56,28 @@ function percent(part: number, total: number) {
   return Math.round((part / total) * 100);
 }
 
-function featureRows(scans: CohortScanRow[]): CohortFeatureRow[] {
+function featureRows(scans: CohortScanRow[], vertical?: string | null): CohortFeatureRow[] {
+  const cfg = getVerticalConfig(vertical);
   return scans.map((scan) => {
     const raw = parseRawChecks(scan.rawChecksJson);
+    const checks = raw?.checks || {};
     return {
       score: scan.scoreTotal,
-      hasEstimate: Boolean(
-        raw?.checks?.onlineEstimateFlow ||
-          raw?.checks?.estimateCtaDetected ||
-          raw?.estimateCtaDetected
-      ),
+      hasPrimaryConversion: Boolean(checks.onlineEstimateFlow || checks.estimateCtaDetected || raw?.estimateCtaDetected),
       hasReviews: Boolean(
         (raw?.googlePlace?.userRatingCount || 0) > 0 || (raw?.reviews?.reviews || 0) > 0
       ),
-      hasOem: Array.isArray(raw?.checks?.oemSignals) && raw.checks.oemSignals.length > 0
+      hasAuthority:
+        cfg.slug === 'collision'
+          ? Array.isArray(checks.oemSignals) && checks.oemSignals.length > 0
+          : cfg.slug === 'hvac'
+            ? Boolean(checks.warrantyMentioned || checks.insuranceGuidancePresent)
+            : cfg.slug === 'roofing'
+              ? Boolean(checks.warrantyMentioned || checks.insuranceGuidancePresent)
+              : Boolean(
+                  checks.warrantyMentioned ||
+                    checks.insuranceGuidancePresent
+                )
     };
   });
 }
@@ -80,16 +93,18 @@ function compareAverage(rows: CohortFeatureRow[], key: keyof Omit<CohortFeatureR
 
 export async function buildDashboardMarketInsights(input: {
   city?: string | null;
+  vertical?: string | null;
   scoreTotal?: number | null;
   scoreWebsite?: number | null;
   scoreLocal?: number | null;
   scoreIntent?: number | null;
 }) {
+  const cfg = getVerticalConfig(input.vertical);
   const scans = await prisma.scan.findMany({
     where: {
       executionStatus: 'completed',
       organizationId: { not: null },
-      vertical: 'collision'
+      vertical: cfg.slug
     },
     orderBy: { createdAt: 'desc' },
     take: 400,
@@ -109,7 +124,7 @@ export async function buildDashboardMarketInsights(input: {
     : [];
   const cohort = cityCohort.length >= 12 ? cityCohort : scans;
   const cohortLabel =
-    cityCohort.length >= 12 && input.city ? `${input.city} collision cohort` : 'all scanned collision shops';
+    cityCohort.length >= 12 && input.city ? `${input.city} ${cfg.label.toLowerCase()} cohort` : `all scanned ${cfg.label.toLowerCase()} shops`;
 
   const scoreDelta = (input.scoreTotal ?? 0) - average(cohort.map((scan) => scan.scoreTotal));
   const websiteDelta = (input.scoreWebsite ?? 0) - average(cohort.map((scan) => scan.scoreWebsite));
@@ -120,10 +135,10 @@ export async function buildDashboardMarketInsights(input: {
   const lowerOrEqual = rankedScores.filter((score) => score <= (input.scoreTotal ?? 0)).length;
   const percentile = percent(lowerOrEqual, rankedScores.length || 1);
 
-  const rows = featureRows(cohort);
-  const estimate = compareAverage(rows, 'hasEstimate');
+  const rows = featureRows(cohort, cfg.slug);
+  const primaryConversion = compareAverage(rows, 'hasPrimaryConversion');
   const reviews = compareAverage(rows, 'hasReviews');
-  const oem = compareAverage(rows, 'hasOem');
+  const authority = compareAverage(rows, 'hasAuthority');
 
   const cityCounts = Object.entries(
     scans.reduce<Record<string, number>>((acc, scan) => {
@@ -141,8 +156,8 @@ export async function buildDashboardMarketInsights(input: {
     : null;
 
   const leverageNotes = [
-    `Shops with an estimate flow average ${estimate.withFeature}, versus ${estimate.withoutFeature} without one.`,
-    `Shops with OEM/certification signals average ${oem.withFeature}, versus ${oem.withoutFeature} without them.`,
+    `Shops with a visible ${cfg.primaryCtaLabel.toLowerCase()} flow average ${primaryConversion.withFeature}, versus ${primaryConversion.withoutFeature} without one.`,
+    `Shops with stronger ${cfg.authorityLabel.toLowerCase()} signals average ${authority.withFeature}, versus ${authority.withoutFeature} without them.`,
     `Shops with saved review signals average ${reviews.withFeature}, versus ${reviews.withoutFeature} without them.`
   ];
 
@@ -157,9 +172,13 @@ export async function buildDashboardMarketInsights(input: {
     percentileLabel: `Top ${Math.max(1, 100 - percentile + 1)}% of ${cohortLabel}`,
     leverageNotes,
     issueRates: {
-      noEstimate: percent(rows.filter((row) => !row.hasEstimate).length, rows.length),
+      noPrimaryConversion: percent(rows.filter((row) => !row.hasPrimaryConversion).length, rows.length),
       noReviews: percent(rows.filter((row) => !row.hasReviews).length, rows.length),
-      noOem: percent(rows.filter((row) => !row.hasOem).length, rows.length)
+      noAuthority: percent(rows.filter((row) => !row.hasAuthority).length, rows.length)
+    },
+    issueLabels: {
+      primaryConversion: `No visible ${cfg.primaryCtaLabel.toLowerCase()} path`,
+      authority: `Weak ${cfg.authorityLabel.toLowerCase()} signals`
     }
   } satisfies DashboardMarketInsights;
 }
