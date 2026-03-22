@@ -91,16 +91,52 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.6
     },
     {
+      url: `${BASE_URL}/hvac-seo`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.8
+    },
+    {
+      url: `${BASE_URL}/free-hvac-seo-scan`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.8
+    },
+    {
       url: `${BASE_URL}/roofing`,
       lastModified: now,
       changeFrequency: 'monthly',
       priority: 0.6
     },
     {
+      url: `${BASE_URL}/roofing-seo`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.8
+    },
+    {
+      url: `${BASE_URL}/free-roofing-seo-scan`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.8
+    },
+    {
       url: `${BASE_URL}/plumbing`,
       lastModified: now,
       changeFrequency: 'monthly',
       priority: 0.6
+    },
+    {
+      url: `${BASE_URL}/plumbing-seo`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.8
+    },
+    {
+      url: `${BASE_URL}/free-plumbing-seo-scan`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.8
     }
   ];
 }
