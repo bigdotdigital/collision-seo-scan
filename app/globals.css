@@ -1135,11 +1135,11 @@ body {
 .variant-score-card,
 .variant-report-card {
   border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(40, 35, 32, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(22, 19, 17, 0.68);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.32);
 }
 
 .report-header-panel {
@@ -1147,10 +1147,10 @@ body {
 }
 
 .report-arch-hero {
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 24px;
   padding: 1.5rem;
-  background: rgba(40, 35, 32, 0.35);
+  background: rgba(22, 19, 17, 0.62);
 }
 
 .report-arch-kicker {
@@ -1174,7 +1174,7 @@ body {
 .report-arch-copy {
   margin: 0.75rem 0 0;
   max-width: 60ch;
-  color: #cfc7c1;
+  color: #e3ddd8;
   font-size: 0.9rem;
 }
 
@@ -1313,8 +1313,8 @@ body {
 
 .report-variant .report-grade-card {
   border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(40, 35, 32, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(24, 21, 19, 0.72);
   padding: 1.1rem 1rem;
   min-height: 110px;
 }
@@ -1324,7 +1324,7 @@ body {
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: #a8a09b;
+  color: #d2c8c0;
 }
 
 .report-grade-value {
@@ -1338,7 +1338,7 @@ body {
 .report-grade-hint {
   margin-top: 0.45rem;
   font-size: 0.75rem;
-  color: #b8aea7;
+  color: #d4cbc5;
   line-height: 1.35;
 }
 
@@ -1374,16 +1374,16 @@ body {
 }
 
 .report-variant .variant-card-label {
-  color: #a8a09b;
+  color: #d2c8c0;
 }
 
 .report-variant .variant-issue-copy,
 .report-variant .variant-table td {
-  color: #c3beb9;
+  color: #e2dad4;
 }
 
 .report-variant .variant-table th {
-  color: #a8a09b;
+  color: #d4cbc5;
 }
 
 .report-variant .variant-score-card,
@@ -1396,7 +1396,7 @@ body {
 }
 
 .report-variant .variant-score-label {
-  color: #a8a09b;
+  color: #d2c8c0;
 }
 
 .report-variant .variant-score-condition {
@@ -1408,11 +1408,11 @@ body {
 }
 
 .report-variant .text-sm {
-  color: #d8d2cd;
+  color: #eee7e1;
 }
 
 .report-variant .text-xs {
-  color: #b8aea7;
+  color: #d9cec6;
 }
 
 .report-variant .text-white\/95 {
@@ -1420,15 +1420,15 @@ body {
 }
 
 .report-variant .text-white\/70 {
-  color: #dfd8d3 !important;
+  color: #eee7e1 !important;
 }
 
 .report-variant .text-white\/60 {
-  color: #c8bdb5 !important;
+  color: #e2d8cf !important;
 }
 
 .report-variant .text-white\/45 {
-  color: #a89a90 !important;
+  color: #cfc2b7 !important;
 }
 
 .report-variant summary::-webkit-details-marker {
