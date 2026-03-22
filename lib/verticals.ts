@@ -32,6 +32,13 @@ type VerticalConfig = {
   localDescription: string;
   visibilityHealthDescription: string;
   intentDescription: string;
+  reportHeroTitle: string;
+  reportHeroCopy: string;
+  strategicFocus: Array<{
+    label: string;
+    title: string;
+    detail: string;
+  }>;
   industryInsights: IndustryInsight[];
   weeklyClarityCopy: string;
   competitorWatchCopy: string;
@@ -72,6 +79,26 @@ export const VERTICALS: Record<VerticalSlug, VerticalConfig> = {
       'Your overall visibility health combines website basics, local presence, collision-specific trust signals, speed, and conversion readiness into one headline score.',
     intentDescription:
       'Intent measures whether the pages match what collision shoppers are actually searching for, such as repair services, OEM terms, estimate intent, and local modifiers.',
+    reportHeroTitle: 'Collision Visibility Analysis',
+    reportHeroCopy:
+      'Operator-grade view of what is helping, what is suppressing estimate demand, and what to fix first in a competitive body-shop market.',
+    strategicFocus: [
+      {
+        label: 'Priority Lens',
+        title: 'Estimate flow and trust proof',
+        detail: 'In collision, a buried estimate path and weak trust proof usually cost more than a lack of generic content.'
+      },
+      {
+        label: 'Market Pressure',
+        title: 'Reviews, maps, and specialty signals',
+        detail: 'Shops win faster when they combine local trust with visible specialties like hail, OEM, and advanced repair.'
+      },
+      {
+        label: 'Execution Bias',
+        title: 'Service pages before broad blogging',
+        detail: 'Money pages for repair types, insurance help, and estimate intent usually outrank broad educational content.'
+      }
+    ],
     weeklyClarityCopy:
       'Track rankings, trust signals, service-page gaps, and the issues actually affecting estimate demand.',
     competitorWatchCopy:
@@ -141,6 +168,26 @@ export const VERTICALS: Record<VerticalSlug, VerticalConfig> = {
       'Your visibility health combines website basics, local presence, HVAC trust signals, speed, and conversion readiness into one headline score.',
     intentDescription:
       'Intent measures whether the pages match what HVAC customers are actually searching for, such as AC repair, furnace repair, maintenance plans, emergency service, and replacement quotes.',
+    reportHeroTitle: 'HVAC Visibility Analysis',
+    reportHeroCopy:
+      'Operator-grade view of what is helping, what is suppressing booked service calls, and what to fix first in a seasonal, urgent-intent market.',
+    strategicFocus: [
+      {
+        label: 'Priority Lens',
+        title: 'Emergency clarity and call-readiness',
+        detail: 'When systems fail, buyers move fast. Emergency language and frictionless booking often matter as much as rankings.'
+      },
+      {
+        label: 'Market Pressure',
+        title: 'Maintenance and replacement intent',
+        detail: 'Tune-ups, maintenance agreements, and replacement pages create both recurring demand and higher-ticket opportunities.'
+      },
+      {
+        label: 'Execution Bias',
+        title: 'Financing and specialization visibility',
+        detail: 'Heat pumps, indoor air quality, and financing guidance often separate stronger HVAC sites from generic contractor sites.'
+      }
+    ],
     weeklyClarityCopy:
       'Track service-page gaps, call-readiness, maintenance-plan visibility, and the issues affecting HVAC lead flow week to week.',
     competitorWatchCopy:
@@ -210,6 +257,26 @@ export const VERTICALS: Record<VerticalSlug, VerticalConfig> = {
       'Your visibility health combines website basics, local presence, roofing trust signals, speed, and conversion readiness into one headline score.',
     intentDescription:
       'Intent measures whether the pages match what roofing customers are actually searching for, such as roof repair, replacement, inspections, storm damage, hail, and insurance guidance.',
+    reportHeroTitle: 'Roofing Visibility Analysis',
+    reportHeroCopy:
+      'Operator-grade view of what is helping, what is suppressing inspection demand, and what to fix first in a storm-driven, trust-heavy market.',
+    strategicFocus: [
+      {
+        label: 'Priority Lens',
+        title: 'Inspection-first conversion',
+        detail: 'Roofing sites often win by making inspections, storm response, and next-step clarity obvious before visitors ever compare brands.'
+      },
+      {
+        label: 'Market Pressure',
+        title: 'Storm and insurance urgency',
+        detail: 'Storm-damage and claim-related pages behave like money pages in many roofing markets, especially after weather events.'
+      },
+      {
+        label: 'Execution Bias',
+        title: 'Trust proof over vague brand copy',
+        detail: 'Warranties, project proof, manufacturer credentials, and financing usually beat generic “about us” content for conversion.'
+      }
+    ],
     weeklyClarityCopy:
       'Track inspection readiness, storm-response visibility, trust proof, and the issues affecting roofing lead flow.',
     competitorWatchCopy:
@@ -279,6 +346,26 @@ export const VERTICALS: Record<VerticalSlug, VerticalConfig> = {
       'Your visibility health combines website basics, local presence, plumbing trust signals, speed, and conversion readiness into one headline score.',
     intentDescription:
       'Intent measures whether the pages match what plumbing customers are actually searching for, such as emergency plumbing, drain cleaning, leak detection, water heater help, and sewer-line work.',
+    reportHeroTitle: 'Plumbing Visibility Analysis',
+    reportHeroCopy:
+      'Operator-grade view of what is helping, what is suppressing booked jobs, and what to fix first in a high-urgency, phone-first market.',
+    strategicFocus: [
+      {
+        label: 'Priority Lens',
+        title: 'Emergency-call readiness',
+        detail: 'Plumbing buyers often convert under pressure. Phone visibility and same-day clarity can outperform a lot of generic SEO effort.'
+      },
+      {
+        label: 'Market Pressure',
+        title: 'Specialty-service coverage',
+        detail: 'Drain cleaning, leak detection, water heaters, and sewer pages often map more closely to real demand than generic plumbing pages.'
+      },
+      {
+        label: 'Execution Bias',
+        title: 'Licensing and trust proof',
+        detail: 'In a trade where trust matters fast, visible licensing, reviews, and response-time confidence can drive more booked jobs.'
+      }
+    ],
     weeklyClarityCopy:
       'Track emergency-service visibility, specialty-service gaps, trust proof, and the issues affecting booked plumbing jobs.',
     competitorWatchCopy:

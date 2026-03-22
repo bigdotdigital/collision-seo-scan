@@ -199,10 +199,20 @@ export default async function ReportPage({ params }: { params: { scanId: string 
 
       <section className="report-arch-hero mb-6">
         <p className="report-arch-kicker">LOCAL SEO DIAGNOSTIC</p>
-        <h2 className="report-arch-title">Visibility Analysis</h2>
+        <h2 className="report-arch-title">{verticalConfig.reportHeroTitle}</h2>
         <p className="report-arch-copy">
-          Shop-owner view: what is working, what is costing estimate calls, and what to fix first.
+          {verticalConfig.reportHeroCopy}
         </p>
+      </section>
+
+      <section className="mb-6 grid gap-4 md:grid-cols-3">
+        {verticalConfig.strategicFocus.map((item) => (
+          <article key={item.title} className="card border border-white/10 bg-white/[0.03] p-5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-300/80">{item.label}</p>
+            <h3 className="mt-2 text-lg font-semibold text-white">{item.title}</h3>
+            <p className="mt-2 text-sm text-white/70">{item.detail}</p>
+          </article>
+        ))}
       </section>
 
       <section className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-12">
