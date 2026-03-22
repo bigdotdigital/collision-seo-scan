@@ -6,6 +6,36 @@ import { useRouter } from 'next/navigation';
 import { DEFAULT_VERTICAL, type VerticalSlug } from '@/lib/verticals';
 import { ScanLoadingShell } from '@/components/scan-loading';
 
+const CAPABILITY_OPTIONS: Record<
+  VerticalSlug,
+  Array<{ name: string; label: string }>
+> = {
+  collision: [
+    { name: 'has_i_car', label: 'I-CAR' },
+    { name: 'has_oem', label: 'OEM Certifications' },
+    { name: 'has_adas', label: 'ADAS Calibration' },
+    { name: 'has_aluminum', label: 'Aluminum Repair' }
+  ],
+  hvac: [
+    { name: 'has_emergency', label: '24/7 Emergency Service' },
+    { name: 'has_financing', label: 'Financing Options' },
+    { name: 'has_maintenance', label: 'Maintenance Plans' },
+    { name: 'has_heat_pumps', label: 'Heat Pumps / IAQ' }
+  ],
+  plumbing: [
+    { name: 'has_emergency', label: '24/7 Emergency Service' },
+    { name: 'has_drain', label: 'Drain / Sewer Service' },
+    { name: 'has_water_heater', label: 'Water Heater Service' },
+    { name: 'has_leak_detection', label: 'Leak Detection' }
+  ],
+  roofing: [
+    { name: 'has_storm', label: 'Storm Damage Repair' },
+    { name: 'has_insurance', label: 'Insurance Claims Help' },
+    { name: 'has_inspection', label: 'Free Inspections' },
+    { name: 'has_warranty', label: 'Warranties / Financing' }
+  ]
+};
+
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -33,6 +63,7 @@ async function isReportReady(scanId: string) {
 
 export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalSlug }) {
   const router = useRouter();
+  const capabilityOptions = CAPABILITY_OPTIONS[vertical] || CAPABILITY_OPTIONS[DEFAULT_VERTICAL];
   const [loading, setLoading] = useState(false);
   const [scanComplete, setScanComplete] = useState(false);
   const [finalScore, setFinalScore] = useState<number | null>(null);
@@ -198,22 +229,12 @@ export function ScanForm({ vertical = DEFAULT_VERTICAL }: { vertical?: VerticalS
         <fieldset className="md:col-span-2">
           <legend className="mb-2 text-sm font-medium">Capabilities (optional)</legend>
           <div className="grid gap-2 sm:grid-cols-2">
-            <label className="flex items-center gap-2 text-sm text-slate-200">
-              <input name="has_i_car" type="checkbox" />
-              I-CAR
-            </label>
-            <label className="flex items-center gap-2 text-sm text-slate-200">
-              <input name="has_oem" type="checkbox" />
-              OEM Certifications
-            </label>
-            <label className="flex items-center gap-2 text-sm text-slate-200">
-              <input name="has_adas" type="checkbox" />
-              ADAS Calibration
-            </label>
-            <label className="flex items-center gap-2 text-sm text-slate-200">
-              <input name="has_aluminum" type="checkbox" />
-              Aluminum Repair
-            </label>
+            {capabilityOptions.map((option) => (
+              <label key={option.name} className="flex items-center gap-2 text-sm text-slate-200">
+                <input name={option.name} type="checkbox" />
+                {option.label}
+              </label>
+            ))}
           </div>
         </fieldset>
 
